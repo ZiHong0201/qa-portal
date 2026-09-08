@@ -10,8 +10,8 @@ subjects), and run the catalogue.
 - Next.js (App Router) + TypeScript + Tailwind
 - Prisma + **Turso** (hosted libSQL — see [Database](#database) below)
 - NextAuth (Credentials provider, email/password)
-- Images (question diagrams, catalogue items) stored on disk under
-  `public/uploads/`
+- Images (question diagrams, catalogue items) stored in **Vercel Blob**
+  (see [Image uploads](#image-uploads) below)
 - Exam paper import (PDF/Word → questions) via the Anthropic API
 
 ## Getting started
@@ -107,6 +107,16 @@ To browse/edit the live Turso data itself (not local dev.db), use the Turso
 web dashboard at [app.turso.tech](https://app.turso.tech) — Prisma Studio
 can't target a `libsql://` datasource, same limitation as migrations.
 
+## Image uploads
+
+Question diagrams and catalogue item images are stored in **Vercel Blob**
+(`@vercel/blob`), not on local disk — needed because Vercel's filesystem is
+ephemeral/read-only in production. `BLOB_READ_WRITE_TOKEN` is auto-provided
+by Vercel when a Blob store is linked to the project; no manual env var
+setup is needed there. For local dev, pull it with `vercel env pull` (or
+copy it from the Vercel dashboard's Storage tab into `.env`) if you want to
+test uploads locally — image upload features will error without it.
+
 ## Project layout
 
 - `prisma/schema.prisma` — data model
@@ -123,9 +133,6 @@ can't target a `libsql://` datasource, same limitation as migrations.
 
 ## Notes for production use
 
-- **Image uploads** are still on local disk under `public/uploads/` — this
-  won't survive most serverless/container redeploys (Vercel included).
-  Before deploying, move this to an object store (Vercel Blob, S3, R2, etc.).
 - Set a real `AUTH_SECRET` for production (a fresh one is generated in
   `.env` locally — don't reuse it in production).
 - Add rate limiting to `/login`.

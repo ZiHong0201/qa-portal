@@ -1,5 +1,4 @@
-import { mkdir, unlink, writeFile } from "fs/promises";
-import path from "path";
+import { put, del } from "@vercel/blob";
 import crypto from "crypto";
 
 const ALLOWED_TYPES: Record<string, string> = {
@@ -19,20 +18,15 @@ async function saveImage(file: File, folder: "questions" | "catalogue"): Promise
     throw new Error("Image must be smaller than 5MB.");
   }
 
-  const dir = path.join(process.cwd(), "public", "uploads", folder);
-  await mkdir(dir, { recursive: true });
-  const filename = `${crypto.randomUUID()}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(dir, filename), buffer);
+  const pathname = `${folder}/${crypto.randomUUID()}.${ext}`;
+  const blob = await put(pathname, file, { access: "public" });
 
-  return `/uploads/${folder}/${filename}`;
+  return blob.url;
 }
 
-async function deleteImage(url: string | null | undefined, folder: "questions" | "catalogue") {
-  const prefix = `/uploads/${folder}/`;
-  if (!url || !url.startsWith(prefix)) return;
-  const filePath = path.join(process.cwd(), "public", url);
-  await unlink(filePath).catch(() => {});
+async function deleteImage(url: string | null | undefined) {
+  if (!url) return;
+  await del(url).catch(() => {});
 }
 
 export function saveDiagram(file: File) {
@@ -40,7 +34,7 @@ export function saveDiagram(file: File) {
 }
 
 export function deleteDiagram(url: string | null | undefined) {
-  return deleteImage(url, "questions");
+  return deleteImage(url);
 }
 
 export function saveCatalogueImage(file: File) {
@@ -48,5 +42,5 @@ export function saveCatalogueImage(file: File) {
 }
 
 export function deleteCatalogueImage(url: string | null | undefined) {
-  return deleteImage(url, "catalogue");
+  return deleteImage(url);
 }
