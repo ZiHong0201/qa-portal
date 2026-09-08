@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+/*
+ * This app is a light theme only. Cards, nav bars, and badges throughout
+ * (bg-white, bg-gray-50, border-gray-200, etc.) are hardcoded light
+ * colors with no dark-mode variants, so letting the OS/browser flip the
+ * page to a dark palette leaves those elements light while inherited
+ * text color goes pale — unreadable pale-on-white. Pinning color-scheme
+ * to light keeps text/background pairing consistent everywhere,
+ * regardless of the viewer's OS or browser theme preference.
+ */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Forms don't inherit a readable color from the OS/browser's native
+   widget theme by default, which can leave input text low-contrast
+   against our own background even with color-scheme pinned above.
+   Pin both explicitly so form fields always match the page theme. */
+input,
+textarea,
+select {
+  background-color: var(--background);
+  color: var(--foreground);
+}

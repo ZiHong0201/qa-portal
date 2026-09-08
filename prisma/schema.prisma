@@ -1,0 +1,191 @@
+// Prisma schema for the Q&A credit portal
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  FREE_RESPONSE
+}
+
+enum SubmissionStatus {
+  PENDING // free-response answer awaiting teacher review
+  CORRECT // auto-graded multiple choice, correct
+  INCORRECT // auto-graded multiple choice, incorrect
+  APPROVED // free-response answer approved by a teacher
+  REJECTED // free-response answer rejected by a teacher
+}
+
+// Master data: the set of valid grades/subjects admins can assign to
+// students and question sets. Managed at /admin/master-data. Referenced by
+// name (not a foreign key) from User.grade/subject and
+// QuestionSet.grade/subject, so those stay simple strings while still being
+// validated against this list at write time.
+model Grade {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model Subject {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(STUDENT)
+  grade        String? // e.g. "Form 1" .. "Form 5" - students only
+  subject      String? // e.g. "Mathematics" - students only
+  createdAt    DateTime @default(now())
+
+  createdQuestionSets QuestionSet[]  @relation("QuestionSetCreator")
+  createdQuestions Question[]   @relation("QuestionCreator")
+  submissions      Submission[] @relation("SubmissionStudent")
+  reviewedSubmissions Submission[] @relation("SubmissionReviewer")
+
+  createdCatalogueItems CatalogueItem[]   @relation("CatalogueItemCreator")
+  redemptions           Redemption[]      @relation("StudentRedemptions")
+  pointAdjustments      PointAdjustment[] @relation("StudentPointAdjustments")
+  madeAdjustments       PointAdjustment[] @relation("PointAdjustmentCreator")
+}
+
+// A gift/reward students can redeem with their points balance.
+model CatalogueItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  imageUrl    String?
+  cost        Int // points required to redeem
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy   User   @relation("CatalogueItemCreator", fields: [createdById], references: [id])
+  createdById String
+
+  redemptions Redemption[]
+}
+
+// A student spending points on a catalogue item. `cost` is snapshotted at
+// redemption time so later price changes don't rewrite history.
+model Redemption {
+  id        String   @id @default(cuid())
+  cost      Int
+  createdAt DateTime @default(now())
+
+  student   User   @relation("StudentRedemptions", fields: [studentId], references: [id])
+  studentId String
+
+  catalogueItem   CatalogueItem @relation(fields: [catalogueItemId], references: [id])
+  catalogueItemId String
+}
+
+// A manual admin credit/deduction to a student's points balance, outside of
+// quiz grading (e.g. correcting a mistake, awarding a bonus).
+model PointAdjustment {
+  id        String   @id @default(cuid())
+  amount    Int // positive = credit, negative = deduct
+  reason    String?
+  createdAt DateTime @default(now())
+
+  student   User   @relation("StudentPointAdjustments", fields: [studentId], references: [id])
+  studentId String
+
+  createdBy   User   @relation("PointAdjustmentCreator", fields: [createdById], references: [id])
+  createdById String
+}
+
+model QuestionSet {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  grade       String   @default("Form 1") // e.g. "Form 1" .. "Form 5" - students only see their own grade's sets
+  subject     String   @default("General") // e.g. "Mathematics" - students only see their own subject's sets
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy   User   @relation("QuestionSetCreator", fields: [createdById], references: [id])
+  createdById String
+
+  questions Question[]
+}
+
+model Question {
+  id          String       @id @default(cuid())
+  body        String
+  explanation String?
+  diagramUrl  String?
+  type        QuestionType
+  points      Int          @default(10)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  questionSet   QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Cascade)
+  questionSetId String
+
+  createdBy   User   @relation("QuestionCreator", fields: [createdById], references: [id])
+  createdById String
+
+  choices     Choice[]
+  submissions Submission[]
+}
+
+model Choice {
+  id         String  @id @default(cuid())
+  text       String
+  isCorrect  Boolean @default(false)
+  order      Int     @default(0)
+
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionId String
+
+  submissions Submission[]
+}
+
+model Submission {
+  id     String @id @default(cuid())
+
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionId String
+
+  student   User   @relation("SubmissionStudent", fields: [studentId], references: [id])
+  studentId String
+
+  // set when the question is MULTIPLE_CHOICE
+  selectedChoice   Choice? @relation(fields: [selectedChoiceId], references: [id])
+  selectedChoiceId String?
+
+  // set when the question is FREE_RESPONSE
+  answerText String?
+
+  status        SubmissionStatus @default(PENDING)
+  pointsAwarded Int              @default(0)
+
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+  reviewer   User?     @relation("SubmissionReviewer", fields: [reviewerId], references: [id])
+  reviewerId String?
+
+  // a student may only answer a given question once
+  @@unique([questionId, studentId])
+}
