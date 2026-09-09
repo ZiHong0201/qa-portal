@@ -11,7 +11,10 @@ export default async function AdminStudentDetailPage({
 }) {
   const { id } = await params;
 
-  const student = await prisma.user.findFirst({ where: { id, role: "STUDENT" } });
+  const student = await prisma.user.findFirst({
+    where: { id, role: "STUDENT" },
+    include: { subjects: true },
+  });
   if (!student) notFound();
 
   const [balance, adjustments, redemptions] = await Promise.all([
@@ -35,7 +38,10 @@ export default async function AdminStudentDetailPage({
       </Link>
       <h1 className="mt-1 mb-1 text-2xl font-bold">{student.name}</h1>
       <p className="mb-6 text-sm text-gray-500">
-        {student.email} · {student.grade ?? "No grade"} · {student.subject ?? "No subject"}
+        {student.email} · {student.grade ?? "No grade"} ·{" "}
+        {student.subjects.length > 0
+          ? student.subjects.map((s) => s.subject).join(", ")
+          : "No subjects"}
       </p>
 
       <div className="mb-6 grid grid-cols-4 gap-3">

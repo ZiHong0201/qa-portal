@@ -12,7 +12,13 @@ export function SetForm({
   submitLabel,
 }: {
   action: (prevState: FormState, formData: FormData) => Promise<FormState>;
-  initial?: { title: string; description: string | null; grade: string; subject: string };
+  initial?: {
+    title: string;
+    description: string | null;
+    grade: string;
+    subject: string;
+    simulationUrl: string | null;
+  };
   grades: string[];
   subjects: string[];
   submitLabel: string;
@@ -102,6 +108,23 @@ export function SetForm({
           defaultValue={initial?.description ?? ""}
           className="w-full rounded-md border border-gray-300 px-3 py-2"
         />
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium" htmlFor="simulationUrl">
+          Related simulation URL (optional)
+        </label>
+        <input
+          id="simulationUrl"
+          name="simulationUrl"
+          type="url"
+          placeholder="https://phet.colorado.edu/sims/html/..."
+          defaultValue={initial?.simulationUrl ?? ""}
+          className="w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Embedded on the set page for students, e.g. a PhET interactive simulation related to
+          this topic. Must be an https:// link.
+        </p>
       </div>
       <button
         type="submit"

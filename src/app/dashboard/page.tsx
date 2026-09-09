@@ -8,15 +8,16 @@ export default async function DashboardPage() {
 
   const student = await prisma.user.findUnique({
     where: { id: userId },
-    select: { grade: true, subject: true },
+    select: { grade: true, subjects: { select: { subject: true } } },
   });
+  const subjectNames = student?.subjects.map((s) => s.subject) ?? [];
 
-  if (!student?.grade || !student?.subject) {
+  if (!student?.grade || subjectNames.length === 0) {
     return (
       <div>
         <h1 className="mb-6 text-2xl font-bold">Question sets</h1>
         <p className="text-gray-500">
-          Your grade and subject haven&apos;t been set yet. Ask your teacher to set them before
+          Your grade and subjects haven&apos;t been set yet. Ask your teacher to set them before
           you can see your question sets.
         </p>
       </div>
@@ -24,7 +25,7 @@ export default async function DashboardPage() {
   }
 
   const sets = await prisma.questionSet.findMany({
-    where: { isActive: true, grade: student.grade, subject: student.subject },
+    where: { isActive: true, grade: student.grade, subject: { in: subjectNames } },
     orderBy: { createdAt: "desc" },
     include: {
       questions: {
@@ -40,7 +41,7 @@ export default async function DashboardPage() {
     <div>
       <h1 className="mb-1 text-2xl font-bold">Question sets</h1>
       <p className="mb-6 text-sm text-gray-500">
-        {student.grade} · {student.subject}
+        {student.grade} · {subjectNames.join(", ")}
       </p>
       <ul className="flex flex-col gap-3">
         {sets.map((set) => {
@@ -86,7 +87,7 @@ export default async function DashboardPage() {
         })}
         {sets.length === 0 && (
           <p className="text-gray-500">
-            No question sets yet for {student.grade} {student.subject}. Check back soon.
+            No question sets yet for {student.grade} {subjectNames.join(", ")}. Check back soon.
           </p>
         )}
       </ul>

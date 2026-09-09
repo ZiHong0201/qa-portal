@@ -13,7 +13,7 @@ export default async function MasterDataPage() {
       prisma.questionSet.groupBy({ by: ["grade"], _count: true }),
       prisma.user.groupBy({ by: ["grade"], where: { role: "STUDENT" }, _count: true }),
       prisma.questionSet.groupBy({ by: ["subject"], _count: true }),
-      prisma.user.groupBy({ by: ["subject"], where: { role: "STUDENT" }, _count: true }),
+      prisma.studentSubject.groupBy({ by: ["subject"], _count: true }),
     ]);
 
   function usageFor(

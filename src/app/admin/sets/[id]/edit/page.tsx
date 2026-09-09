@@ -33,6 +33,7 @@ export default async function EditQuestionSetPage({
           description: set.description,
           grade: set.grade,
           subject: set.subject,
+          simulationUrl: set.simulationUrl,
         }}
       />
     </div>

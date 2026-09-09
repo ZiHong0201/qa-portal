@@ -23,8 +23,9 @@ export default async function StudentSetPage({
 
   const student = await prisma.user.findUnique({
     where: { id: userId },
-    select: { grade: true, subject: true },
+    select: { grade: true, subjects: { select: { subject: true } } },
   });
+  const subjectNames = student?.subjects.map((s) => s.subject) ?? [];
 
   const set = await prisma.questionSet.findUnique({
     where: { id },
@@ -43,7 +44,7 @@ export default async function StudentSetPage({
     !set ||
     !set.isActive ||
     set.grade !== student?.grade ||
-    set.subject !== student?.subject
+    !subjectNames.includes(set.subject)
   )
     notFound();
 
@@ -63,6 +64,21 @@ export default async function StudentSetPage({
       </Link>
       <h1 className="mt-1 mb-1 text-2xl font-bold">{set.title}</h1>
       {set.description && <p className="mb-4 text-gray-600">{set.description}</p>}
+
+      {set.simulationUrl && (
+        <div className="mb-6">
+          <p className="mb-2 text-sm font-medium text-gray-700">Related simulation</p>
+          <iframe
+            src={set.simulationUrl}
+            className="w-full rounded-lg border border-gray-200"
+            style={{ height: 500 }}
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            allow="fullscreen"
+            allowFullScreen
+            loading="lazy"
+          />
+        </div>
+      )}
 
       {complete ? (
         <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4">

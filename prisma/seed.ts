@@ -45,18 +45,14 @@ async function seedGrades() {
 // on question sets/students, so switching to admin-managed master data
 // doesn't orphan existing data.
 async function seedSubjectsFromExistingData() {
-  const [sets, students] = await Promise.all([
+  const [sets, studentSubjects] = await Promise.all([
     prisma.questionSet.findMany({ distinct: ["subject"], select: { subject: true } }),
-    prisma.user.findMany({
-      where: { role: "STUDENT", subject: { not: null } },
-      distinct: ["subject"],
-      select: { subject: true },
-    }),
+    prisma.studentSubject.findMany({ distinct: ["subject"], select: { subject: true } }),
   ]);
 
   const names = new Set<string>();
   for (const s of sets) names.add(s.subject);
-  for (const s of students) if (s.subject) names.add(s.subject);
+  for (const s of studentSubjects) names.add(s.subject);
 
   for (const name of names) {
     await prisma.subject.upsert({ where: { name }, update: {}, create: { name } });

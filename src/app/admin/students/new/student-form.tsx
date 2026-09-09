@@ -86,22 +86,15 @@ export function StudentForm({
           </select>
         </div>
         <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium" htmlFor="subject">
-            Subject
-          </label>
-          <select
-            id="subject"
-            name="subject"
-            required
-            defaultValue={subjects[0]}
-            className="w-full rounded-md border border-gray-300 px-3 py-2"
-          >
+          <span className="mb-1 block text-sm font-medium">Subjects</span>
+          <div className="flex flex-col gap-1 rounded-md border border-gray-300 px-3 py-2">
             {subjects.map((s) => (
-              <option key={s} value={s}>
+              <label key={s} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="subjects" value={s} />
                 {s}
-              </option>
+              </label>
             ))}
-          </select>
+          </div>
         </div>
       </div>
       <button

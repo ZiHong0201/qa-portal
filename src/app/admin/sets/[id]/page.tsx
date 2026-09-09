@@ -40,6 +40,12 @@ export default async function AdminSetDetailPage({
         </div>
         <div className="flex gap-2">
           <Link
+            href={`/admin/sets/${set.id}/edit`}
+            className="rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50"
+          >
+            Edit set
+          </Link>
+          <Link
             href={`/admin/sets/${set.id}/import`}
             className="rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50"
           >
@@ -58,6 +64,19 @@ export default async function AdminSetDetailPage({
         {set.grade} · {set.subject} · {set.questions.length} question
         {set.questions.length === 1 ? "" : "s"} · {totalMarks} marks total
       </p>
+      {set.simulationUrl && (
+        <p className="mb-2 text-sm text-gray-500">
+          Simulation:{" "}
+          <a
+            href={set.simulationUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-600 hover:underline"
+          >
+            {set.simulationUrl}
+          </a>
+        </p>
+      )}
       {imported && (
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
           Imported {imported} question{imported === "1" ? "" : "s"} as inactive drafts — review

@@ -21,7 +21,7 @@ const createStudentSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   grade: z.string().trim().min(1, "Select a grade."),
-  subject: z.string().trim().min(1, "Select a subject."),
+  subjects: z.array(z.string().trim().min(1)).min(1, "Select at least one subject."),
 });
 
 export async function createStudent(
@@ -35,28 +35,35 @@ export async function createStudent(
     email: formData.get("email"),
     password: formData.get("password"),
     grade: formData.get("grade"),
-    subject: formData.get("subject"),
+    subjects: formData.getAll("subjects"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
-  const { name, email, password, grade, subject } = parsed.data;
+  const { name, email, password, grade, subjects } = parsed.data;
 
-  const [existing, gradeExists, subjectExists] = await Promise.all([
+  const [existing, gradeExists, subjectCount] = await Promise.all([
     prisma.user.findUnique({ where: { email } }),
     prisma.grade.findUnique({ where: { name: grade } }),
-    prisma.subject.findUnique({ where: { name: subject } }),
+    prisma.subject.count({ where: { name: { in: subjects } } }),
   ]);
   if (existing) {
     return { error: "An account with that email already exists." };
   }
   if (!gradeExists) return { error: "Select a valid grade." };
-  if (!subjectExists) return { error: "Select a valid subject." };
+  if (subjectCount !== subjects.length) return { error: "Select valid subjects." };
 
   const passwordHash = await bcrypt.hash(password, 10);
 
   await prisma.user.create({
-    data: { name, email, passwordHash, role: "STUDENT", grade, subject },
+    data: {
+      name,
+      email,
+      passwordHash,
+      role: "STUDENT",
+      grade,
+      subjects: { create: subjects.map((subject) => ({ subject })) },
+    },
   });
 
   revalidatePath("/admin/students");
@@ -79,21 +86,26 @@ export async function updateStudentGrade(studentId: string, formData: FormData) 
   revalidatePath("/admin/students");
 }
 
-export async function updateStudentSubject(studentId: string, formData: FormData) {
+export async function updateStudentSubjects(studentId: string, formData: FormData) {
   await requireAdmin();
 
-  const subject = formData.get("subject");
-  if (
-    typeof subject !== "string" ||
-    !(await prisma.subject.findUnique({ where: { name: subject } }))
-  ) {
+  const subjects = [...new Set(formData.getAll("subjects").filter((s): s is string => typeof s === "string"))];
+  const validCount = subjects.length
+    ? await prisma.subject.count({ where: { name: { in: subjects } } })
+    : 0;
+  if (subjects.length && validCount !== subjects.length) {
     throw new Error("Invalid subject.");
   }
 
-  await prisma.user.updateMany({
-    where: { id: studentId, role: "STUDENT" },
-    data: { subject },
-  });
+  const student = await prisma.user.findFirst({ where: { id: studentId, role: "STUDENT" } });
+  if (!student) return;
+
+  await prisma.$transaction([
+    prisma.studentSubject.deleteMany({ where: { studentId } }),
+    prisma.studentSubject.createMany({
+      data: subjects.map((subject) => ({ studentId, subject })),
+    }),
+  ]);
 
   revalidatePath("/admin/students");
 }

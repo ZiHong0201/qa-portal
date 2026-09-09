@@ -1,15 +1,15 @@
 "use client";
 
 import { useRef } from "react";
-import { updateStudentSubject } from "@/lib/actions/students";
+import { updateStudentSubjects } from "@/lib/actions/students";
 
 export function SubjectEditor({
   studentId,
-  subject,
+  studentSubjects,
   subjects,
 }: {
   studentId: string;
-  subject: string | null;
+  studentSubjects: string[];
   subjects: string[];
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -17,27 +17,22 @@ export function SubjectEditor({
   return (
     <form
       ref={formRef}
-      action={updateStudentSubject.bind(null, studentId)}
-      className="inline-block"
+      action={updateStudentSubjects.bind(null, studentId)}
+      className="flex flex-wrap items-center gap-x-2 gap-y-1"
     >
-      <select
-        key={subject ?? "unset"}
-        name="subject"
-        defaultValue={subject ?? ""}
-        onChange={() => formRef.current?.requestSubmit()}
-        className="rounded-md border border-gray-300 px-2 py-1 text-sm"
-      >
-        {!subject && (
-          <option value="" disabled>
-            Not set
-          </option>
-        )}
-        {subjects.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </select>
+      {subjects.length === 0 && <span className="text-sm text-gray-400">No subjects yet</span>}
+      {subjects.map((s) => (
+        <label key={s} className="flex items-center gap-1 text-sm whitespace-nowrap">
+          <input
+            type="checkbox"
+            name="subjects"
+            value={s}
+            defaultChecked={studentSubjects.includes(s)}
+            onChange={() => formRef.current?.requestSubmit()}
+          />
+          {s}
+        </label>
+      ))}
     </form>
   );
 }

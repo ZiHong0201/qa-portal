@@ -53,7 +53,6 @@ model User {
   passwordHash String
   role         Role     @default(STUDENT)
   grade        String? // e.g. "Form 1" .. "Form 5" - students only
-  subject      String? // e.g. "Mathematics" - students only
   createdAt    DateTime @default(now())
 
   createdQuestionSets QuestionSet[]  @relation("QuestionSetCreator")
@@ -65,6 +64,21 @@ model User {
   redemptions           Redemption[]      @relation("StudentRedemptions")
   pointAdjustments      PointAdjustment[] @relation("StudentPointAdjustments")
   madeAdjustments       PointAdjustment[] @relation("PointAdjustmentCreator")
+
+  subjects StudentSubject[] // students only - a student can take multiple subjects
+}
+
+// A subject (by name, matching Subject master data) a student is enrolled
+// in. Many-to-many via a plain join table since Subject is referenced by
+// name elsewhere too (see the comment on the Grade/Subject models above).
+model StudentSubject {
+  id        String   @id @default(cuid())
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String
+  subject   String
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, subject])
 }
 
 // A gift/reward students can redeem with their points balance.
@@ -114,11 +128,12 @@ model PointAdjustment {
 }
 
 model QuestionSet {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  grade       String   @default("Form 1") // e.g. "Form 1" .. "Form 5" - students only see their own grade's sets
-  subject     String   @default("General") // e.g. "Mathematics" - students only see their own subject's sets
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  grade         String   @default("Form 1") // e.g. "Form 1" .. "Form 5" - students only see their own grade's sets
+  subject       String   @default("General") // e.g. "Mathematics" - students only see their own subject's sets
+  simulationUrl String? // optional embedded interactive simulation related to this set's topic (e.g. a PhET sim)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

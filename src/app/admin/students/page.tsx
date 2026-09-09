@@ -15,7 +15,7 @@ export default async function AdminStudentsPage({
 
   const where: Prisma.UserWhereInput = { role: "STUDENT" };
   if (grade) where.grade = grade;
-  if (subject) where.subject = subject;
+  if (subject) where.subjects = { some: { subject } };
   if (q) {
     where.OR = [
       { name: { contains: q } },
@@ -25,7 +25,11 @@ export default async function AdminStudentsPage({
 
   const [students, grades, subjects, earnedRows, adjustmentRows, redeemedRows] =
     await Promise.all([
-      prisma.user.findMany({ where, orderBy: { createdAt: "desc" } }),
+      prisma.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include: { subjects: true },
+      }),
       getGradeNames(),
       getSubjectNames(),
       prisma.submission.groupBy({
@@ -149,7 +153,11 @@ export default async function AdminStudentsPage({
                   <GradeEditor studentId={s.id} grade={s.grade} grades={grades} />
                 </td>
                 <td className="px-4 py-2">
-                  <SubjectEditor studentId={s.id} subject={s.subject} subjects={subjects} />
+                  <SubjectEditor
+                    studentId={s.id}
+                    studentSubjects={s.subjects.map((x) => x.subject)}
+                    subjects={subjects}
+                  />
                 </td>
                 <td className="px-4 py-2">{balanceByStudent.get(s.id) ?? 0} pts</td>
                 <td className="px-4 py-2">

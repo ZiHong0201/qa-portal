@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Q&A Credit Portal",
+  title: "ZHAcademy – Exercise Portal",
   description: "Answer questions and earn credit.",
 };
 

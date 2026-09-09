@@ -20,6 +20,13 @@ const setSchema = z.object({
   description: z.string().trim().max(2000).optional(),
   grade: z.string().trim().min(1, "Select a grade."),
   subject: z.string().trim().min(1, "Select a subject."),
+  simulationUrl: z
+    .string()
+    .trim()
+    .url("Enter a valid simulation URL.")
+    .startsWith("https://", "Simulation URL must start with https://")
+    .max(2000)
+    .optional(),
 });
 
 // Grade/subject are admin-managed master data (see /admin/master-data),
@@ -46,6 +53,7 @@ export async function createQuestionSet(
     description: formData.get("description") || undefined,
     grade: formData.get("grade"),
     subject: formData.get("subject"),
+    simulationUrl: formData.get("simulationUrl") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
@@ -60,6 +68,7 @@ export async function createQuestionSet(
       description: parsed.data.description || null,
       grade: parsed.data.grade,
       subject: parsed.data.subject,
+      simulationUrl: parsed.data.simulationUrl || null,
       createdById: session.user.id,
     },
   });
@@ -80,6 +89,7 @@ export async function updateQuestionSet(
     description: formData.get("description") || undefined,
     grade: formData.get("grade"),
     subject: formData.get("subject"),
+    simulationUrl: formData.get("simulationUrl") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
@@ -95,6 +105,7 @@ export async function updateQuestionSet(
       description: parsed.data.description || null,
       grade: parsed.data.grade,
       subject: parsed.data.subject,
+      simulationUrl: parsed.data.simulationUrl || null,
     },
   });
 

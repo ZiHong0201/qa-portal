@@ -85,7 +85,7 @@ export async function deleteSubject(subjectId: string) {
 
   const [setCount, studentCount] = await Promise.all([
     prisma.questionSet.count({ where: { subject: subject.name } }),
-    prisma.user.count({ where: { role: "STUDENT", subject: subject.name } }),
+    prisma.studentSubject.count({ where: { subject: subject.name } }),
   ]);
   if (setCount > 0 || studentCount > 0) {
     throw new Error(
