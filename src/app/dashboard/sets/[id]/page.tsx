@@ -2,15 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { AnswerForm } from "./answer-form";
-
-const MESSAGES: Record<string, (points: number) => string> = {
-  PENDING: () => "Your answer has been submitted and is awaiting teacher review.",
-  CORRECT: (p) => `Correct! You earned ${p} marks.`,
-  INCORRECT: () => "That wasn't correct. No marks were awarded.",
-  APPROVED: (p) => `Approved! You earned ${p} marks.`,
-  REJECTED: () => "Your answer wasn't approved. No marks were awarded.",
-};
+import { FlashcardDeck, type FlashcardQuestion } from "./flashcard-deck";
 
 export default async function StudentSetPage({
   params,
@@ -57,13 +49,19 @@ export default async function StudentSetPage({
   );
   const complete = total > 0 && answered === total;
 
-  const STATUS_TEXT_COLOR: Record<string, string> = {
-    PENDING: "text-blue-700",
-    CORRECT: "text-emerald-700",
-    APPROVED: "text-emerald-700",
-    INCORRECT: "text-rose-700",
-    REJECTED: "text-rose-700",
-  };
+  const cards: FlashcardQuestion[] = set.questions.map((q) => {
+    const submission = q.submissions[0];
+    return {
+      id: q.id,
+      body: q.body,
+      diagramUrl: q.diagramUrl,
+      points: q.points,
+      choices: q.choices.map((c) => ({ id: c.id, text: c.text })),
+      submission: submission ? { status: submission.status, pointsAwarded: submission.pointsAwarded } : null,
+      correctAnswerText: submission ? (q.choices.find((c) => c.isCorrect)?.text ?? null) : null,
+      explanation: submission ? q.explanation : null,
+    };
+  });
 
   return (
     <div className="mx-auto max-w-2xl rounded-2xl border border-sky-100 bg-gradient-to-b from-sky-50 to-white p-6 shadow-sm">
@@ -105,52 +103,11 @@ export default async function StudentSetPage({
         </p>
       )}
 
-      <ul className="flex flex-col gap-4">
-        {set.questions.map((q, i) => {
-          const submission = q.submissions[0];
-          return (
-            <li
-              key={q.id}
-              className="rounded-xl border border-sky-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
-            >
-              <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
-                Question {i + 1} of {total} · {q.points} marks
-              </span>
-              <p className="mb-3 whitespace-pre-wrap font-medium text-gray-900">{q.body}</p>
-              {q.diagramUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={q.diagramUrl}
-                  alt="Diagram for this question"
-                  className="mb-3 max-w-full rounded-md border border-sky-200"
-                />
-              )}
-
-              {submission ? (
-                <div className="rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2">
-                  <p className={`text-sm font-medium ${STATUS_TEXT_COLOR[submission.status]}`}>
-                    {MESSAGES[submission.status](submission.pointsAwarded)}
-                  </p>
-                  {submission.status !== "PENDING" && (
-                    <div className="mt-2 border-t border-sky-200 pt-2 text-sm text-sky-900/80">
-                      <p>
-                        <span className="font-medium text-sky-950">Correct answer:</span>{" "}
-                        {q.choices.find((c) => c.isCorrect)?.text ?? "—"}
-                      </p>
-                      {q.explanation && <p className="mt-1">{q.explanation}</p>}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <AnswerForm questionId={q.id} choices={q.choices} />
-              )}
-            </li>
-          );
-        })}
-        {set.questions.length === 0 && (
-          <p className="text-sky-700/70">No questions in this set yet.</p>
-        )}
-      </ul>
+      {cards.length > 0 ? (
+        <FlashcardDeck questions={cards} />
+      ) : (
+        <p className="text-sky-700/70">No questions in this set yet.</p>
+      )}
     </div>
   );
 }
