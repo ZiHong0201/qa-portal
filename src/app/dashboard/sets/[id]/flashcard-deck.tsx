@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnswerForm } from "./answer-form";
 import { RunningCat } from "@/components/running-cat";
+import { CelebratingCat } from "@/components/celebrating-cat";
+import { CatWink } from "@/components/cat-wink";
 import type { SubmitAnswerState } from "@/lib/actions/submissions";
 
 export type FlashcardChoice = { id: string; text: string };
@@ -40,11 +42,28 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
     const firstUnanswered = questions.findIndex((q) => !q.submission);
     return firstUnanswered === -1 ? 0 : firstUnanswered;
   });
+  const [justCompleted, setJustCompleted] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   const total = cards.length;
   const safeIndex = Math.min(index, total - 1);
   const q = cards[safeIndex];
   const submission = q.submission;
+
+  useEffect(() => {
+    if (!submission || safeIndex >= total - 1) return;
+    const advanceDelay = 1400;
+    const fadeDuration = 220;
+    const startFade = setTimeout(() => setLeaving(true), advanceDelay);
+    const advance = setTimeout(() => {
+      setIndex((i) => Math.min(total - 1, i + 1));
+      setLeaving(false);
+    }, advanceDelay + fadeDuration);
+    return () => {
+      clearTimeout(startFade);
+      clearTimeout(advance);
+    };
+  }, [submission, safeIndex, total]);
 
   const progressPct = total > 0 ? ((safeIndex + 1) / total) * 100 : 0;
 
@@ -54,8 +73,8 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
   const complete = total > 0 && answered === total;
 
   function handleSubmitted(questionId: string, result: NonNullable<SubmitAnswerState["result"]>) {
-    setCards((prev) =>
-      prev.map((c) =>
+    setCards((prev) => {
+      const next = prev.map((c) =>
         c.id === questionId
           ? {
               ...c,
@@ -64,14 +83,21 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
               explanation: result.explanation,
             }
           : c
-      )
-    );
+      );
+      const wasComplete = prev.every((c) => c.submission);
+      const nowComplete = next.every((c) => c.submission);
+      if (!wasComplete && nowComplete && next.length > 0) {
+        setJustCompleted(true);
+      }
+      return next;
+    });
   }
 
   return (
     <div>
       {complete ? (
-        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          {justCompleted && <CelebratingCat className="shrink-0" />}
           <p className="font-medium text-emerald-800">
             You&apos;ve completed this set. Marks obtained: {marksObtained} / {totalMarks}
           </p>
@@ -82,7 +108,12 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
         </p>
       )}
 
-      <div className="rounded-xl border border-sky-100 bg-white p-4 shadow-sm">
+      <div
+        key={q.id}
+        className={`rounded-xl border border-sky-100 bg-white p-4 shadow-sm transition-opacity duration-200 ease-in ${
+          leaving ? "opacity-0" : "animate-card-enter opacity-100"
+        }`}
+      >
         <div className="mb-3 flex items-center justify-between">
           <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
             Card {safeIndex + 1} of {total} · {q.points} marks
@@ -101,9 +132,14 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
 
         {submission ? (
           <div className="rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2">
-            <p className={`text-sm font-medium ${STATUS_TEXT_COLOR[submission.status]}`}>
-              {MESSAGES[submission.status](submission.pointsAwarded)}
-            </p>
+            <div className="flex items-center gap-2">
+              {(submission.status === "CORRECT" || submission.status === "APPROVED") && (
+                <CatWink key={q.id} className="animate-cat-pop h-7 w-7 shrink-0" />
+              )}
+              <p className={`text-sm font-medium ${STATUS_TEXT_COLOR[submission.status]}`}>
+                {MESSAGES[submission.status](submission.pointsAwarded)}
+              </p>
+            </div>
             {submission.status !== "PENDING" && (
               <div className="mt-2 border-t border-sky-200 pt-2 text-sm text-sky-900/80">
                 <p>
