@@ -9,9 +9,9 @@ import type { Prisma } from "@/generated/prisma/client";
 export default async function AdminStudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ created?: string; grade?: string; subject?: string; q?: string }>;
+  searchParams: Promise<{ created?: string; deleted?: string; grade?: string; subject?: string; q?: string }>;
 }) {
-  const { created, grade, subject, q } = await searchParams;
+  const { created, deleted, grade, subject, q } = await searchParams;
 
   const where: Prisma.UserWhereInput = { role: "STUDENT" };
   if (grade) where.grade = grade;
@@ -63,6 +63,11 @@ export default async function AdminStudentsPage({
       {created && (
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
           Student account created.
+        </p>
+      )}
+      {deleted && (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+          Student account deleted.
         </p>
       )}
 
@@ -160,9 +165,16 @@ export default async function AdminStudentsPage({
                   />
                 </td>
                 <td className="px-4 py-2">{balanceByStudent.get(s.id) ?? 0} pts</td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-2 whitespace-nowrap">
                   <Link href={`/admin/students/${s.id}`} className="text-blue-600 hover:underline">
                     View
+                  </Link>{" "}
+                  ·{" "}
+                  <Link
+                    href={`/admin/students/${s.id}/edit`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Edit
                   </Link>
                 </td>
               </tr>

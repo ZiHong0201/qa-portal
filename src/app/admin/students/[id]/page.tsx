@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getStudentBalance } from "@/lib/points";
 import { AdjustmentForm } from "./adjustment-form";
+import { DeleteStudentButton } from "./delete-student-button";
 
 export default async function AdminStudentDetailPage({
   params,
@@ -36,7 +37,15 @@ export default async function AdminStudentDetailPage({
       <Link href="/admin/students" className="text-sm text-blue-600 hover:underline">
         &larr; All students
       </Link>
-      <h1 className="mt-1 mb-1 text-2xl font-bold">{student.name}</h1>
+      <div className="mt-1 mb-1 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">{student.name}</h1>
+        <Link
+          href={`/admin/students/${student.id}/edit`}
+          className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+        >
+          Edit
+        </Link>
+      </div>
       <p className="mb-6 text-sm text-gray-500">
         {student.email} · {student.grade ?? "No grade"} ·{" "}
         {student.subjects.length > 0
@@ -100,6 +109,14 @@ export default async function AdminStudentDetailPage({
             <p className="text-sm text-gray-500">No redemptions yet.</p>
           )}
         </ul>
+      </div>
+
+      <div className="mt-8 rounded-lg border border-red-200 bg-red-50 p-4">
+        <h2 className="mb-1 font-medium text-red-800">Danger zone</h2>
+        <p className="mb-3 text-sm text-red-700">
+          Permanently deletes this student&apos;s account, login, answer history, and points.
+        </p>
+        <DeleteStudentButton studentId={student.id} studentName={student.name} />
       </div>
     </div>
   );

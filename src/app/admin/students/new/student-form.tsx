@@ -2,16 +2,23 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { createStudent } from "@/lib/actions/students";
+import type { FormState } from "@/lib/actions/auth";
 
 export function StudentForm({
+  action,
+  initial,
   grades,
   subjects,
+  submitLabel,
 }: {
+  action: (prevState: FormState, formData: FormData) => Promise<FormState>;
+  initial?: { name: string; email: string; grade: string | null; subjects: string[] };
   grades: string[];
   subjects: string[];
+  submitLabel: string;
 }) {
-  const [state, formAction, pending] = useActionState(createStudent, {});
+  const [state, formAction, pending] = useActionState(action, {});
+  const isEdit = !!initial;
 
   if (grades.length === 0 || subjects.length === 0) {
     return (
@@ -20,7 +27,7 @@ export function StudentForm({
         <Link href="/admin/master-data" className="underline">
           Master Data
         </Link>{" "}
-        before creating a student account.
+        before {isEdit ? "editing this" : "creating a"} student account.
       </p>
     );
   }
@@ -38,6 +45,7 @@ export function StudentForm({
           id="name"
           name="name"
           required
+          defaultValue={initial?.name}
           className="w-full rounded-md border border-gray-300 px-3 py-2"
         />
       </div>
@@ -50,18 +58,19 @@ export function StudentForm({
           name="email"
           type="email"
           required
+          defaultValue={initial?.email}
           className="w-full rounded-md border border-gray-300 px-3 py-2"
         />
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium" htmlFor="password">
-          Password
+          {isEdit ? "New password (leave blank to keep current)" : "Password"}
         </label>
         <input
           id="password"
           name="password"
           type="password"
-          required
+          required={!isEdit}
           minLength={8}
           className="w-full rounded-md border border-gray-300 px-3 py-2"
         />
@@ -75,7 +84,7 @@ export function StudentForm({
             id="grade"
             name="grade"
             required
-            defaultValue={grades[0]}
+            defaultValue={initial?.grade ?? grades[0]}
             className="w-full rounded-md border border-gray-300 px-3 py-2"
           >
             {grades.map((g) => (
@@ -90,7 +99,12 @@ export function StudentForm({
           <div className="flex flex-col gap-1 rounded-md border border-gray-300 px-3 py-2">
             {subjects.map((s) => (
               <label key={s} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="subjects" value={s} />
+                <input
+                  type="checkbox"
+                  name="subjects"
+                  value={s}
+                  defaultChecked={initial?.subjects.includes(s)}
+                />
                 {s}
               </label>
             ))}
@@ -102,7 +116,7 @@ export function StudentForm({
         disabled={pending}
         className="self-start rounded-md bg-black px-4 py-2 text-white hover:bg-gray-800 disabled:opacity-50"
       >
-        {pending ? "Creating..." : "Create student account"}
+        {pending ? (isEdit ? "Saving..." : "Creating...") : submitLabel}
       </button>
     </form>
   );
