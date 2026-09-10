@@ -18,7 +18,7 @@ async function requireAdmin() {
 const setSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   description: z.string().trim().max(2000).optional(),
-  grade: z.string().trim().min(1, "Select a grade."),
+  grades: z.array(z.string().trim().min(1)).min(1, "Select at least one grade."),
   subject: z.string().trim().min(1, "Select a subject."),
   simulationUrl: z
     .string()
@@ -32,12 +32,12 @@ const setSchema = z.object({
 // Grade/subject are admin-managed master data (see /admin/master-data),
 // not a fixed enum, so membership is checked against the DB at write time
 // instead of via z.enum.
-async function validateGradeAndSubject(grade: string, subject: string): Promise<string | null> {
-  const [gradeExists, subjectExists] = await Promise.all([
-    prisma.grade.findUnique({ where: { name: grade } }),
+async function validateGradesAndSubject(grades: string[], subject: string): Promise<string | null> {
+  const [gradeCount, subjectExists] = await Promise.all([
+    prisma.grade.count({ where: { name: { in: grades } } }),
     prisma.subject.findUnique({ where: { name: subject } }),
   ]);
-  if (!gradeExists) return "Select a valid grade.";
+  if (gradeCount !== grades.length) return "Select valid grades.";
   if (!subjectExists) return "Select a valid subject.";
   return null;
 }
@@ -51,7 +51,7 @@ export async function createQuestionSet(
   const parsed = setSchema.safeParse({
     title: formData.get("title"),
     description: formData.get("description") || undefined,
-    grade: formData.get("grade"),
+    grades: formData.getAll("grades"),
     subject: formData.get("subject"),
     simulationUrl: formData.get("simulationUrl") || undefined,
   });
@@ -59,17 +59,17 @@ export async function createQuestionSet(
     return { error: parsed.error.issues[0].message };
   }
 
-  const validationError = await validateGradeAndSubject(parsed.data.grade, parsed.data.subject);
+  const validationError = await validateGradesAndSubject(parsed.data.grades, parsed.data.subject);
   if (validationError) return { error: validationError };
 
   const set = await prisma.questionSet.create({
     data: {
       title: parsed.data.title,
       description: parsed.data.description || null,
-      grade: parsed.data.grade,
       subject: parsed.data.subject,
       simulationUrl: parsed.data.simulationUrl || null,
       createdById: session.user.id,
+      grades: { create: parsed.data.grades.map((grade) => ({ grade })) },
     },
   });
 
@@ -87,7 +87,7 @@ export async function updateQuestionSet(
   const parsed = setSchema.safeParse({
     title: formData.get("title"),
     description: formData.get("description") || undefined,
-    grade: formData.get("grade"),
+    grades: formData.getAll("grades"),
     subject: formData.get("subject"),
     simulationUrl: formData.get("simulationUrl") || undefined,
   });
@@ -95,19 +95,24 @@ export async function updateQuestionSet(
     return { error: parsed.error.issues[0].message };
   }
 
-  const validationError = await validateGradeAndSubject(parsed.data.grade, parsed.data.subject);
+  const validationError = await validateGradesAndSubject(parsed.data.grades, parsed.data.subject);
   if (validationError) return { error: validationError };
 
-  await prisma.questionSet.update({
-    where: { id: setId },
-    data: {
-      title: parsed.data.title,
-      description: parsed.data.description || null,
-      grade: parsed.data.grade,
-      subject: parsed.data.subject,
-      simulationUrl: parsed.data.simulationUrl || null,
-    },
-  });
+  await prisma.$transaction([
+    prisma.questionSet.update({
+      where: { id: setId },
+      data: {
+        title: parsed.data.title,
+        description: parsed.data.description || null,
+        subject: parsed.data.subject,
+        simulationUrl: parsed.data.simulationUrl || null,
+      },
+    }),
+    prisma.questionSetGrade.deleteMany({ where: { questionSetId: setId } }),
+    prisma.questionSetGrade.createMany({
+      data: parsed.data.grades.map((grade) => ({ questionSetId: setId, grade })),
+    }),
+  ]);
 
   revalidatePath("/admin/sets");
   revalidatePath(`/admin/sets/${setId}`);

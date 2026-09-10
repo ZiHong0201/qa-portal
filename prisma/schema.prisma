@@ -131,7 +131,6 @@ model QuestionSet {
   id            String   @id @default(cuid())
   title         String
   description   String?
-  grade         String   @default("Form 1") // e.g. "Form 1" .. "Form 5" - students only see their own grade's sets
   subject       String   @default("General") // e.g. "Mathematics" - students only see their own subject's sets
   simulationUrl String? // optional embedded interactive simulation related to this set's topic (e.g. a PhET sim)
   isActive    Boolean  @default(true)
@@ -142,6 +141,21 @@ model QuestionSet {
   createdById String
 
   questions Question[]
+  grades    QuestionSetGrade[] // a set can be shared across multiple grades
+}
+
+// A grade (by name, matching Grade master data) a question set is visible
+// to. Many-to-many via a plain join table, same pattern as StudentSubject
+// above - a set like a shared "General Science" chapter can be assigned to
+// more than one grade instead of just one.
+model QuestionSetGrade {
+  id            String      @id @default(cuid())
+  questionSet   QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Cascade)
+  questionSetId String
+  grade         String
+  createdAt     DateTime    @default(now())
+
+  @@unique([questionSetId, grade])
 }
 
 model Question {

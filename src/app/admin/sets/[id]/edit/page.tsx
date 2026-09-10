@@ -12,7 +12,7 @@ export default async function EditQuestionSetPage({
 }) {
   const { id } = await params;
   const [set, grades, subjects] = await Promise.all([
-    prisma.questionSet.findUnique({ where: { id } }),
+    prisma.questionSet.findUnique({ where: { id }, include: { grades: true } }),
     getGradeNames(),
     getSubjectNames(),
   ]);
@@ -31,7 +31,7 @@ export default async function EditQuestionSetPage({
         initial={{
           title: set.title,
           description: set.description,
-          grade: set.grade,
+          grades: set.grades.map((g) => g.grade),
           subject: set.subject,
           simulationUrl: set.simulationUrl,
         }}

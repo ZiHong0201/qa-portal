@@ -11,7 +11,7 @@ export default async function MasterDataPage() {
 
   const [setGradeCounts, studentGradeCounts, setSubjectCounts, studentSubjectCounts] =
     await Promise.all([
-      prisma.questionSet.groupBy({ by: ["grade"], _count: true }),
+      prisma.questionSetGrade.groupBy({ by: ["grade"], _count: true }),
       prisma.user.groupBy({ by: ["grade"], where: { role: "STUDENT" }, _count: true }),
       prisma.questionSet.groupBy({ by: ["subject"], _count: true }),
       prisma.studentSubject.groupBy({ by: ["subject"], _count: true }),

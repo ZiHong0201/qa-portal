@@ -30,12 +30,14 @@ export default async function StudentSetPage({
           submissions: { where: { studentId: userId } },
         },
       },
+      grades: true,
     },
   });
   if (
     !set ||
     !set.isActive ||
-    set.grade !== student?.grade ||
+    !student?.grade ||
+    !set.grades.some((g) => g.grade === student.grade) ||
     !subjectNames.includes(set.subject)
   )
     notFound();

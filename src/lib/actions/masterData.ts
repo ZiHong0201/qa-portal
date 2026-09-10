@@ -42,7 +42,7 @@ export async function deleteGrade(gradeId: string) {
   if (!grade) return;
 
   const [setCount, studentCount] = await Promise.all([
-    prisma.questionSet.count({ where: { grade: grade.name } }),
+    prisma.questionSetGrade.count({ where: { grade: grade.name } }),
     prisma.user.count({ where: { role: "STUDENT", grade: grade.name } }),
   ]);
   if (setCount > 0 || studentCount > 0) {

@@ -24,6 +24,7 @@ export default async function AdminSetDetailPage({
           choices: { orderBy: { order: "asc" } },
         },
       },
+      grades: true,
     },
   });
   if (!set) notFound();
@@ -62,7 +63,8 @@ export default async function AdminSetDetailPage({
       </div>
       {set.description && <p className="mb-2 text-gray-600">{set.description}</p>}
       <p className="mb-2 text-sm text-gray-500">
-        {set.grade} · {set.subject} · {set.questions.length} question
+        {set.grades.map((g) => g.grade).join(", ") || "No grades"} · {set.subject} ·{" "}
+        {set.questions.length} question
         {set.questions.length === 1 ? "" : "s"} · {totalMarks} marks total
       </p>
       {set.simulationUrl && (

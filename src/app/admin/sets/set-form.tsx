@@ -15,7 +15,7 @@ export function SetForm({
   initial?: {
     title: string;
     description: string | null;
-    grade: string;
+    grades: string[];
     subject: string;
     simulationUrl: string | null;
   };
@@ -57,22 +57,20 @@ export function SetForm({
       </div>
       <div className="flex gap-4">
         <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium" htmlFor="grade">
-            Grade
-          </label>
-          <select
-            id="grade"
-            name="grade"
-            required
-            defaultValue={initial?.grade ?? grades[0]}
-            className="w-full rounded-md border border-gray-300 px-3 py-2"
-          >
+          <span className="mb-1 block text-sm font-medium">Grades</span>
+          <div className="flex flex-col gap-1 rounded-md border border-gray-300 px-3 py-2">
             {grades.map((g) => (
-              <option key={g} value={g}>
+              <label key={g} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="grades"
+                  value={g}
+                  defaultChecked={initial ? initial.grades.includes(g) : g === grades[0]}
+                />
                 {g}
-              </option>
+              </label>
             ))}
-          </select>
+          </div>
         </div>
         <div className="flex-1">
           <label className="mb-1 block text-sm font-medium" htmlFor="subject">
@@ -94,8 +92,12 @@ export function SetForm({
         </div>
       </div>
       <p className="-mt-2 text-xs text-gray-500">
-        Only students in this grade and subject will see this set. Manage the available options
-        in <Link href="/admin/master-data" className="underline">Master Data</Link>.
+        Only students in one of these grades (and this subject) will see this set. Manage the
+        available options in{" "}
+        <Link href="/admin/master-data" className="underline">
+          Master Data
+        </Link>
+        .
       </p>
       <div>
         <label className="mb-1 block text-sm font-medium" htmlFor="description">

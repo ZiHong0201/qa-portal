@@ -9,6 +9,7 @@ export default async function AdminSetsPage() {
     include: {
       _count: { select: { questions: true } },
       questions: { select: { _count: { select: { submissions: true } } } },
+      grades: true,
     },
   });
 
@@ -34,7 +35,8 @@ export default async function AdminSetsPage() {
                   {set.title}
                 </Link>
                 <p className="text-sm text-gray-500">
-                  {set.grade} · {set.subject} · {set._count.questions} question
+                  {set.grades.map((g) => g.grade).join(", ") || "No grades"} · {set.subject} ·{" "}
+                  {set._count.questions} question
                   {set._count.questions === 1 ? "" : "s"}
                 </p>
               </div>

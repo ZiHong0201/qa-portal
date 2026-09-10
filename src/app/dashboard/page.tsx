@@ -25,7 +25,11 @@ export default async function DashboardPage() {
   }
 
   const sets = await prisma.questionSet.findMany({
-    where: { isActive: true, grade: student.grade, subject: { in: subjectNames } },
+    where: {
+      isActive: true,
+      grades: { some: { grade: student.grade } },
+      subject: { in: subjectNames },
+    },
     orderBy: { createdAt: "desc" },
     include: {
       questions: {
