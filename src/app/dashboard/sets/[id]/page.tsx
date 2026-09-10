@@ -115,7 +115,7 @@ export default async function StudentSetPage({
                   <p className="text-sm font-medium">
                     {MESSAGES[submission.status](submission.pointsAwarded)}
                   </p>
-                  {(submission.status === "INCORRECT" || submission.status === "REJECTED") && (
+                  {submission.status !== "PENDING" && (
                     <div className="mt-2 border-t border-gray-200 pt-2 text-sm text-gray-700">
                       <p>
                         <span className="font-medium">Correct answer:</span>{" "}
