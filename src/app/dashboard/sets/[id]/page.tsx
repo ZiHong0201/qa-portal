@@ -53,6 +53,7 @@ export default async function StudentSetPage({
       submission: submission ? { status: submission.status, pointsAwarded: submission.pointsAwarded } : null,
       correctAnswerText: submission ? (q.choices.find((c) => c.isCorrect)?.text ?? null) : null,
       explanation: submission ? q.explanation : null,
+      hints: [q.hint1, q.hint2].filter((h): h is string => !!h),
     };
   });
 

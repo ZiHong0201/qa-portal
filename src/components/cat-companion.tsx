@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuestionHint } from "./question-hint-context";
 
 const TIPS = [
   "Read the question twice before choosing an answer!",
@@ -20,19 +21,30 @@ const TIPS = [
   "Proud of you for practicing. Keep going!",
 ];
 
-function pickTip(exclude?: number) {
-  if (TIPS.length <= 1) return 0;
-  let i = Math.floor(Math.random() * TIPS.length);
-  while (i === exclude) i = Math.floor(Math.random() * TIPS.length);
+function pickIndex(poolLength: number, exclude?: number) {
+  if (poolLength <= 1) return 0;
+  let i = Math.floor(Math.random() * poolLength);
+  while (i === exclude) i = Math.floor(Math.random() * poolLength);
   return i;
 }
 
 export function CatCompanion() {
+  const { hint } = useQuestionHint();
+  const isQuestionHint = !!hint && hint.hints.length > 0;
+  const pool = isQuestionHint ? hint.hints : TIPS;
+
   const [open, setOpen] = useState(false);
   const [tipIndex, setTipIndex] = useState<number | null>(null);
 
+  const [lastQuestionId, setLastQuestionId] = useState(hint?.questionId);
+  if (hint?.questionId !== lastQuestionId) {
+    setLastQuestionId(hint?.questionId);
+    setOpen(false);
+    setTipIndex(null);
+  }
+
   function toggle() {
-    if (!open) setTipIndex(pickTip());
+    if (!open) setTipIndex(pickIndex(pool.length));
     setOpen((o) => !o);
   }
 
@@ -41,7 +53,12 @@ export function CatCompanion() {
       {open && tipIndex !== null && (
         <div className="w-64 rounded-2xl rounded-br-sm border border-sky-200 bg-white p-3 shadow-lg">
           <div className="mb-2 flex items-start justify-between gap-2">
-            <p className="text-sm text-gray-700">{TIPS[tipIndex]}</p>
+            <div>
+              <p className="mb-1 text-xs font-semibold text-sky-500">
+                {isQuestionHint ? "Hint for this question" : "Study tip"}
+              </p>
+              <p className="text-sm text-gray-700">{pool[tipIndex]}</p>
+            </div>
             <button
               type="button"
               onClick={() => setOpen(false)}
@@ -51,13 +68,15 @@ export function CatCompanion() {
               ✕
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setTipIndex((i) => pickTip(i ?? undefined))}
-            className="text-xs font-medium text-sky-600 hover:text-sky-800 hover:underline"
-          >
-            Another tip →
-          </button>
+          {pool.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setTipIndex((i) => pickIndex(pool.length, i ?? undefined))}
+              className="text-xs font-medium text-sky-600 hover:text-sky-800 hover:underline"
+            >
+              {isQuestionHint ? "Other hint →" : "Another tip →"}
+            </button>
+          )}
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { AnswerForm } from "./answer-form";
 import { RunningCat } from "@/components/running-cat";
 import { CelebratingCat } from "@/components/celebrating-cat";
 import { CatWink } from "@/components/cat-wink";
+import { useQuestionHint } from "@/components/question-hint-context";
 import type { SubmitAnswerState } from "@/lib/actions/submissions";
 
 export type FlashcardChoice = { id: string; text: string };
@@ -18,6 +19,7 @@ export type FlashcardQuestion = {
   submission: { status: string; pointsAwarded: number } | null;
   correctAnswerText: string | null;
   explanation: string | null;
+  hints: string[];
 };
 
 const MESSAGES: Record<string, (points: number) => string> = {
@@ -49,6 +51,12 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
   const safeIndex = Math.min(index, total - 1);
   const q = cards[safeIndex];
   const submission = q.submission;
+
+  const { setHint } = useQuestionHint();
+  useEffect(() => {
+    setHint(q.hints.length > 0 ? { questionId: q.id, hints: q.hints } : null);
+    return () => setHint(null);
+  }, [q.id, q.hints, setHint]);
 
   useEffect(() => {
     if (!submission || safeIndex >= total - 1) return;

@@ -163,6 +163,10 @@ model Question {
   body        String
   explanation String?
   diagramUrl  String?
+  // AI-generated study nudges for the cat companion, don't reveal the answer -
+  // generated once by scripts/generate-hints.mjs and cached here
+  hint1 String?
+  hint2 String?
   type        QuestionType
   points      Int          @default(10)
   isActive    Boolean      @default(true)
