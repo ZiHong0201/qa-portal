@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AnswerForm } from "./answer-form";
+import type { SubmitAnswerState } from "@/lib/actions/submissions";
 
 export type FlashcardChoice = { id: string; text: string };
 
@@ -33,18 +34,51 @@ const STATUS_TEXT_COLOR: Record<string, string> = {
 };
 
 export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] }) {
+  const [cards, setCards] = useState(questions);
   const [index, setIndex] = useState(() => {
     const firstUnanswered = questions.findIndex((q) => !q.submission);
     return firstUnanswered === -1 ? 0 : firstUnanswered;
   });
 
-  const total = questions.length;
+  const total = cards.length;
   const safeIndex = Math.min(index, total - 1);
-  const q = questions[safeIndex];
+  const q = cards[safeIndex];
   const submission = q.submission;
+
+  const answered = cards.filter((c) => c.submission).length;
+  const totalMarks = cards.reduce((sum, c) => sum + c.points, 0);
+  const marksObtained = cards.reduce((sum, c) => sum + (c.submission?.pointsAwarded ?? 0), 0);
+  const complete = total > 0 && answered === total;
+
+  function handleSubmitted(questionId: string, result: NonNullable<SubmitAnswerState["result"]>) {
+    setCards((prev) =>
+      prev.map((c) =>
+        c.id === questionId
+          ? {
+              ...c,
+              submission: { status: result.status, pointsAwarded: result.pointsAwarded },
+              correctAnswerText: result.correctAnswerText,
+              explanation: result.explanation,
+            }
+          : c
+      )
+    );
+  }
 
   return (
     <div>
+      {complete ? (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <p className="font-medium text-emerald-800">
+            You&apos;ve completed this set. Marks obtained: {marksObtained} / {totalMarks}
+          </p>
+        </div>
+      ) : (
+        <p className="mb-6 inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-800">
+          {answered} / {total} answered
+        </p>
+      )}
+
       <div className="rounded-xl border border-sky-100 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
@@ -78,7 +112,11 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
             )}
           </div>
         ) : (
-          <AnswerForm questionId={q.id} choices={q.choices} />
+          <AnswerForm
+            questionId={q.id}
+            choices={q.choices}
+            onSubmitted={(result) => handleSubmitted(q.id, result)}
+          />
         )}
       </div>
 

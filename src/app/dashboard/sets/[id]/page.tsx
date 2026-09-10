@@ -40,15 +40,6 @@ export default async function StudentSetPage({
   )
     notFound();
 
-  const total = set.questions.length;
-  const answered = set.questions.filter((q) => q.submissions.length > 0).length;
-  const totalMarks = set.questions.reduce((sum, q) => sum + q.points, 0);
-  const marksObtained = set.questions.reduce(
-    (sum, q) => sum + (q.submissions[0]?.pointsAwarded ?? 0),
-    0
-  );
-  const complete = total > 0 && answered === total;
-
   const cards: FlashcardQuestion[] = set.questions.map((q) => {
     const submission = q.submissions[0];
     return {
@@ -89,18 +80,6 @@ export default async function StudentSetPage({
             loading="lazy"
           />
         </div>
-      )}
-
-      {complete ? (
-        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="font-medium text-emerald-800">
-            You&apos;ve completed this set. Marks obtained: {marksObtained} / {totalMarks}
-          </p>
-        </div>
-      ) : (
-        <p className="mb-6 inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-800">
-          {answered} / {total} answered
-        </p>
       )}
 
       {cards.length > 0 ? (

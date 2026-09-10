@@ -1,19 +1,26 @@
 "use client";
 
-import { useActionState } from "react";
-import { submitAnswer } from "@/lib/actions/submissions";
+import { useActionState, useEffect } from "react";
+import { submitAnswer, type SubmitAnswerState } from "@/lib/actions/submissions";
 
 type Choice = { id: string; text: string };
 
 export function AnswerForm({
   questionId,
   choices,
+  onSubmitted,
 }: {
   questionId: string;
   choices: Choice[];
+  onSubmitted: (result: NonNullable<SubmitAnswerState["result"]>) => void;
 }) {
   const action = submitAnswer.bind(null, questionId);
   const [state, formAction, pending] = useActionState(action, {});
+
+  useEffect(() => {
+    if (state.result) onSubmitted(state.result);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
