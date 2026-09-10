@@ -18,7 +18,7 @@ export async function Nav() {
     <header className="border-b border-sky-200 bg-white">
       <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
         <Link href={isAdmin ? "/admin" : "/dashboard"} className="leading-tight font-semibold">
-          YH IDEAL ACADEMY
+          Mr Tan
           <br />
           <span className="text-xs font-normal text-gray-500">Exercise Portal</span>
         </Link>
