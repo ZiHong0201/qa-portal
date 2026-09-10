@@ -1,6 +1,7 @@
 export function RunningCat({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 100 64" className={className} aria-hidden="true">
+      <g transform="translate(100,0) scale(-1,1)">
       {/* tail */}
       <path
         d="M68 32 Q90 14 80 4 Q73 -1 73 8 Q73 17 64 24"
@@ -46,6 +47,7 @@ export function RunningCat({ className }: { className?: string }) {
       <path d="M6 27 Q4.5 29 6.5 30.5" fill="none" stroke="#4a4540" strokeWidth="1.4" strokeLinecap="round" />
       {/* cheek blush */}
       <circle cx="9" cy="28" r="2" fill="#f3b6c4" opacity="0.6" />
+      </g>
     </svg>
   );
 }
