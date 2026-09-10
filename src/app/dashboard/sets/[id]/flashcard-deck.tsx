@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AnswerForm } from "./answer-form";
+import { RunningCat } from "@/components/running-cat";
 import type { SubmitAnswerState } from "@/lib/actions/submissions";
 
 export type FlashcardChoice = { id: string; text: string };
@@ -44,6 +45,8 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
   const safeIndex = Math.min(index, total - 1);
   const q = cards[safeIndex];
   const submission = q.submission;
+
+  const progressPct = total > 0 ? ((safeIndex + 1) / total) * 100 : 0;
 
   const answered = cards.filter((c) => c.submission).length;
   const totalMarks = cards.reduce((sum, c) => sum + c.points, 0);
@@ -120,11 +123,21 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
         )}
       </div>
 
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-sky-100">
+      <div className="relative mt-8 mb-2">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-sky-100">
+          <div
+            className="h-full rounded-full bg-sky-500 transition-all duration-500 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
         <div
-          className="h-full rounded-full bg-sky-500 transition-all"
-          style={{ width: `${((safeIndex + 1) / total) * 100}%` }}
-        />
+          className="absolute -top-3.5 -translate-x-1/2 transition-all duration-500 ease-out"
+          style={{ left: `${progressPct}%` }}
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md ring-2 ring-sky-300">
+            <RunningCat className="h-6 w-6 animate-bounce" />
+          </div>
+        </div>
       </div>
 
       <div className="mt-3 flex items-center justify-between">
