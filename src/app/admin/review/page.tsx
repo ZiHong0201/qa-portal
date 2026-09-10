@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { reviewSubmission } from "@/lib/actions/submissions";
+import { SubmitButton } from "@/components/submit-button";
 
 export default async function ReviewPage() {
   const pending = await prisma.submission.findMany({
@@ -28,22 +29,22 @@ export default async function ReviewPage() {
                 defaultValue={s.question.points}
                 className="w-20 rounded-md border border-gray-300 px-2 py-1"
               />
-              <button
-                type="submit"
+              <SubmitButton
                 name="decision"
                 value="APPROVED"
+                pendingText="..."
                 className="rounded-md bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700"
               >
                 Approve
-              </button>
-              <button
-                type="submit"
+              </SubmitButton>
+              <SubmitButton
                 name="decision"
                 value="REJECTED"
+                pendingText="..."
                 className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700"
               >
                 Reject
-              </button>
+              </SubmitButton>
             </form>
           </li>
         ))}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { updateQuestionExplanation } from "@/lib/actions/questions";
+import { SubmitButton } from "@/components/submit-button";
 
 export function ExplanationEditor({
   questionId,
@@ -41,12 +42,12 @@ export function ExplanationEditor({
         autoFocus
       />
       <div className="flex gap-2">
-        <button
-          type="submit"
+        <SubmitButton
+          pendingText="Saving…"
           className="rounded-md bg-black px-3 py-1.5 text-sm text-white hover:bg-gray-800"
         >
           Save
-        </button>
+        </SubmitButton>
         <button
           type="button"
           onClick={() => setOpen(false)}

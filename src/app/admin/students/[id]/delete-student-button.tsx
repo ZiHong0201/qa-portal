@@ -1,6 +1,7 @@
 "use client";
 
 import { deleteStudent } from "@/lib/actions/students";
+import { SubmitButton } from "@/components/submit-button";
 
 export function DeleteStudentButton({
   studentId,
@@ -22,12 +23,12 @@ export function DeleteStudentButton({
         }
       }}
     >
-      <button
-        type="submit"
+      <SubmitButton
+        pendingText="Deleting…"
         className="rounded-md border border-red-300 px-4 py-2 text-red-600 hover:bg-red-50"
       >
         Delete account
-      </button>
+      </SubmitButton>
     </form>
   );
 }

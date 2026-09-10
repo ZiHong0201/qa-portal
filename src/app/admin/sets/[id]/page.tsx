@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { deleteQuestion, toggleQuestionActive } from "@/lib/actions/questions";
 import { ExplanationEditor } from "./explanation-editor";
+import { SubmitButton } from "@/components/submit-button";
 
 export default async function AdminSetDetailPage({
   params,
@@ -130,15 +131,15 @@ export default async function AdminSetDetailPage({
                   </Link>
                 )}
                 <form action={toggleQuestionActive.bind(null, q.id, !q.isActive)}>
-                  <button type="submit" className="text-blue-600 hover:underline">
+                  <SubmitButton pendingText="..." className="text-blue-600 hover:underline">
                     {q.isActive ? "Deactivate" : "Activate"}
-                  </button>
+                  </SubmitButton>
                 </form>
                 {q._count.submissions === 0 && (
                   <form action={deleteQuestion.bind(null, q.id)}>
-                    <button type="submit" className="text-red-600 hover:underline">
+                    <SubmitButton pendingText="Deleting…" className="text-red-600 hover:underline">
                       Delete
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
               </div>

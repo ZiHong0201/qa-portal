@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { deleteCatalogueItem, toggleCatalogueItemActive } from "@/lib/actions/catalogue";
+import { SubmitButton } from "@/components/submit-button";
 
 export default async function AdminCataloguePage() {
   const items = await prisma.catalogueItem.findMany({
@@ -55,15 +56,15 @@ export default async function AdminCataloguePage() {
                   Edit
                 </Link>
                 <form action={toggleCatalogueItemActive.bind(null, item.id, !item.isActive)}>
-                  <button type="submit" className="text-blue-600 hover:underline">
+                  <SubmitButton pendingText="..." className="text-blue-600 hover:underline">
                     {item.isActive ? "Deactivate" : "Activate"}
-                  </button>
+                  </SubmitButton>
                 </form>
                 {item._count.redemptions === 0 && (
                   <form action={deleteCatalogueItem.bind(null, item.id)}>
-                    <button type="submit" className="text-red-600 hover:underline">
+                    <SubmitButton pendingText="Deleting…" className="text-red-600 hover:underline">
                       Delete
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
               </div>

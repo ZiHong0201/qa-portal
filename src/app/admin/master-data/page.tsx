@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { createGrade, createSubject, deleteGrade, deleteSubject } from "@/lib/actions/masterData";
 import { AddForm } from "./add-form";
+import { SubmitButton } from "@/components/submit-button";
 
 export default async function MasterDataPage() {
   const [grades, subjects] = await Promise.all([
@@ -49,9 +50,9 @@ export default async function MasterDataPage() {
                   <span>{g.name}</span>
                   {inUse === 0 ? (
                     <form action={deleteGrade.bind(null, g.id)}>
-                      <button type="submit" className="text-red-600 hover:underline">
+                      <SubmitButton pendingText="Deleting…" className="text-red-600 hover:underline">
                         Delete
-                      </button>
+                      </SubmitButton>
                     </form>
                   ) : (
                     <span className="text-xs text-gray-400">in use</span>
@@ -77,9 +78,9 @@ export default async function MasterDataPage() {
                   <span>{s.name}</span>
                   {inUse === 0 ? (
                     <form action={deleteSubject.bind(null, s.id)}>
-                      <button type="submit" className="text-red-600 hover:underline">
+                      <SubmitButton pendingText="Deleting…" className="text-red-600 hover:underline">
                         Delete
-                      </button>
+                      </SubmitButton>
                     </form>
                   ) : (
                     <span className="text-xs text-gray-400">in use</span>

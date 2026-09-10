@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import { getStudentBalance } from "@/lib/points";
+import { SubmitButton } from "@/components/submit-button";
 
 export async function Nav() {
   const session = await auth();
@@ -17,7 +18,7 @@ export async function Nav() {
     <header className="border-b border-sky-200 bg-white">
       <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
         <Link href={isAdmin ? "/admin" : "/dashboard"} className="leading-tight font-semibold">
-          ZHAcademy
+          YH IDEAL ACADEMY
           <br />
           <span className="text-xs font-normal text-gray-500">Exercise Portal</span>
         </Link>
@@ -55,12 +56,12 @@ export async function Nav() {
               await signOut({ redirectTo: "/" });
             }}
           >
-            <button
-              type="submit"
+            <SubmitButton
+              pendingText="Logging out…"
               className="rounded-md border border-sky-200 px-3 py-1.5 hover:bg-sky-50"
             >
               Log out
-            </button>
+            </SubmitButton>
           </form>
         </nav>
       </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { deleteQuestionSet, toggleQuestionSetActive } from "@/lib/actions/questionSets";
+import { SubmitButton } from "@/components/submit-button";
 
 export default async function AdminSetsPage() {
   const sets = await prisma.questionSet.findMany({
@@ -49,15 +50,15 @@ export default async function AdminSetsPage() {
                   Edit
                 </Link>
                 <form action={toggleQuestionSetActive.bind(null, set.id, !set.isActive)}>
-                  <button type="submit" className="text-blue-600 hover:underline">
+                  <SubmitButton pendingText="..." className="text-blue-600 hover:underline">
                     {set.isActive ? "Deactivate" : "Activate"}
-                  </button>
+                  </SubmitButton>
                 </form>
                 {submissionCount === 0 && (
                   <form action={deleteQuestionSet.bind(null, set.id)}>
-                    <button type="submit" className="text-red-600 hover:underline">
+                    <SubmitButton pendingText="Deleting…" className="text-red-600 hover:underline">
                       Delete
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
               </div>
