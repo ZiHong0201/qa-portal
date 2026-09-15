@@ -187,7 +187,10 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
       <div className="mt-3 flex items-center justify-between">
         <button
           type="button"
-          onClick={() => setIndex((i) => Math.max(0, i - 1))}
+          onClick={() => {
+            setLeaving(false);
+            setIndex((i) => Math.max(0, i - 1));
+          }}
           disabled={safeIndex === 0}
           className="rounded-lg border border-sky-200 px-4 py-2 font-medium text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -195,7 +198,10 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
         </button>
         <button
           type="button"
-          onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
+          onClick={() => {
+            setLeaving(false);
+            setIndex((i) => Math.min(total - 1, i + 1));
+          }}
           disabled={safeIndex === total - 1 || !submission}
           title={!submission ? "Answer this question before moving on" : undefined}
           className="rounded-lg border border-sky-200 px-4 py-2 font-medium text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40"
