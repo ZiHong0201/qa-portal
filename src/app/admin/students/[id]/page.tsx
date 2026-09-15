@@ -18,7 +18,7 @@ export default async function AdminStudentDetailPage({
   });
   if (!student) notFound();
 
-  const [balance, adjustments, redemptions] = await Promise.all([
+  const [balance, adjustments, redemptions, submissions] = await Promise.all([
     getStudentBalance(id),
     prisma.pointAdjustment.findMany({
       where: { studentId: id },
@@ -30,7 +30,64 @@ export default async function AdminStudentDetailPage({
       orderBy: { createdAt: "desc" },
       include: { catalogueItem: { select: { name: true } } },
     }),
+    prisma.submission.findMany({
+      where: { studentId: id },
+      select: {
+        status: true,
+        pointsAwarded: true,
+        createdAt: true,
+        question: {
+          select: {
+            points: true,
+            questionSet: { select: { id: true, title: true, subject: true } },
+          },
+        },
+      },
+    }),
   ]);
+
+  const setIds = Array.from(new Set(submissions.map((s) => s.question.questionSet.id)));
+  const setTotals = await prisma.questionSet.findMany({
+    where: { id: { in: setIds } },
+    select: { id: true, _count: { select: { questions: { where: { isActive: true } } } } },
+  });
+  const totalQuestionsBySet = new Map(setTotals.map((s) => [s.id, s._count.questions]));
+
+  const progressBySet = new Map<
+    string,
+    {
+      title: string;
+      subject: string;
+      totalQuestions: number;
+      answered: number;
+      correct: number;
+      marksObtained: number;
+      totalMarks: number;
+      lastAnsweredAt: Date;
+    }
+  >();
+  for (const sub of submissions) {
+    const set = sub.question.questionSet;
+    const entry = progressBySet.get(set.id) ?? {
+      title: set.title,
+      subject: set.subject,
+      totalQuestions: totalQuestionsBySet.get(set.id) ?? 0,
+      answered: 0,
+      correct: 0,
+      marksObtained: 0,
+      totalMarks: 0,
+      lastAnsweredAt: sub.createdAt,
+    };
+    entry.answered += 1;
+    if (sub.status === "CORRECT" || sub.status === "APPROVED") entry.correct += 1;
+    entry.marksObtained += sub.pointsAwarded;
+    entry.totalMarks += sub.question.points;
+    if (sub.createdAt > entry.lastAnsweredAt) entry.lastAnsweredAt = sub.createdAt;
+    progressBySet.set(set.id, entry);
+  }
+  const progress = Array.from(progressBySet.entries())
+    .map(([setId, p]) => ({ setId, ...p }))
+    .sort((a, b) => b.lastAnsweredAt.getTime() - a.lastAnsweredAt.getTime());
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -58,6 +115,40 @@ export default async function AdminStudentDetailPage({
         <StatCard label="Adjustments" value={balance.adjustments} />
         <StatCard label="Redeemed" value={-balance.redeemed} />
         <StatCard label="Balance" value={balance.balance} highlight />
+      </div>
+
+      <div className="mb-8">
+        <h2 className="mb-3 font-medium">Question set progress</h2>
+        <ul className="flex flex-col gap-2">
+          {progress.map((p) => (
+            <li
+              key={p.setId}
+              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <Link href={`/admin/sets/${p.setId}`} className="font-medium hover:underline">
+                  {p.title}
+                </Link>
+                <span className="text-xs text-gray-400">{p.subject}</span>
+              </div>
+              <div className="mt-1 flex items-center gap-4 text-xs text-gray-600">
+                <span>
+                  {p.answered} / {p.totalQuestions} answered
+                </span>
+                <span className="text-green-700">{p.correct} correct</span>
+                <span>
+                  {p.marksObtained} / {p.totalMarks} marks
+                </span>
+                <span className="text-gray-400">
+                  Last answered {p.lastAnsweredAt.toLocaleDateString()}
+                </span>
+              </div>
+            </li>
+          ))}
+          {progress.length === 0 && (
+            <p className="text-sm text-gray-500">Hasn&apos;t started any question set yet.</p>
+          )}
+        </ul>
       </div>
 
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-4">
