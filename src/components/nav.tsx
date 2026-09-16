@@ -16,13 +16,13 @@ export async function Nav() {
 
   return (
     <header className="border-b border-sky-200 bg-white">
-      <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
+      <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
         <Link href={isAdmin ? "/admin" : "/dashboard"} className="leading-tight font-semibold">
           Mr Tan
           <br />
           <span className="text-xs font-normal text-gray-500">Exercise Portal</span>
         </Link>
-        <nav className="flex items-center gap-4 text-sm">
+        <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
           {isAdmin ? (
             <>
               <Link href="/admin/sets" className="hover:underline">
@@ -40,11 +40,17 @@ export async function Nav() {
               <Link href="/admin/master-data" className="hover:underline">
                 Master Data
               </Link>
+              <Link href="/dashboard/leaderboard" className="hover:underline">
+                Scoreboard
+              </Link>
             </>
           ) : (
             <>
               <Link href="/dashboard/catalogue" className="hover:underline">
                 Catalogue
+              </Link>
+              <Link href="/dashboard/leaderboard" className="hover:underline">
+                Scoreboard
               </Link>
               <span className="font-medium text-gray-700">{balance} points</span>
             </>
