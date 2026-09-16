@@ -17,10 +17,12 @@ export function QuestionForm({
   action,
   initial,
   submitLabel,
+  submissionCount,
 }: {
   action: (prevState: FormState, formData: FormData) => Promise<FormState>;
   initial?: InitialQuestion;
   submitLabel: string;
+  submissionCount?: number;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
 
@@ -39,6 +41,13 @@ export function QuestionForm({
     <form action={formAction} className="flex flex-col gap-4">
       {state.error && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
+      )}
+      {!!submissionCount && (
+        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {submissionCount} student{submissionCount === 1 ? " has" : "s have"} already answered
+          this question. Their marks won&apos;t change, but the correct answer shown to them will
+          update to match your edit.
+        </p>
       )}
 
       <div>

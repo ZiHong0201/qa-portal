@@ -124,14 +124,12 @@ export default async function AdminSetDetailPage({
                 >
                   {q.isActive ? "Active" : "Inactive"}
                 </span>
-                {q._count.submissions === 0 && (
-                  <Link
-                    href={`/admin/sets/${set.id}/questions/${q.id}/edit`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Edit
-                  </Link>
-                )}
+                <Link
+                  href={`/admin/sets/${set.id}/questions/${q.id}/edit`}
+                  className="text-blue-600 hover:underline"
+                >
+                  Edit
+                </Link>
                 <form action={toggleQuestionActive.bind(null, q.id, !q.isActive)}>
                   <SubmitButton pendingText="..." className="text-blue-600 hover:underline">
                     {q.isActive ? "Deactivate" : "Activate"}

@@ -101,15 +101,8 @@ export async function updateQuestion(
 
   const existing = await prisma.question.findUnique({
     where: { id: questionId },
-    include: { _count: { select: { submissions: true } } },
   });
   if (!existing) return { error: "Question not found." };
-  if (existing._count.submissions > 0) {
-    return {
-      error:
-        "This question already has student submissions and can no longer be edited. Deactivate it and create a new question instead.",
-    };
-  }
 
   const parsed = questionSchema.safeParse({
     body: formData.get("body"),
@@ -136,21 +129,27 @@ export async function updateQuestion(
     await deleteDiagram(existing.diagramUrl);
   }
 
-  await prisma.$transaction([
-    prisma.choice.deleteMany({ where: { questionId } }),
-    prisma.question.update({
-      where: { id: questionId },
-      data: {
-        body,
-        points,
-        explanation: explanation || null,
-        diagramUrl: diagram.url ?? existing.diagramUrl,
-        choices: {
-          create: choices.map((c, i) => ({ text: c.text, isCorrect: c.isCorrect, order: i })),
+  await prisma.$transaction(
+    [
+      prisma.choice.deleteMany({ where: { questionId } }),
+      prisma.question.update({
+        where: { id: questionId },
+        data: {
+          body,
+          points,
+          explanation: explanation || null,
+          diagramUrl: diagram.url ?? existing.diagramUrl,
+          choices: {
+            create: choices.map((c, i) => ({ text: c.text, isCorrect: c.isCorrect, order: i })),
+          },
         },
-      },
-    }),
-  ]);
+      }),
+    ],
+    // Each query in this transaction is its own round trip to Turso, and
+    // deleting/recreating up to MAX_CHOICES choices can add up to more than
+    // Prisma's 5s default interactive-transaction timeout.
+    { timeout: 20000 }
+  );
 
   revalidatePath(`/admin/sets/${existing.questionSetId}`);
   redirect(`/admin/sets/${existing.questionSetId}`);

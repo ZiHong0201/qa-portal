@@ -11,7 +11,10 @@ export default async function EditQuestionPage({
   const { id, qid } = await params;
   const question = await prisma.question.findUnique({
     where: { id: qid },
-    include: { choices: { orderBy: { order: "asc" } } },
+    include: {
+      choices: { orderBy: { order: "asc" } },
+      _count: { select: { submissions: true } },
+    },
   });
   if (!question || question.questionSetId !== id) notFound();
 
@@ -23,6 +26,7 @@ export default async function EditQuestionPage({
       <QuestionForm
         action={action}
         submitLabel="Save changes"
+        submissionCount={question._count.submissions}
         initial={{
           body: question.body,
           points: question.points,
