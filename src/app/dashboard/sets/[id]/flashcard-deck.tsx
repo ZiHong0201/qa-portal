@@ -5,6 +5,7 @@ import { AnswerForm } from "./answer-form";
 import { RunningCat } from "@/components/running-cat";
 import { CelebratingCat } from "@/components/celebrating-cat";
 import { CatWink } from "@/components/cat-wink";
+import { SetCompleteCelebration } from "@/components/set-complete-celebration";
 import { useQuestionHint } from "@/components/question-hint-context";
 import type { SubmitAnswerState } from "@/lib/actions/submissions";
 
@@ -45,6 +46,7 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
     return firstUnanswered === -1 ? 0 : firstUnanswered;
   });
   const [justCompleted, setJustCompleted] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
   const total = cards.length;
@@ -73,6 +75,14 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
     };
   }, [submission, safeIndex, total]);
 
+  // Hold the overlay back for a beat so the student reads the result of the
+  // answer that finished the set before the curtain comes down on it.
+  useEffect(() => {
+    if (!justCompleted) return;
+    const t = setTimeout(() => setShowCelebration(true), 900);
+    return () => clearTimeout(t);
+  }, [justCompleted]);
+
   const progressPct = total > 0 ? ((safeIndex + 1) / total) * 100 : 0;
 
   const answered = cards.filter((c) => c.submission).length;
@@ -81,28 +91,35 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
   const complete = total > 0 && answered === total;
 
   function handleSubmitted(questionId: string, result: NonNullable<SubmitAnswerState["result"]>) {
-    setCards((prev) => {
-      const next = prev.map((c) =>
-        c.id === questionId
-          ? {
-              ...c,
-              submission: { status: result.status, pointsAwarded: result.pointsAwarded },
-              correctAnswerText: result.correctAnswerText,
-              explanation: result.explanation,
-            }
-          : c
-      );
-      const wasComplete = prev.every((c) => c.submission);
-      const nowComplete = next.every((c) => c.submission);
-      if (!wasComplete && nowComplete && next.length > 0) {
-        setJustCompleted(true);
-      }
-      return next;
-    });
+    const next = cards.map((c) =>
+      c.id === questionId
+        ? {
+            ...c,
+            submission: { status: result.status, pointsAwarded: result.pointsAwarded },
+            correctAnswerText: result.correctAnswerText,
+            explanation: result.explanation,
+          }
+        : c
+    );
+    setCards(next);
+
+    const wasComplete = cards.every((c) => c.submission);
+    const nowComplete = next.every((c) => c.submission);
+    if (!wasComplete && nowComplete && next.length > 0) {
+      setJustCompleted(true);
+    }
   }
 
   return (
     <div>
+      {showCelebration && (
+        <SetCompleteCelebration
+          marksObtained={marksObtained}
+          totalMarks={totalMarks}
+          onClose={() => setShowCelebration(false)}
+        />
+      )}
+
       {complete ? (
         <div className="mb-6 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
           {justCompleted && <CelebratingCat className="shrink-0" />}

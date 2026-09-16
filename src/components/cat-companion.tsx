@@ -92,35 +92,92 @@ export function CatCompanion() {
   );
 }
 
+// Same cat as CelebratingCat / CatWink, framed as a head-and-ears portrait so
+// it still reads at the 44px the floating button gives it.
 function CatFace() {
   return (
-    <svg viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
-      {/* ears */}
-      <path d="M14 22 L20 6 L28 20 Z" fill="#8f8983" stroke="#4a4540" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M50 22 L44 6 L36 20 Z" fill="#8f8983" stroke="#4a4540" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M17 19 L20 11 L24 18 Z" fill="#d9b3ae" />
-      <path d="M47 19 L44 11 L40 18 Z" fill="#d9b3ae" />
-      {/* face */}
-      <circle cx="32" cy="34" r="20" fill="#8f8983" stroke="#4a4540" strokeWidth="1.5" />
-      {/* muzzle patch */}
-      <ellipse cx="32" cy="42" rx="11" ry="8" fill="#ffffff" />
+    <svg viewBox="0 0 100 100" width="44" height="44" aria-hidden="true">
+      {/* ears, drawn before the head so their bases stay hidden */}
+      <path
+        d="M25 40 L15 11 L47 29 Z"
+        fill="#8f8983"
+        stroke="#4a4540"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M75 40 L85 11 L53 29 Z"
+        fill="#8f8983"
+        stroke="#4a4540"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <path d="M26 33 L21 18 L39 29 Z" fill="#d9b3ae" />
+      <path d="M74 33 L79 18 L61 29 Z" fill="#d9b3ae" />
+      {/* head */}
+      <circle cx="50" cy="58" r="33" fill="#8f8983" stroke="#4a4540" strokeWidth="3" />
+      {/* muzzle */}
+      <ellipse cx="50" cy="74.7" rx="18" ry="11.8" fill="#ffffff" />
       {/* eyes */}
-      <circle cx="24" cy="33" r="3.4" fill="#82b24c" />
-      <circle cx="40" cy="33" r="3.4" fill="#82b24c" />
-      <circle cx="25.2" cy="31.8" r="1" fill="#fff" />
-      <circle cx="41.2" cy="31.8" r="1" fill="#fff" />
+      <circle cx="36.1" cy="56.6" r="7.8" fill="#82b24c" stroke="#4a4540" strokeWidth="2" />
+      <circle cx="63.9" cy="56.6" r="7.8" fill="#82b24c" stroke="#4a4540" strokeWidth="2" />
+      <ellipse cx="36.1" cy="56.6" rx="3.2" ry="5.8" fill="#2f2b27" />
+      <ellipse cx="63.9" cy="56.6" rx="3.2" ry="5.8" fill="#2f2b27" />
+      <circle cx="33.6" cy="53.3" r="2.2" fill="#ffffff" />
+      <circle cx="61.4" cy="53.3" r="2.2" fill="#ffffff" />
       {/* blush */}
-      <ellipse cx="18" cy="39" rx="3" ry="2" fill="#f3b6c4" opacity="0.7" />
-      <ellipse cx="46" cy="39" rx="3" ry="2" fill="#f3b6c4" opacity="0.7" />
-      {/* nose + mouth */}
-      <path d="M30.5 39 L33.5 39 L32 41 Z" fill="#4a4540" />
-      <path d="M32 41 Q32 44 28 44" fill="none" stroke="#4a4540" strokeWidth="1.3" strokeLinecap="round" />
-      <path d="M32 41 Q32 44 36 44" fill="none" stroke="#4a4540" strokeWidth="1.3" strokeLinecap="round" />
+      <ellipse cx="23.6" cy="69.1" rx="5.6" ry="3.6" fill="#f3b6c4" opacity="0.65" />
+      <ellipse cx="76.4" cy="69.1" rx="5.6" ry="3.6" fill="#f3b6c4" opacity="0.65" />
+      {/* nose */}
+      <path d="M45.3 68.4 Q50 65.5 54.7 68.4 Q50 74.7 45.3 68.4 Z" fill="#d98b93" />
+      {/* mouth */}
+      <path
+        d="M50 73.9 Q43.9 80.8 38.3 75.6"
+        fill="none"
+        stroke="#4a4540"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M50 73.9 Q56.1 80.8 61.7 75.6"
+        fill="none"
+        stroke="#4a4540"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
       {/* whiskers */}
-      <path d="M8 32 L18 33" stroke="#4a4540" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M8 37 L18 36" stroke="#4a4540" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M56 32 L46 33" stroke="#4a4540" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M56 37 L46 36" stroke="#4a4540" strokeWidth="1.2" strokeLinecap="round" />
+      <path
+        d="M31.9 67.6 Q22.2 64.3 15.2 62.2"
+        fill="none"
+        stroke="#4a4540"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.65"
+      />
+      <path
+        d="M31.9 73.3 Q21.5 73.3 13.8 74"
+        fill="none"
+        stroke="#4a4540"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.65"
+      />
+      <path
+        d="M68.1 67.6 Q77.8 64.3 84.8 62.2"
+        fill="none"
+        stroke="#4a4540"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.65"
+      />
+      <path
+        d="M68.1 73.3 Q78.5 73.3 86.2 74"
+        fill="none"
+        stroke="#4a4540"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.65"
+      />
     </svg>
   );
 }
