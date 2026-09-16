@@ -1,40 +1,6 @@
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { getRankedStudents } from "@/lib/leaderboard";
 import { CelebratingCat } from "@/components/celebrating-cat";
-
-// Ranked on marks earned from answering questions, not on the spendable
-// balance shown in the nav - otherwise redeeming a gift would knock a
-// student down the board for doing exactly what the points are for.
-async function getRankedStudents() {
-  const [earnedRows, students] = await Promise.all([
-    prisma.submission.groupBy({
-      by: ["studentId"],
-      where: { status: { in: ["CORRECT", "APPROVED"] } },
-      _sum: { pointsAwarded: true },
-    }),
-    prisma.user.findMany({
-      where: { role: "STUDENT" },
-      select: { id: true, name: true, grade: true },
-    }),
-  ]);
-
-  const earnedById = new Map(earnedRows.map((r) => [r.studentId, r._sum.pointsAwarded ?? 0]));
-
-  const sorted = students
-    .map((s) => ({ ...s, points: earnedById.get(s.id) ?? 0 }))
-    .filter((s) => s.points > 0)
-    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
-
-  // Standard competition ranking, so tied students share a place (1, 2, 2, 4).
-  let previousPoints: number | null = null;
-  let previousRank = 0;
-  return sorted.map((s, i) => {
-    const rank = s.points === previousPoints ? previousRank : i + 1;
-    previousPoints = s.points;
-    previousRank = rank;
-    return { ...s, rank };
-  });
-}
 
 const MEDAL_STYLES: Record<number, string> = {
   1: "bg-amber-100 text-amber-800 ring-amber-300",

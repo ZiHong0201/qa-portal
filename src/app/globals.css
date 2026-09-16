@@ -154,3 +154,112 @@ select {
   animation-timing-function: linear;
   animation-fill-mode: forwards;
 }
+
+/*
+ * Subject tile artwork (see src/components/subject-art.tsx). The scenes sit
+ * still by default and only move while their tile is hovered or keyboard
+ * focused, so a page of them isn't a wall of motion. Written as descendant
+ * rules because these parts are SVG shapes, not elements Tailwind's
+ * group-hover variants can reach with an animation utility.
+ */
+
+@keyframes part-swing {
+  0%,
+  100% {
+    transform: rotate(16deg);
+  }
+  50% {
+    transform: rotate(-16deg);
+  }
+}
+
+@keyframes part-bubble {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(1.1);
+  }
+}
+
+@keyframes part-sway {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes part-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes part-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+.subject-tile:hover .swing,
+.subject-tile:focus-visible .swing {
+  animation: part-swing 1.8s ease-in-out infinite;
+}
+
+.subject-tile:hover .bubble,
+.subject-tile:focus-visible .bubble {
+  animation: part-bubble 1.5s ease-out infinite;
+}
+
+.subject-tile:hover .sway,
+.subject-tile:focus-visible .sway {
+  animation: part-sway 2.4s ease-in-out infinite;
+}
+
+.subject-tile:hover .spin,
+.subject-tile:focus-visible .spin {
+  animation: part-spin 3.2s linear infinite;
+}
+
+.subject-tile:hover .float,
+.subject-tile:focus-visible .float {
+  animation: part-float 1.6s ease-in-out infinite;
+}
+
+/* Bubbles are invisible until they start rising, so keep them hidden at rest
+   instead of leaving three dots parked on the flask. */
+.subject-tile .bubble {
+  opacity: 0;
+}
+
+/* Respect a reduced-motion preference: tiles still lift and tint on hover,
+   the artwork just doesn't animate. */
+@media (prefers-reduced-motion: reduce) {
+  .subject-tile:hover .swing,
+  .subject-tile:hover .bubble,
+  .subject-tile:hover .sway,
+  .subject-tile:hover .spin,
+  .subject-tile:hover .float,
+  .subject-tile:focus-visible .swing,
+  .subject-tile:focus-visible .bubble,
+  .subject-tile:focus-visible .sway,
+  .subject-tile:focus-visible .spin,
+  .subject-tile:focus-visible .float {
+    animation: none;
+  }
+}

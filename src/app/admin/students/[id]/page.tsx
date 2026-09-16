@@ -110,8 +110,9 @@ export default async function AdminStudentDetailPage({
           : "No subjects"}
       </p>
 
-      <div className="mb-6 grid grid-cols-4 gap-3">
+      <div className="mb-6 grid grid-cols-5 gap-3">
         <StatCard label="Earned" value={balance.earned} />
+        <StatCard label="Check-in bonus" value={balance.checkInBonus} />
         <StatCard label="Adjustments" value={balance.adjustments} />
         <StatCard label="Redeemed" value={-balance.redeemed} />
         <StatCard label="Balance" value={balance.balance} highlight />

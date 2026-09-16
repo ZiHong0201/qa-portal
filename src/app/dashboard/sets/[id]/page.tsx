@@ -60,10 +60,10 @@ export default async function StudentSetPage({
   return (
     <div className="mx-auto max-w-2xl rounded-2xl border border-sky-100 bg-gradient-to-b from-sky-50 to-white p-6 shadow-sm">
       <Link
-        href="/dashboard"
+        href={`/dashboard/sets?subject=${encodeURIComponent(set.subject)}`}
         className="text-sm font-medium text-sky-600 hover:text-sky-800 hover:underline"
       >
-        &larr; All sets
+        &larr; All {set.subject} sets
       </Link>
       <h1 className="mt-2 mb-1 text-2xl font-bold text-sky-950">{set.title}</h1>
       {set.description && <p className="mb-4 text-sky-700/80">{set.description}</p>}

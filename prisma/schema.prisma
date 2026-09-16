@@ -66,6 +66,31 @@ model User {
   madeAdjustments       PointAdjustment[] @relation("PointAdjustmentCreator")
 
   subjects StudentSubject[] // students only - a student can take multiple subjects
+  checkIns CheckIn[]        @relation("StudentCheckIns")
+}
+
+// One row per day a student opens the portal and claims their daily bonus.
+// The bonus marks live here rather than in PointAdjustment because that model
+// requires an admin as createdById, and a check-in has no admin behind it.
+model CheckIn {
+  id String @id @default(cuid())
+
+  student   User   @relation("StudentCheckIns", fields: [studentId], references: [id])
+  studentId String
+
+  // The calendar day in CHECK_IN_TIME_ZONE as "YYYY-MM-DD". Stored as a
+  // string so "one check-in per day" is a plain unique constraint instead of
+  // a timestamp-range query that would shift with the server's zone.
+  day String
+
+  // Consecutive days including this one, snapshotted at claim time so the
+  // history stays readable even if a later day is missed.
+  streak        Int @default(1)
+  pointsAwarded Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, day])
 }
 
 // A subject (by name, matching Subject master data) a student is enrolled

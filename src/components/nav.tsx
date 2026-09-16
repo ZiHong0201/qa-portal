@@ -46,6 +46,12 @@ export async function Nav() {
             </>
           ) : (
             <>
+              <Link href="/dashboard" className="hover:underline">
+                Home
+              </Link>
+              <Link href="/dashboard/sets" className="hover:underline">
+                My Sets
+              </Link>
               <Link href="/dashboard/catalogue" className="hover:underline">
                 Catalogue
               </Link>

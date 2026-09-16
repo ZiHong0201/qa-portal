@@ -23,7 +23,7 @@ export default async function AdminStudentsPage({
     ];
   }
 
-  const [students, grades, subjects, earnedRows, adjustmentRows, redeemedRows] =
+  const [students, grades, subjects, earnedRows, checkInRows, adjustmentRows, redeemedRows] =
     await Promise.all([
       prisma.user.findMany({
         where,
@@ -37,16 +37,19 @@ export default async function AdminStudentsPage({
         where: { status: { in: ["CORRECT", "APPROVED"] } },
         _sum: { pointsAwarded: true },
       }),
+      prisma.checkIn.groupBy({ by: ["studentId"], _sum: { pointsAwarded: true } }),
       prisma.pointAdjustment.groupBy({ by: ["studentId"], _sum: { amount: true } }),
       prisma.redemption.groupBy({ by: ["studentId"], _sum: { cost: true } }),
     ]);
 
+  // Mirrors getStudentBalance(), batched across students instead of per-row.
   const balanceByStudent = new Map<string, number>();
   for (const s of students) {
     const earned = earnedRows.find((r) => r.studentId === s.id)?._sum.pointsAwarded ?? 0;
+    const checkIns = checkInRows.find((r) => r.studentId === s.id)?._sum.pointsAwarded ?? 0;
     const adjustments = adjustmentRows.find((r) => r.studentId === s.id)?._sum.amount ?? 0;
     const redeemed = redeemedRows.find((r) => r.studentId === s.id)?._sum.cost ?? 0;
-    balanceByStudent.set(s.id, earned + adjustments - redeemed);
+    balanceByStudent.set(s.id, earned + checkIns + adjustments - redeemed);
   }
 
   return (
