@@ -9,10 +9,18 @@ export function AnswerForm({
   questionId,
   choices,
   onSubmitted,
+  onPendingChange,
 }: {
   questionId: string;
   choices: Choice[];
   onSubmitted: (result: NonNullable<SubmitAnswerState["result"]>) => void;
+  /**
+   * Reports whether a submission is in flight. The deck uses it to hold the
+   * navigation buttons: this form reports its result through an effect, so
+   * unmounting it mid-request (by moving to another card) loses the result
+   * even though the server has already recorded the answer.
+   */
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const action = submitAnswer.bind(null, questionId);
   const [state, formAction, pending] = useActionState(action, {});
@@ -21,6 +29,12 @@ export function AnswerForm({
     if (state.result) onSubmitted(state.result);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
+
+  useEffect(() => {
+    onPendingChange?.(pending);
+    return () => onPendingChange?.(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending]);
 
   return (
     <form action={formAction} className="flex flex-col gap-3">

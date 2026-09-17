@@ -31,6 +31,10 @@ const MESSAGES: Record<string, (points: number) => string> = {
   REJECTED: () => "Your answer wasn't approved. No marks were awarded.",
 };
 
+function isCorrect(status: string) {
+  return status === "CORRECT" || status === "APPROVED";
+}
+
 const STATUS_TEXT_COLOR: Record<string, string> = {
   PENDING: "text-blue-700",
   CORRECT: "text-emerald-700",
@@ -48,6 +52,14 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
   const [justCompleted, setJustCompleted] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  // The id of the card that was just answered correctly, and so should slide
+  // on by itself. Holding the id rather than a boolean means revisiting an
+  // answered card with Previous never re-triggers the advance - the student
+  // can go back and reread the explanation for as long as they like.
+  const [autoAdvanceId, setAutoAdvanceId] = useState<string | null>(null);
+  // True while an answer is being submitted; navigation is held until it
+  // lands, so the result can never be stranded on the server (see AnswerForm).
+  const [submitting, setSubmitting] = useState(false);
 
   const total = cards.length;
   const safeIndex = Math.min(index, total - 1);
@@ -60,20 +72,23 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
     return () => setHint(null);
   }, [q.id, q.hints, setHint]);
 
+  // Only a card just answered correctly advances on its own. A wrong answer
+  // stays put so the student can read why, and moves on when they press Next.
   useEffect(() => {
-    if (!submission || safeIndex >= total - 1) return;
+    if (autoAdvanceId !== q.id || safeIndex >= total - 1) return;
     const advanceDelay = 1400;
     const fadeDuration = 220;
     const startFade = setTimeout(() => setLeaving(true), advanceDelay);
     const advance = setTimeout(() => {
       setIndex((i) => Math.min(total - 1, i + 1));
       setLeaving(false);
+      setAutoAdvanceId(null);
     }, advanceDelay + fadeDuration);
     return () => {
       clearTimeout(startFade);
       clearTimeout(advance);
     };
-  }, [submission, safeIndex, total]);
+  }, [autoAdvanceId, q.id, safeIndex, total]);
 
   // Hold the overlay back for a beat so the student reads the result of the
   // answer that finished the set before the curtain comes down on it.
@@ -102,6 +117,9 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
         : c
     );
     setCards(next);
+
+    // Correct answers carry straight on; a wrong one waits for the student.
+    if (isCorrect(result.status)) setAutoAdvanceId(questionId);
 
     const wasComplete = cards.every((c) => c.submission);
     const nowComplete = next.every((c) => c.submission);
@@ -172,6 +190,11 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
                   {q.correctAnswerText ?? "—"}
                 </p>
                 {q.explanation && <p className="mt-1">{q.explanation}</p>}
+                {!isCorrect(submission.status) && safeIndex < total - 1 && (
+                  <p className="mt-2 text-xs font-medium text-sky-600">
+                    Take your time reading this — press Next when you&apos;re ready.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -180,6 +203,7 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
             questionId={q.id}
             choices={q.choices}
             onSubmitted={(result) => handleSubmitted(q.id, result)}
+            onPendingChange={setSubmitting}
           />
         )}
       </div>
@@ -206,9 +230,12 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
           type="button"
           onClick={() => {
             setLeaving(false);
+            // Cancels any advance still pending on the card being left, so
+            // stepping back doesn't get yanked forward a moment later.
+            setAutoAdvanceId(null);
             setIndex((i) => Math.max(0, i - 1));
           }}
-          disabled={safeIndex === 0}
+          disabled={safeIndex === 0 || submitting}
           className="rounded-lg border border-sky-200 px-4 py-2 font-medium text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
           &larr; Previous
@@ -217,9 +244,10 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
           type="button"
           onClick={() => {
             setLeaving(false);
+            setAutoAdvanceId(null);
             setIndex((i) => Math.min(total - 1, i + 1));
           }}
-          disabled={safeIndex === total - 1 || !submission}
+          disabled={safeIndex === total - 1 || !submission || submitting}
           title={!submission ? "Answer this question before moving on" : undefined}
           className="rounded-lg border border-sky-200 px-4 py-2 font-medium text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
