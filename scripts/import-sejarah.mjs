@@ -28,6 +28,7 @@ import path from "path";
 import crypto from "crypto";
 import { createClient } from "@libsql/client";
 import { put } from "@vercel/blob";
+import { SEJARAH_BM_TITLES, TINGKATAN } from "./sejarah-bm-titles.mjs";
 
 const DIR = "C:/Users/User/Downloads/SEJARAH-Trial SPM 2026/K1 By Topic";
 const SUBJECT = "Sejarah";
@@ -275,14 +276,21 @@ async function main() {
     if (ch.questions.length === 0) continue;
 
     const setId = crypto.randomUUID();
-    const title = `Chapter ${ch.chapterNo}: ${ch.title}`;
+    // The source documents title the chapters in English; the sets use the
+    // official KSSM Bahasa Malaysia titles, matching the language of the
+    // questions themselves.
+    const bmTitle = SEJARAH_BM_TITLES[ch.grade]?.[ch.chapterNo];
+    if (!bmTitle) {
+      throw new Error(`No BM title known for ${ch.grade} chapter ${ch.chapterNo} (${ch.title})`);
+    }
+    const title = `Bab ${ch.chapterNo}: ${bmTitle}`;
     await db.execute({
       sql: `INSERT INTO QuestionSet (id, title, description, subject, isActive, createdAt, updatedAt, createdById)
             VALUES (?, ?, ?, ?, 1, ?, ?, ?)`,
       args: [
         setId,
         title,
-        `Soalan Kertas 1 SPM Sejarah 2026 (percubaan negeri) bagi ${ch.grade} Bab ${ch.chapterNo}: ${ch.title}.`,
+        `Soalan Kertas 1 SPM Sejarah 2026 (kertas percubaan negeri) bagi ${TINGKATAN[ch.grade]} Bab ${ch.chapterNo}: ${bmTitle}.`,
         SUBJECT,
         now,
         now,
