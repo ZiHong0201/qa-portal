@@ -17,7 +17,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/CHANGE_ME/qa-portal/lesson-archiver/run.sh</string>
+        <string>/Users/CHANGE_ME/lesson-archiver/run.sh</string>
         <string>reconcile</string>
     </array>
 
@@ -30,7 +30,7 @@
     </array>
 
     <key>StandardErrorPath</key>
-    <string>/Users/CHANGE_ME/qa-portal/lesson-archiver/logs/maintenance.err</string>
+    <string>/Users/CHANGE_ME/lesson-archiver/logs/maintenance.err</string>
     <key>ProcessType</key>
     <string>Background</string>
 </dict>

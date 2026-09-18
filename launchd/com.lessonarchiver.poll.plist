@@ -19,7 +19,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/CHANGE_ME/qa-portal/lesson-archiver/run.sh</string>
+        <string>/Users/CHANGE_ME/lesson-archiver/run.sh</string>
         <string>run</string>
     </array>
 
@@ -30,7 +30,7 @@
     <true/>
 
     <key>StandardErrorPath</key>
-    <string>/Users/CHANGE_ME/qa-portal/lesson-archiver/logs/poll.err</string>
+    <string>/Users/CHANGE_ME/lesson-archiver/logs/poll.err</string>
 
     <!-- Never let the archiver compete with the lesson you are teaching. -->
     <key>ProcessType</key>

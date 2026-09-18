@@ -67,7 +67,9 @@ Six steps. Five of them need you, because they involve credentials.
 ### 1. Install
 
 ```bash
+git clone https://github.com/ZiHong0201/lesson-archiver.git
 cd lesson-archiver
+
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
