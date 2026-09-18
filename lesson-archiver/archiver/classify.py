@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 from typing import Optional
 
 from .models import CalendarEvent, Classification, normalise_chapter, normalise_form
@@ -206,6 +208,33 @@ def _classify_via_api(prompt: str, model: str) -> Optional[Classification]:
     return None
 
 
+# launchd runs jobs with a minimal PATH, so the CLI's default install location
+# under the user's home directory is not on it. Checking the known locations
+# keeps scheduled runs behaving the same as runs from your own shell.
+CLAUDE_SEARCH_PATHS = [
+    "~/.local/bin/claude",        # native installer (claude.ai/install.sh)
+    "/opt/homebrew/bin/claude",   # Homebrew, Apple silicon
+    "/usr/local/bin/claude",      # Homebrew, Intel
+]
+
+
+def find_claude_binary() -> Optional[str]:
+    """Locate the Claude Code CLI, PATH first, then the usual install sites."""
+    override = os.environ.get("CLAUDE_BINARY", "").strip()
+    if override:
+        return override if Path(override).expanduser().is_file() else None
+
+    found = shutil.which("claude")
+    if found:
+        return found
+
+    for candidate in CLAUDE_SEARCH_PATHS:
+        path = Path(candidate).expanduser()
+        if path.is_file():
+            return str(path)
+    return None
+
+
 def _extract_json_object(text: str) -> Optional[dict]:
     """Pull the classification object out of the CLI's output.
 
@@ -242,9 +271,13 @@ def _classify_via_claude_code(prompt: str, model: str) -> Optional[Classificatio
     Requires `claude` on PATH and already logged in as the user running this
     agent, which is why it only works for a local, interactive-account setup.
     """
-    binary = shutil.which("claude")
+    binary = find_claude_binary()
     if not binary:
-        log.warning("classify.backend is 'claude-code' but `claude` is not on PATH")
+        log.warning(
+            "classify.backend is 'claude-code' but the `claude` CLI was not found. "
+            "Install it from https://claude.ai/install.sh, or set "
+            "CLAUDE_BINARY to its full path."
+        )
         return None
 
     schema_hint = json.dumps(TOOL_SCHEMA["input_schema"]["properties"], indent=2)
@@ -260,9 +293,13 @@ def _classify_via_claude_code(prompt: str, model: str) -> Optional[Classificatio
     # every classification and quietly inflate the prompt.
     scratch = tempfile.mkdtemp(prefix="lesson-archiver-classify-")
     try:
+        # Drop ANTHROPIC_API_KEY from the child environment. A key that is
+        # present - even empty - makes the CLI authenticate as an API caller
+        # rather than with the subscription this backend exists to use.
+        env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
         result = subprocess.run(
             [binary, "-p", full_prompt, "--model", model, "--output-format", "json"],
-            capture_output=True, text=True, timeout=300, cwd=scratch,
+            capture_output=True, text=True, timeout=300, cwd=scratch, env=env,
         )
     except subprocess.TimeoutExpired:
         log.warning("claude CLI timed out after 300s")

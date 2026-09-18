@@ -64,9 +64,10 @@ def cmd_doctor(config: Config, args) -> int:
         check("ANTHROPIC_API_KEY", bool(os.environ.get("ANTHROPIC_API_KEY")),
               "needed because classify.backend is 'api'")
     else:
-        import shutil
-        check("claude CLI on PATH", bool(shutil.which("claude")),
-              "needed because classify.backend is 'claude-code'")
+        from .classify import find_claude_binary
+        found = find_claude_binary()
+        check("claude CLI found", bool(found),
+              found or "install: curl -fsSL https://claude.ai/install.sh | bash")
 
     notify_backend = config.get("notify", "backend", default="telegram")
     if notify_backend == "telegram":

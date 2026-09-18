@@ -32,7 +32,10 @@ def load_dotenv(path: Path = DEFAULT_ENV) -> None:
         key, _, value = line.partition("=")
         key = key.strip()
         value = value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
+        # Skip blanks. The template ships every key present but empty, and an
+        # empty-but-set ANTHROPIC_API_KEY makes the Claude Code CLI try to use
+        # a key instead of the subscription login it is signed in with.
+        if key and value and key not in os.environ:
             os.environ[key] = value
 
 

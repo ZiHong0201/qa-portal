@@ -108,3 +108,52 @@ def test_returns_none_when_there_is_no_object():
 
 def test_returns_none_on_malformed_json():
     assert _extract_json_object("{not valid json at all,,,}") is None
+
+
+# --- credential isolation for the claude-code backend ---------------------
+def test_blank_env_values_are_not_exported(tmp_path, monkeypatch):
+    """The .env template ships every key present but empty.
+
+    An empty-but-set ANTHROPIC_API_KEY makes the Claude Code CLI authenticate
+    as an API caller instead of using the subscription login, which is the
+    whole point of the claude-code backend.
+    """
+    from archiver.config import load_dotenv
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("ANTHROPIC_API_KEY=\nZOOM_CLIENT_ID=real-value\n")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ZOOM_CLIENT_ID", raising=False)
+
+    load_dotenv(env_file)
+
+    import os
+    assert "ANTHROPIC_API_KEY" not in os.environ
+    assert os.environ["ZOOM_CLIENT_ID"] == "real-value"
+
+
+def test_claude_binary_found_outside_path(tmp_path, monkeypatch):
+    """launchd's minimal PATH excludes ~/.local/bin, where the CLI installs."""
+    from archiver import classify as classify_mod
+
+    fake = tmp_path / "claude"
+    fake.write_text("#!/bin/sh\n")
+    fake.chmod(0o755)
+
+    monkeypatch.delenv("CLAUDE_BINARY", raising=False)
+    monkeypatch.setattr(classify_mod.shutil, "which", lambda name: None)
+    monkeypatch.setattr(classify_mod, "CLAUDE_SEARCH_PATHS", [str(fake)])
+
+    assert classify_mod.find_claude_binary() == str(fake)
+
+
+def test_claude_binary_override_is_honoured(tmp_path, monkeypatch):
+    from archiver import classify as classify_mod
+
+    fake = tmp_path / "claude-custom"
+    fake.write_text("#!/bin/sh\n")
+    monkeypatch.setenv("CLAUDE_BINARY", str(fake))
+    assert classify_mod.find_claude_binary() == str(fake)
+
+    monkeypatch.setenv("CLAUDE_BINARY", str(tmp_path / "does-not-exist"))
+    assert classify_mod.find_claude_binary() is None
