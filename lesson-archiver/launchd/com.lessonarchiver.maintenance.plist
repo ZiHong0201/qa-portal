@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Nightly reconciliation at 22:00, plus the retention sweep on the 1st.
+
+  Reconciliation is the one that matters. Every other failure in this system
+  is silent - a crashed job, a lost download and a quiet day all look the
+  same - and comparing the calendar against what was archived is what turns
+  that silence into a notification.
+
+    cp launchd/com.lessonarchiver.maintenance.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.lessonarchiver.maintenance.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.lessonarchiver.maintenance</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/CHANGE_ME/qa-portal/lesson-archiver/run.sh</string>
+        <string>reconcile</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key><integer>22</integer>
+            <key>Minute</key><integer>0</integer>
+        </dict>
+    </array>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/CHANGE_ME/qa-portal/lesson-archiver/logs/maintenance.err</string>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

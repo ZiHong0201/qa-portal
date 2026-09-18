@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Polls Zoom every 15 minutes and archives anything new.
+
+  Each run exits in seconds when there is nothing to do, so a fixed interval
+  costs nothing on a machine you already own. Install with:
+
+    cp launchd/com.lessonarchiver.poll.plist ~/Library/LaunchAgents/
+    # edit the path below to where you cloned this, then:
+    launchctl load ~/Library/LaunchAgents/com.lessonarchiver.poll.plist
+
+  RunAtLoad plus a 15-minute interval means a laptop that was closed catches
+  up on its backlog as soon as it wakes.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.lessonarchiver.poll</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/CHANGE_ME/qa-portal/lesson-archiver/run.sh</string>
+        <string>run</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>900</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/CHANGE_ME/qa-portal/lesson-archiver/logs/poll.err</string>
+
+    <!-- Never let the archiver compete with the lesson you are teaching. -->
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>10</integer>
+</dict>
+</plist>
