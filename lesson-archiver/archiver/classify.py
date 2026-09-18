@@ -19,6 +19,7 @@ import logging
 import re
 import shutil
 import subprocess
+import tempfile
 from typing import Optional
 
 from .models import CalendarEvent, Classification, normalise_chapter, normalise_form
@@ -150,7 +151,7 @@ def classify(
     transcript_sample: str,
     syllabus: dict,
     *,
-    backend: str = "api",
+    backend: str = "claude-code",
     model: str = "claude-opus-5",
 ) -> Optional[Classification]:
     """Classify a lesson, or return None if the classifier could not run.
@@ -205,6 +206,36 @@ def _classify_via_api(prompt: str, model: str) -> Optional[Classification]:
     return None
 
 
+def _extract_json_object(text: str) -> Optional[dict]:
+    """Pull the classification object out of the CLI's output.
+
+    With --output-format json the CLI wraps the answer in a result envelope, so
+    a naive greedy brace match would return the envelope rather than the
+    classification. Unwrap first, then look inside; fall back to a direct parse
+    for plain-text output.
+    """
+    for candidate in (text, ""):
+        if not candidate:
+            break
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            break
+        if isinstance(parsed, dict) and "is_academic" in parsed:
+            return parsed
+        if isinstance(parsed, dict) and isinstance(parsed.get("result"), str):
+            text = parsed["result"]
+            break
+
+    match = re.search(r"\{.*\}", text, re.S)
+    if not match:
+        return None
+    try:
+        return json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return None
+
+
 def _classify_via_claude_code(prompt: str, model: str) -> Optional[Classification]:
     """Use the Claude Code CLI so a Claude subscription covers the cost.
 
@@ -223,16 +254,28 @@ def _classify_via_claude_code(prompt: str, model: str) -> Optional[Classificatio
         f"fence. Use exactly these keys:\n{schema_hint}"
     )
 
-    result = subprocess.run(
-        [binary, "-p", full_prompt, "--model", model],
-        capture_output=True, text=True, timeout=300,
-    )
+    # Run from an empty directory. The CLI loads CLAUDE.md and AGENTS.md from
+    # its working directory, and this package lives inside a repo that has
+    # both - inheriting them would prepend unrelated project instructions to
+    # every classification and quietly inflate the prompt.
+    scratch = tempfile.mkdtemp(prefix="lesson-archiver-classify-")
+    try:
+        result = subprocess.run(
+            [binary, "-p", full_prompt, "--model", model, "--output-format", "json"],
+            capture_output=True, text=True, timeout=300, cwd=scratch,
+        )
+    except subprocess.TimeoutExpired:
+        log.warning("claude CLI timed out after 300s")
+        return None
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
     if result.returncode != 0:
         log.warning("claude CLI exited %s: %s", result.returncode, result.stderr[:300])
         return None
 
-    match = re.search(r"\{.*\}", result.stdout, re.S)
-    if not match:
-        log.warning("No JSON object in claude CLI output")
+    payload = _extract_json_object(result.stdout)
+    if payload is None:
+        log.warning("No classification object in claude CLI output")
         return None
-    return _to_classification(json.loads(match.group(0)))
+    return _to_classification(payload)

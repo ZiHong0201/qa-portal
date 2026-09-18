@@ -59,7 +59,7 @@ def cmd_doctor(config: Config, args) -> int:
     else:
         check("CALENDAR_ICS_URL", bool(os.environ.get("CALENDAR_ICS_URL")))
 
-    backend = config.get("classify", "backend", default="api")
+    backend = config.get("classify", "backend", default="claude-code")
     if backend == "api":
         check("ANTHROPIC_API_KEY", bool(os.environ.get("ANTHROPIC_API_KEY")),
               "needed because classify.backend is 'api'")

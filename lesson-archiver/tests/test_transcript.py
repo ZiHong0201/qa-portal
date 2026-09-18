@@ -71,3 +71,40 @@ def test_prompt_states_plainly_when_nothing_was_scheduled():
     prompt = _build_prompt("Some meeting", None, "hello", {})
     assert "Nothing scheduled" in prompt
     assert "agrees_with_calendar to null" in prompt
+
+
+# --- claude-code backend output parsing -----------------------------------
+from archiver.classify import _extract_json_object
+
+CLASSIFICATION = (
+    '{"is_academic": true, "subject": "Physics", "form": "Form 5", '
+    '"chapter": "Ch03", "confidence": 0.93, "agrees_with_calendar": true, '
+    '"summary": "Series and parallel circuits."}'
+)
+
+
+def test_extracts_from_cli_json_envelope():
+    # --output-format json wraps the answer; a greedy brace match would
+    # return the envelope instead of the classification inside it.
+    envelope = '{"type": "result", "is_error": false, "result": %s}' % repr(CLASSIFICATION).replace("'", '"')
+    import json as _json
+    envelope = _json.dumps({"type": "result", "is_error": False, "result": CLASSIFICATION})
+    assert _extract_json_object(envelope)["subject"] == "Physics"
+
+
+def test_extracts_from_bare_json():
+    assert _extract_json_object(CLASSIFICATION)["chapter"] == "Ch03"
+
+
+def test_extracts_when_wrapped_in_prose_or_fences():
+    noisy = f"Here is the result:\n```json\n{CLASSIFICATION}\n```\nHope that helps."
+    assert _extract_json_object(noisy)["form"] == "Form 5"
+
+
+def test_returns_none_when_there_is_no_object():
+    assert _extract_json_object("I could not determine the subject.") is None
+    assert _extract_json_object("") is None
+
+
+def test_returns_none_on_malformed_json():
+    assert _extract_json_object("{not valid json at all,,,}") is None
