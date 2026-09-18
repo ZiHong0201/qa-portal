@@ -168,14 +168,29 @@ covers it and there is no API bill and no key to manage.
 | `claude-code` *(default)* | **$0** — your Claude subscription | `claude` on PATH, logged in as the user this runs as |
 | `api` | ~$0.60–2.00/month | `ANTHROPIC_API_KEY` in `.env` |
 
-Make sure the CLI is installed and signed in as the same macOS user the
-launchd job runs as — `claude` reads its credentials per-user, so a job
-running as someone else will find no login and the classifier will quietly
-degrade to calendar-only filing.
+Install it and sign in:
 
 ```bash
-claude --version   # should print a version, not "command not found"
+curl -fsSL https://claude.ai/install.sh | bash   # or: brew install --cask claude-code
+claude                                            # log in via the browser prompt
+claude --version                                  # should print a version
 ```
+
+Claude Code needs a Pro, Max, Team or Enterprise plan — the free claude.ai
+tier does not include it.
+
+Two things to get right, both of which fail silently rather than loudly:
+
+- Sign in as the **same macOS user** the launchd job runs as. Credentials are
+  per-user, so a job running as someone else finds no login.
+- Leave `ANTHROPIC_API_KEY` blank in `.env`. If it is set at all, the CLI
+  authenticates as an API caller instead of using your subscription. The
+  loader skips blank values for exactly this reason, and the backend strips
+  the variable from the CLI's environment.
+
+The CLI installs to `~/.local/bin/claude`, which is **not** on the minimal
+PATH launchd gives scheduled jobs. `run.sh` adds it, and the classifier also
+checks the Homebrew locations; set `CLAUDE_BINARY` in `.env` to override.
 
 The `api` backend only becomes necessary if you ever move this off your own
 Mac, where nobody is logged in to a CLI. Usage is negligible either way:
