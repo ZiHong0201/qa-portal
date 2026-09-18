@@ -99,9 +99,23 @@ it's safe to run repeatedly.
 npm run db:migrate               # generate a new migration (targets local dev.db, not Turso)
 npm run db:studio                # browse/edit the LOCAL dev.db in Prisma Studio (not Turso)
 node scripts/migrate-turso.mjs   # apply pending migrations to Turso
+node scripts/explanation-progress.mjs                 # which sets still lack explanations
+node scripts/generate-explanations.mjs [set] [--out f.json] [--limit n] [--dry-run]
+                                 # write missing explanations with Claude (see below)
+node scripts/dump-questions.mjs <set> --missing       # print questions to hand-write against
+node scripts/apply-explanations.mjs <file.json>       # push a { questionId: text } map to Turso
 npm run lint
 npm run build
 ```
+
+`generate-explanations.mjs` needs `ANTHROPIC_API_KEY`. It only touches
+questions whose explanation is empty, so it can be re-run safely. The model
+also answers each question on its own; where that disagrees with the marked
+correct option the question is skipped and listed as DISPUTED at the end so
+the answer key can be checked, rather than an explanation being written for
+a possibly wrong key. Use `--out file.json` to review the text first and
+apply it with `apply-explanations.mjs`, and `--limit 5` to sample before a
+full run.
 
 To browse/edit the live Turso data itself (not local dev.db), use the Turso
 web dashboard at [app.turso.tech](https://app.turso.tech) — Prisma Studio
