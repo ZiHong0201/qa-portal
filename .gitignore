@@ -1,0 +1,17 @@
+# Secrets and local state - never commit these
+.env
+config.yaml
+state.db
+state.db-journal
+credentials/
+work/
+logs/
+*.log
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# The repo root ignores ".env*", which would swallow this template too.
+# It carries no secrets and the setup instructions depend on it.
+!.env.example
