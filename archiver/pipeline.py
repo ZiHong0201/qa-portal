@@ -235,7 +235,7 @@ class Pipeline:
                 match.event,
                 sample,
                 self.config.get("syllabus", default={}) or {},
-                backend=self.config.get("classify", "backend", default="api"),
+                backend=self.config.get("classify", "backend", default="claude-code"),
                 model=self.config.get("classify", "model", default="claude-opus-5"),
             )
         self.state.set_stage(recording.uuid, "CLASSIFIED")
