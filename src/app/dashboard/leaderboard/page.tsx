@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import {
   getStudentStats,
   rankStudents,
@@ -21,8 +22,6 @@ const ROW_STYLES: Record<number, string> = {
   3: "border-orange-200 bg-gradient-to-r from-orange-50 to-white",
 };
 
-const ALL_FORMS = "all";
-
 // Green at 80%+, amber in the middle, rose below half - so a teacher can scan
 // the column without reading every number.
 function accuracyColor(accuracy: number) {
@@ -31,12 +30,10 @@ function accuracyColor(accuracy: number) {
   return "text-rose-500";
 }
 
-function boardHref(form: string, metric: LeaderboardMetric) {
-  const params = new URLSearchParams();
-  if (form !== ALL_FORMS) params.set("form", form);
+function boardHref(form: string | null, metric: LeaderboardMetric) {
+  const params = new URLSearchParams(form ? { form } : {});
   if (metric !== "points") params.set("by", metric);
-  const qs = params.toString();
-  return `/dashboard/leaderboard${qs ? `?${qs}` : ""}`;
+  return `/dashboard/leaderboard?${params.toString()}`;
 }
 
 function Chip({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
@@ -107,14 +104,27 @@ export default async function LeaderboardPage({
 
   const metric: LeaderboardMetric = by === "accuracy" ? "accuracy" : "points";
 
-  const all = await getStudentStats();
+  // The session carries id and role only, so the viewer's own form - which
+  // decides the default board - comes from the user record.
+  const [all, viewer] = await Promise.all([
+    getStudentStats(),
+    prisma.user.findUnique({ where: { id: userId }, select: { grade: true } }),
+  ]);
+  const myGrade = viewer?.grade ?? null;
 
   // Only offer forms that actually have someone on the board, so the filter
   // can never lead to an empty page.
   const forms = [...new Set(all.map((s) => s.grade).filter((g): g is string => !!g))].sort();
-  const form = formParam && forms.includes(formParam) ? formParam : ALL_FORMS;
 
-  const scoped = form === ALL_FORMS ? all : all.filter((s) => s.grade === form);
+  // Each form has its own board - there is no combined view. Default to the
+  // viewer's own form, since that is the one they are competing in.
+  const form =
+    (formParam && forms.includes(formParam) ? formParam : null) ??
+    (myGrade && forms.includes(myGrade) ? myGrade : null) ??
+    forms[0] ??
+    null;
+
+  const scoped = form ? all.filter((s) => s.grade === form) : [];
   const ranked = rankStudents(scoped, metric);
 
   // Filter by rank, not by position, so students tied for 10th all stay on
@@ -130,7 +140,7 @@ export default async function LeaderboardPage({
   const excludedForAccuracy =
     metric === "accuracy" && !!myStats && myStats.graded < MIN_GRADED_FOR_ACCURACY;
 
-  const heading = form === ALL_FORMS ? "Scoreboard" : `Scoreboard · ${form}`;
+  const heading = form ? `Scoreboard · ${form}` : "Scoreboard";
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -154,9 +164,6 @@ export default async function LeaderboardPage({
       {forms.length > 1 && (
         <div className="mb-6 flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Form</span>
-          <Chip href={boardHref(ALL_FORMS, metric)} active={form === ALL_FORMS}>
-            All forms
-          </Chip>
           {forms.map((f) => (
             <Chip key={f} href={boardHref(f, metric)} active={form === f}>
               {f}
