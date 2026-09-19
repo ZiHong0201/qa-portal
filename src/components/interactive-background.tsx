@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
-// The subject palette from the dashboard tiles, so the login page feels like
-// the same app rather than a separate front door.
+// The subject palette from the dashboard tiles, so the signed-out pages feel
+// like the same app rather than a separate front door.
 const COLORS = ["#38bdf8", "#34d399", "#a78bfa", "#fbbf24", "#fb7185", "#22d3ee"];
 
 const BASE_COUNT = 34;
@@ -42,7 +42,7 @@ function makeBubble(w: number, h: number): Bubble {
   };
 }
 
-export function LoginBackground() {
+function BubbleCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -214,5 +214,19 @@ export function LoginBackground() {
       // never intercept clicks meant for the form.
       className="pointer-events-none fixed inset-0 -z-10 h-full w-full"
     />
+  );
+}
+
+/**
+ * The full backdrop for the signed-out pages: a slow colour wash with the
+ * interactive bubble field above it. Both layers sit behind the content and
+ * ignore pointer events, so they can be dropped onto any page.
+ */
+export function InteractiveBackdrop() {
+  return (
+    <>
+      <div className="animate-aurora fixed inset-0 -z-20 bg-[linear-gradient(120deg,#e0f2fe,#ede9fe,#dbeafe,#ccfbf1,#fae8ff)] bg-[length:400%_400%]" />
+      <BubbleCanvas />
+    </>
   );
 }

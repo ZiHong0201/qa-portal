@@ -1,5 +1,5 @@
 import { LoginForm } from "./login-form";
-import { LoginBackground } from "./login-background";
+import { InteractiveBackdrop } from "@/components/interactive-background";
 import { CelebratingCat } from "@/components/celebrating-cat";
 
 export default async function LoginPage({
@@ -12,9 +12,7 @@ export default async function LoginPage({
 
   return (
     <main className="relative flex min-h-screen flex-1 flex-col items-center justify-center overflow-hidden px-4 py-10">
-      {/* Layer 1: a slow colour wash. Layer 2: the bubbles you can push around. */}
-      <div className="animate-aurora fixed inset-0 -z-20 bg-[linear-gradient(120deg,#e0f2fe,#ede9fe,#dbeafe,#ccfbf1,#fae8ff)] bg-[length:400%_400%]" />
-      <LoginBackground />
+      <InteractiveBackdrop />
 
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
