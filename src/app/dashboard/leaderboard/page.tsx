@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { getRankedStudents } from "@/lib/leaderboard";
+import { getRankedStudents, type RankedStudent } from "@/lib/leaderboard";
 import { CelebratingCat } from "@/components/celebrating-cat";
 
 const MEDAL_STYLES: Record<number, string> = {
@@ -13,6 +13,28 @@ const ROW_STYLES: Record<number, string> = {
   2: "border-slate-200 bg-gradient-to-r from-slate-50 to-white",
   3: "border-orange-200 bg-gradient-to-r from-orange-50 to-white",
 };
+
+// Green at 80%+, amber in the middle, rose below half - so a teacher can scan
+// the column without reading every number.
+function accuracyColor(accuracy: number) {
+  if (accuracy >= 80) return "text-emerald-600";
+  if (accuracy >= 50) return "text-amber-600";
+  return "text-rose-500";
+}
+
+function Accuracy({ student }: { student: RankedStudent }) {
+  if (student.accuracy === null) {
+    return <span className="block text-xs text-gray-400">not marked yet</span>;
+  }
+  return (
+    <span
+      className={`block text-xs font-medium ${accuracyColor(student.accuracy)}`}
+      title={`${student.correct} of ${student.graded} answers correct`}
+    >
+      {student.accuracy}% correct
+    </span>
+  );
+}
 
 export default async function LeaderboardPage() {
   const session = await auth();
@@ -30,7 +52,8 @@ export default async function LeaderboardPage() {
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-1 text-2xl font-bold text-sky-950">Scoreboard</h1>
       <p className="mb-6 text-sm text-gray-500">
-        Top 10 students by marks earned. Redeeming gifts won&apos;t lower your score.
+        Top 10 students by marks earned, with the share of answers each one got right.
+        Redeeming gifts won&apos;t lower your score.
       </p>
 
       {top10.length === 0 ? (
@@ -78,10 +101,13 @@ export default async function LeaderboardPage() {
                 )}
 
                 <span className="shrink-0 text-right">
-                  <span className="text-lg font-bold text-sky-700">
-                    {student.points.toLocaleString()}
+                  <span className="block">
+                    <span className="text-lg font-bold text-sky-700">
+                      {student.points.toLocaleString()}
+                    </span>
+                    <span className="ml-1 text-xs text-gray-500">pts</span>
                   </span>
-                  <span className="ml-1 text-xs text-gray-500">pts</span>
+                  <Accuracy student={student} />
                 </span>
               </li>
             );
@@ -104,8 +130,11 @@ export default async function LeaderboardPage() {
             </p>
           </div>
           <span className="shrink-0 text-right">
-            <span className="text-lg font-bold text-sky-700">{me.points.toLocaleString()}</span>
-            <span className="ml-1 text-xs text-sky-700/70">pts</span>
+            <span className="block">
+              <span className="text-lg font-bold text-sky-700">{me.points.toLocaleString()}</span>
+              <span className="ml-1 text-xs text-sky-700/70">pts</span>
+            </span>
+            <Accuracy student={me} />
           </span>
         </div>
       )}
