@@ -1,5 +1,12 @@
+import Link from "next/link";
 import { auth } from "@/auth";
-import { getRankedStudents, type RankedStudent } from "@/lib/leaderboard";
+import {
+  getStudentStats,
+  rankStudents,
+  MIN_GRADED_FOR_ACCURACY,
+  type RankedStudent,
+  type LeaderboardMetric,
+} from "@/lib/leaderboard";
 import { CelebratingCat } from "@/components/celebrating-cat";
 
 const MEDAL_STYLES: Record<number, string> = {
@@ -14,6 +21,8 @@ const ROW_STYLES: Record<number, string> = {
   3: "border-orange-200 bg-gradient-to-r from-orange-50 to-white",
 };
 
+const ALL_FORMS = "all";
+
 // Green at 80%+, amber in the middle, rose below half - so a teacher can scan
 // the column without reading every number.
 function accuracyColor(accuracy: number) {
@@ -22,45 +31,147 @@ function accuracyColor(accuracy: number) {
   return "text-rose-500";
 }
 
-function Accuracy({ student }: { student: RankedStudent }) {
-  if (student.accuracy === null) {
-    return <span className="block text-xs text-gray-400">not marked yet</span>;
-  }
+function boardHref(form: string, metric: LeaderboardMetric) {
+  const params = new URLSearchParams();
+  if (form !== ALL_FORMS) params.set("form", form);
+  if (metric !== "points") params.set("by", metric);
+  const qs = params.toString();
+  return `/dashboard/leaderboard${qs ? `?${qs}` : ""}`;
+}
+
+function Chip({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
   return (
-    <span
-      className={`block text-xs font-medium ${accuracyColor(student.accuracy)}`}
-      title={`${student.correct} of ${student.graded} answers correct`}
+    <Link
+      href={href}
+      className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
+        active
+          ? "border-sky-300 bg-sky-100 text-sky-800"
+          : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+      }`}
     >
-      {student.accuracy}% correct
+      {children}
+    </Link>
+  );
+}
+
+/** The headline figure for the board being shown, with the other beneath it. */
+function Score({ student, metric }: { student: RankedStudent; metric: LeaderboardMetric }) {
+  const accuracy =
+    student.accuracy === null ? null : (
+      <span
+        className={`block text-xs font-medium ${accuracyColor(student.accuracy)}`}
+        title={`${student.correct} of ${student.graded} answers correct`}
+      >
+        {student.accuracy}% correct
+      </span>
+    );
+
+  if (metric === "accuracy") {
+    return (
+      <span className="shrink-0 text-right">
+        <span
+          className="block"
+          title={`${student.correct} of ${student.graded} answers correct`}
+        >
+          <span className={`text-lg font-bold ${accuracyColor(student.accuracy ?? 0)}`}>
+            {student.accuracy}%
+          </span>
+          <span className="ml-1 text-xs text-gray-500">correct</span>
+        </span>
+        <span className="block text-xs text-gray-500">
+          {student.points.toLocaleString()} pts · {student.graded} answered
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="shrink-0 text-right">
+      <span className="block">
+        <span className="text-lg font-bold text-sky-700">{student.points.toLocaleString()}</span>
+        <span className="ml-1 text-xs text-gray-500">pts</span>
+      </span>
+      {accuracy ?? <span className="block text-xs text-gray-400">not marked yet</span>}
     </span>
   );
 }
 
-export default async function LeaderboardPage() {
+export default async function LeaderboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ form?: string; by?: string }>;
+}) {
+  const { form: formParam, by } = await searchParams;
   const session = await auth();
   const userId = session!.user.id;
 
-  const ranked = await getRankedStudents();
+  const metric: LeaderboardMetric = by === "accuracy" ? "accuracy" : "points";
+
+  const all = await getStudentStats();
+
+  // Only offer forms that actually have someone on the board, so the filter
+  // can never lead to an empty page.
+  const forms = [...new Set(all.map((s) => s.grade).filter((g): g is string => !!g))].sort();
+  const form = formParam && forms.includes(formParam) ? formParam : ALL_FORMS;
+
+  const scoped = form === ALL_FORMS ? all : all.filter((s) => s.grade === form);
+  const ranked = rankStudents(scoped, metric);
+
   // Filter by rank, not by position, so students tied for 10th all stay on
   // the board rather than one of them being cut off arbitrarily.
   const top10 = ranked.filter((s) => s.rank <= 10);
   const me = ranked.find((s) => s.id === userId);
   const meInTop10 = !!me && me.rank <= 10;
-  const tenthPlacePoints = top10[top10.length - 1]?.points ?? 0;
+  const tenth = top10[top10.length - 1];
+
+  // Whoever is viewing has a form of their own; if they are outside the board
+  // being shown it is worth saying why.
+  const myStats = all.find((s) => s.id === userId);
+  const excludedForAccuracy =
+    metric === "accuracy" && !!myStats && myStats.graded < MIN_GRADED_FOR_ACCURACY;
+
+  const heading = form === ALL_FORMS ? "Scoreboard" : `Scoreboard · ${form}`;
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-1 text-2xl font-bold text-sky-950">Scoreboard</h1>
-      <p className="mb-6 text-sm text-gray-500">
-        Top 10 students by marks earned, with the share of answers each one got right.
-        Redeeming gifts won&apos;t lower your score.
+      <h1 className="mb-1 text-2xl font-bold text-sky-950">{heading}</h1>
+      <p className="mb-4 text-sm text-gray-500">
+        {metric === "points"
+          ? "Top 10 by marks earned. Equal marks are separated by accuracy."
+          : `Top 10 by share of answers correct, among students with at least ${MIN_GRADED_FOR_ACCURACY} marked answers.`}
       </p>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Rank by</span>
+        <Chip href={boardHref(form, "points")} active={metric === "points"}>
+          Points
+        </Chip>
+        <Chip href={boardHref(form, "accuracy")} active={metric === "accuracy"}>
+          Accuracy
+        </Chip>
+      </div>
+
+      {forms.length > 1 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Form</span>
+          <Chip href={boardHref(ALL_FORMS, metric)} active={form === ALL_FORMS}>
+            All forms
+          </Chip>
+          {forms.map((f) => (
+            <Chip key={f} href={boardHref(f, metric)} active={form === f}>
+              {f}
+            </Chip>
+          ))}
+        </div>
+      )}
 
       {top10.length === 0 ? (
         <div className="rounded-xl border border-sky-100 bg-white p-8 text-center">
-          <p className="font-medium text-gray-700">No scores yet</p>
+          <p className="font-medium text-gray-700">Nothing to show yet</p>
           <p className="mt-1 text-sm text-gray-500">
-            Answer some questions and you&apos;ll be the first on the board.
+            {metric === "accuracy"
+              ? `No one here has ${MIN_GRADED_FOR_ACCURACY} marked answers yet.`
+              : "Answer some questions and you'll be the first on the board."}
           </p>
         </div>
       ) : (
@@ -100,22 +211,14 @@ export default async function LeaderboardPage() {
                   </div>
                 )}
 
-                <span className="shrink-0 text-right">
-                  <span className="block">
-                    <span className="text-lg font-bold text-sky-700">
-                      {student.points.toLocaleString()}
-                    </span>
-                    <span className="ml-1 text-xs text-gray-500">pts</span>
-                  </span>
-                  <Accuracy student={student} />
-                </span>
+                <Score student={student} metric={metric} />
               </li>
             );
           })}
         </ol>
       )}
 
-      {me && !meInTop10 && (
+      {me && !meInTop10 && tenth && (
         <div className="mt-4 flex items-center gap-4 rounded-xl border border-sky-200 bg-sky-50 p-4">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-sky-700">
             {me.rank}
@@ -126,17 +229,20 @@ export default async function LeaderboardPage() {
               <span className="ml-2 text-xs font-normal text-sky-600">You</span>
             </p>
             <p className="text-xs text-sky-700/70">
-              {(tenthPlacePoints - me.points).toLocaleString()} pts behind 10th place
+              {metric === "points"
+                ? `${(tenth.points - me.points).toLocaleString()} pts behind 10th place`
+                : `${(tenth.accuracy ?? 0) - (me.accuracy ?? 0)}% behind 10th place`}
             </p>
           </div>
-          <span className="shrink-0 text-right">
-            <span className="block">
-              <span className="text-lg font-bold text-sky-700">{me.points.toLocaleString()}</span>
-              <span className="ml-1 text-xs text-sky-700/70">pts</span>
-            </span>
-            <Accuracy student={me} />
-          </span>
+          <Score student={me} metric={metric} />
         </div>
+      )}
+
+      {excludedForAccuracy && (
+        <p className="mt-4 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">
+          You need {MIN_GRADED_FOR_ACCURACY} marked answers to appear on the accuracy board - you
+          have {myStats.graded}. Keep going!
+        </p>
       )}
     </div>
   );

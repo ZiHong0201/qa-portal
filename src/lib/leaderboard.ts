@@ -6,7 +6,12 @@ import { prisma } from "@/lib/prisma";
 const CORRECT_STATUSES = ["CORRECT", "APPROVED"] as const;
 const GRADED_STATUSES = ["CORRECT", "APPROVED", "INCORRECT", "REJECTED"] as const;
 
-export type RankedStudent = {
+// Accuracy off a handful of answers is noise: one student who got their only
+// question right would sit above someone at 86% over 600. A student needs at
+// least this many marked answers before they appear on the accuracy board.
+export const MIN_GRADED_FOR_ACCURACY = 10;
+
+export type StudentStats = {
   id: string;
   name: string;
   grade: string | null;
@@ -17,18 +22,16 @@ export type RankedStudent = {
   graded: number;
   /** Percentage of graded answers that were correct, or null if none yet. */
   accuracy: number | null;
-  rank: number;
 };
 
-// Ranked on marks earned from answering questions, not on the spendable
-// balance shown in the nav - otherwise redeeming a gift (or collecting a daily
-// check-in bonus) would move students around a board that's meant to reflect
-// how they're doing on the questions.
-//
-// Accuracy is shown alongside but deliberately does not affect the ranking:
-// it rewards care rather than volume, and mixing the two into one order would
-// make the board hard to read.
-export async function getRankedStudents(): Promise<RankedStudent[]> {
+export type RankedStudent = StudentStats & { rank: number };
+
+export type LeaderboardMetric = "points" | "accuracy";
+
+// Every student who has earned at least one mark, without a ranking - callers
+// narrow by form first and rank what's left, so the ranks always run 1, 2, 3
+// within whatever board is being shown.
+export async function getStudentStats(): Promise<StudentStats[]> {
   const [statusRows, students] = await Promise.all([
     // One row per student per status, so marks, correct count and graded count
     // all come from a single round trip.
@@ -57,7 +60,7 @@ export async function getRankedStudents(): Promise<RankedStudent[]> {
     totals.set(row.studentId, entry);
   }
 
-  const sorted = students
+  return students
     .map((s) => {
       const t = totals.get(s.id) ?? { points: 0, correct: 0, graded: 0 };
       return {
@@ -68,16 +71,61 @@ export async function getRankedStudents(): Promise<RankedStudent[]> {
         accuracy: t.graded > 0 ? Math.round((t.correct / t.graded) * 100) : null,
       };
     })
-    .filter((s) => s.points > 0)
-    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+    .filter((s) => s.points > 0);
+}
 
-  // Standard competition ranking, so tied students share a place (1, 2, 2, 4).
-  let previousPoints: number | null = null;
+// The values a board sorts on, most significant first. Two students share a
+// place only when every one of these matches - name decides display order
+// after that but never affects the rank.
+function sortKey(s: StudentStats, metric: LeaderboardMetric): number[] {
+  return metric === "points"
+    ? [s.points, s.accuracy ?? -1]
+    : [s.accuracy ?? -1, s.graded, s.points];
+}
+
+function sameKey(a: number[], b: number[]) {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+/**
+ * Ranks a list of students by the chosen metric, using standard competition
+ * ranking so tied students share a place (1, 2, 2, 4).
+ *
+ * Points ties are broken by accuracy, so of two students on the same marks the
+ * one who needed fewer attempts to get there places higher. Accuracy ties are
+ * broken by how many answers back the figure up, then by marks.
+ */
+export function rankStudents(
+  students: StudentStats[],
+  metric: LeaderboardMetric
+): RankedStudent[] {
+  const eligible =
+    metric === "accuracy"
+      ? students.filter((s) => s.graded >= MIN_GRADED_FOR_ACCURACY && s.accuracy !== null)
+      : students;
+
+  const sorted = [...eligible].sort((a, b) => {
+    const ka = sortKey(a, metric);
+    const kb = sortKey(b, metric);
+    for (let i = 0; i < ka.length; i++) {
+      if (kb[i] !== ka[i]) return kb[i] - ka[i];
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  let previousKey: number[] | null = null;
   let previousRank = 0;
   return sorted.map((s, i) => {
-    const rank = s.points === previousPoints ? previousRank : i + 1;
-    previousPoints = s.points;
+    const key = sortKey(s, metric);
+    const rank = previousKey && sameKey(key, previousKey) ? previousRank : i + 1;
+    previousKey = key;
     previousRank = rank;
     return { ...s, rank };
   });
+}
+
+// Convenience for callers that just want a student's overall standing on
+// marks, such as the dashboard's stats row.
+export async function getRankedStudents(): Promise<RankedStudent[]> {
+  return rankStudents(await getStudentStats(), "points");
 }
