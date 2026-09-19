@@ -15,6 +15,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Mr Tan – Exercise Portal",
   description: "Answer questions and earn credit.",
+  // Declared at the root so the portal is installable for students and
+  // admins alike. start_url is "/", which redirects by role, so each of them
+  // opens the app on their own home page.
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Mr Tan", statusBarStyle: "default" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* The signed-out pages are fixed to the viewport with no scrolling at all, so
+   on a short screen - a phone held sideways, mostly - they shed decoration
+   rather than pushing the Log in button out of reach. */
+@custom-variant short (@media (max-height: 640px));
+@custom-variant tiny (@media (max-height: 480px));
+
 /*
  * This app is a light theme only. Cards, nav bars, and badges throughout
  * (bg-white, bg-gray-50, border-gray-200, etc.) are hardcoded light

@@ -19,7 +19,8 @@ function isStandalone() {
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
     // Safari's own flag, which predates the standard media query.
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+    (window.navigator as Navigator & { standalone?: boolean }).standalone ===
+      true
   );
 }
 
@@ -34,19 +35,22 @@ function iosHintSnapshot() {
 }
 
 /**
- * Registers the admin service worker and offers an install prompt.
+ * Registers the service worker and offers the install prompt.
  *
- * Mounted only from the admin layout, so the worker's scope and the install
- * offer are both limited to /admin - students never see either.
+ * Mounted from the dashboard and admin layouts - the two places with a
+ * content container to sit in - rather than the root layout, which would put
+ * a banner over the login page's artwork.
  */
 export function PwaRegister() {
-  const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null);
+  const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(
+    null,
+  );
   const [dismissed, setDismissed] = useState(false);
 
   const needsIosHint = useSyncExternalStore(
     subscribeNever,
     iosHintSnapshot,
-    () => false
+    () => false,
   );
 
   const alreadyDismissed = useCallback(() => {
@@ -62,10 +66,23 @@ export function PwaRegister() {
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js", { scope: "/admin/" }).catch(() => {
-        // An unregistered worker only costs the offline page, so a failure
-        // here should never take the admin pages down with it.
-      });
+      navigator.serviceWorker
+        .register("/sw.js", { scope: "/" })
+        .then(async () => {
+          // The first version of this registered at /admin/ only. Leaving that
+          // behind would keep a second, narrower worker shadowing the new one
+          // on admin pages, so retire it.
+          const stale = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(
+            stale
+              .filter((r) => r.scope.endsWith("/admin/"))
+              .map((r) => r.unregister()),
+          );
+        })
+        .catch(() => {
+          // An unregistered worker only costs the offline page, so a failure
+          // here should never take the portal down with it.
+        });
     }
 
     const onPrompt = (e: Event) => {
@@ -97,14 +114,19 @@ export function PwaRegister() {
   if (!installEvent && !showIosHint) return null;
 
   return (
-    <div className="mx-auto mb-4 flex max-w-screen-2xl items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+    <div className="mb-4 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/icons/icon-192.png" alt="" className="h-10 w-10 shrink-0 rounded-lg" />
+      <img
+        src="/icons/icon-192.png"
+        alt=""
+        className="h-10 w-10 shrink-0 rounded-lg"
+      />
       <div className="min-w-0 flex-1 text-sm">
-        <p className="font-semibold text-sky-900">Install the admin app</p>
+        <p className="font-semibold text-sky-900">Install the app</p>
         {showIosHint ? (
           <p className="mt-0.5 text-sky-800/80">
-            Tap the Share button, then <span className="font-medium">Add to Home Screen</span>.
+            Tap the Share button, then{" "}
+            <span className="font-medium">Add to Home Screen</span>.
           </p>
         ) : (
           <p className="mt-0.5 text-sky-800/80">

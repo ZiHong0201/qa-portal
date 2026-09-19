@@ -1,7 +1,5 @@
-// Service worker for the admin PWA.
-//
-// Registered from the admin layout with scope "/admin/", so it never touches
-// the student side of the portal - see src/components/pwa-register.tsx.
+// Service worker for the portal PWA, registered at scope "/" for students and
+// admins alike - see src/components/pwa-register.tsx.
 //
 // Deliberately conservative: this app's pages are server-rendered from a live
 // database, and serving a stale question set or scoreboard from cache would be
@@ -10,9 +8,9 @@
 // Static build assets are cached because they are content-hashed and therefore
 // safe to reuse.
 
-const VERSION = "v1";
-const SHELL_CACHE = `admin-shell-${VERSION}`;
-const ASSET_CACHE = `admin-assets-${VERSION}`;
+const VERSION = "v2";
+const SHELL_CACHE = `portal-shell-${VERSION}`;
+const ASSET_CACHE = `portal-assets-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 
 self.addEventListener("install", (event) => {
