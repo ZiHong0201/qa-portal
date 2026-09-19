@@ -11,7 +11,9 @@ export default async function Home() {
   }
 
   return (
-    <main className="relative flex min-h-screen flex-1 flex-col items-center justify-center overflow-hidden px-4 py-10 text-center">
+    // See the login page for why: no bounce, no accidental text selection,
+    // and no scrolling unless the content truly cannot fit.
+    <main className="relative flex h-dvh flex-col items-center justify-center overflow-y-auto overscroll-none px-4 py-10 text-center touch-manipulation select-none">
       <InteractiveBackdrop />
 
       <CelebratingCat size="h-28 w-28" sparkleSize="text-2xl" />
@@ -32,8 +34,6 @@ export default async function Home() {
       >
         Log in
       </Link>
-
-      <p className="mt-6 text-xs text-slate-500">Tap the background to make a splash.</p>
     </main>
   );
 }
