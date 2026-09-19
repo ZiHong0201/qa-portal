@@ -15,7 +15,7 @@ export default async function AdminCataloguePage() {
         <h1 className="text-2xl font-bold">Catalogue</h1>
         <Link
           href="/admin/catalogue/new"
-          className="rounded-md bg-black px-4 py-2 text-white hover:bg-gray-800"
+          className="rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700"
         >
           + New item
         </Link>

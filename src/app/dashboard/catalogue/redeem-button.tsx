@@ -16,7 +16,7 @@ export function RedeemButton({ itemId, canAfford }: { itemId: string; canAfford:
       <button
         type="submit"
         disabled={pending || !canAfford}
-        className="self-start rounded-md bg-black px-3 py-1.5 text-sm text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+        className="self-start rounded-md bg-sky-600 px-3 py-1.5 text-sm text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {pending ? "Redeeming..." : canAfford ? "Redeem" : "Not enough points"}
       </button>

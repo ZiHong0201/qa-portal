@@ -43,7 +43,7 @@ export function AdjustmentForm({ studentId }: { studentId: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="self-start rounded-md bg-black px-4 py-2 text-white hover:bg-gray-800 disabled:opacity-50"
+        className="self-start rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700 disabled:opacity-50"
       >
         {pending ? "Saving..." : "Apply adjustment"}
       </button>

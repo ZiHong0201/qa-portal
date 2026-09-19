@@ -2,34 +2,39 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
 export default async function AdminHome() {
-  const [studentCount, setCount, questionCount, pendingCount, catalogueCount] = await Promise.all([
-    prisma.user.count({ where: { role: "STUDENT" } }),
-    prisma.questionSet.count(),
-    prisma.question.count(),
-    prisma.submission.count({ where: { status: "PENDING" } }),
-    prisma.catalogueItem.count(),
-  ]);
+  const [studentCount, setCount, questionCount, pendingCount, catalogueCount] =
+    await Promise.all([
+      prisma.user.count({ where: { role: "STUDENT" } }),
+      prisma.questionSet.count(),
+      prisma.question.count(),
+      prisma.submission.count({ where: { status: "PENDING" } }),
+      prisma.catalogueItem.count(),
+    ]);
 
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold">Admin overview</h1>
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Link href="/admin/students">
           <StatCard label="Students" value={studentCount} />
         </Link>
         <StatCard label="Question sets" value={setCount} />
         <StatCard label="Questions" value={questionCount} />
         <Link href="/admin/review">
-          <StatCard label="Pending reviews" value={pendingCount} highlight={pendingCount > 0} />
+          <StatCard
+            label="Pending reviews"
+            value={pendingCount}
+            highlight={pendingCount > 0}
+          />
         </Link>
         <Link href="/admin/catalogue">
           <StatCard label="Catalogue items" value={catalogueCount} />
         </Link>
       </div>
-      <div className="mt-8 flex gap-2">
+      <div className="mt-8 flex flex-wrap gap-2">
         <Link
           href="/admin/sets/new"
-          className="rounded-md bg-black px-4 py-2 text-white hover:bg-gray-800"
+          className="rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700"
         >
           + New question set
         </Link>
@@ -61,12 +66,12 @@ function StatCard({
 }) {
   return (
     <div
-      className={`rounded-lg border p-4 ${
-        highlight ? "border-yellow-300 bg-yellow-50" : "border-gray-200 bg-white"
+      className={`h-full rounded-2xl border p-4 ${
+        highlight ? "border-amber-300 bg-amber-50" : "border-gray-200 bg-white"
       }`}
     >
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-xs font-medium text-gray-500">{label}</p>
+      <p className="mt-0.5 text-2xl font-bold text-sky-900">{value}</p>
     </div>
   );
 }

@@ -44,7 +44,7 @@ export function ExplanationEditor({
       <div className="flex gap-2">
         <SubmitButton
           pendingText="Saving…"
-          className="rounded-md bg-black px-3 py-1.5 text-sm text-white hover:bg-gray-800"
+          className="rounded-md bg-sky-600 px-3 py-1.5 text-sm text-white hover:bg-sky-700"
         >
           Save
         </SubmitButton>

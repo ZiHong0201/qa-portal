@@ -52,7 +52,7 @@ export function ImportForm({
       <button
         type="submit"
         disabled={pending}
-        className="self-start rounded-md bg-black px-4 py-2 text-white hover:bg-gray-800 disabled:opacity-50"
+        className="self-start rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700 disabled:opacity-50"
       >
         {pending ? "Extracting questions… this can take a minute" : "Import questions"}
       </button>

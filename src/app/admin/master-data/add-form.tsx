@@ -34,7 +34,7 @@ export function AddForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-black px-3 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+          className="rounded-md bg-sky-600 px-3 py-2 text-sm text-white hover:bg-sky-700 disabled:opacity-50"
         >
           {pending ? "Adding..." : buttonLabel}
         </button>

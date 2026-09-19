@@ -58,7 +58,7 @@ export default async function AdminStudentsPage({
         <h1 className="text-2xl font-bold">Students</h1>
         <Link
           href="/admin/students/new"
-          className="rounded-md bg-black px-4 py-2 text-white hover:bg-gray-800"
+          className="rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700"
         >
           + New student
         </Link>
@@ -125,7 +125,7 @@ export default async function AdminStudentsPage({
         </div>
         <button
           type="submit"
-          className="rounded-md bg-black px-4 py-1.5 text-sm text-white hover:bg-gray-800"
+          className="rounded-md bg-sky-600 px-4 py-1.5 text-sm text-white hover:bg-sky-700"
         >
           Filter
         </button>

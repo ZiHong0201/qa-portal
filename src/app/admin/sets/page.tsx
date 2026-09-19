@@ -18,7 +18,7 @@ export default async function AdminSetsPage() {
         <h1 className="text-2xl font-bold">Question sets</h1>
         <Link
           href="/admin/sets/new"
-          className="rounded-md bg-black px-4 py-2 text-white hover:bg-gray-800"
+          className="rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700"
         >
           + New set
         </Link>
