@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { InteractiveBackdrop } from "@/components/interactive-background";
 import { CelebratingCat } from "@/components/celebrating-cat";
+import { InstallButton } from "@/components/pwa";
 
 export default async function Home() {
   const session = await auth();
@@ -36,6 +37,11 @@ export default async function Home() {
       >
         Log in
       </Link>
+
+      {/* Renders nothing unless this device can actually act on it. */}
+      <div className="mt-4">
+        <InstallButton />
+      </div>
     </main>
   );
 }

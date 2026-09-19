@@ -1,6 +1,6 @@
 import { Nav } from "@/components/nav";
 import { CatCompanion } from "@/components/cat-companion";
-import { PwaRegister } from "@/components/pwa-register";
+import { InstallBanner } from "@/components/pwa";
 import { QuestionHintProvider } from "@/components/question-hint-context";
 
 export default function DashboardLayout({
@@ -13,7 +13,7 @@ export default function DashboardLayout({
       <div className="min-h-screen bg-gray-50">
         <Nav />
         <div className="mx-auto max-w-4xl px-4 py-8">
-          <PwaRegister />
+          <InstallBanner />
           {children}
         </div>
         <CatCompanion />

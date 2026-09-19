@@ -6,12 +6,19 @@
 // worse than showing nothing. So navigations always go to the network, and the
 // cache exists only to put a friendly page up when the device is offline.
 // Static build assets are cached because they are content-hashed and therefore
-// safe to reuse.
+// safe to reuse - in production. The dev server reuses chunk names, so caching
+// them there serves stale JavaScript after every edit; see IS_DEV below.
 
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL_CACHE = `portal-shell-${VERSION}`;
 const ASSET_CACHE = `portal-assets-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
+
+// Turbopack reuses chunk filenames between rebuilds, so a cache-first rule on
+// /_next/static would keep handing back the previous build's code. Production
+// filenames are content-hashed, so this only disables caching locally.
+const IS_DEV =
+  self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -60,8 +67,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Build output is content-hashed, so a cache hit can never be stale.
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) {
+  // Build output is content-hashed in production, so a cache hit can never be
+  // stale there. Locally it can, so leave it to the network.
+  if (
+    !IS_DEV &&
+    (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/"))
+  ) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;
