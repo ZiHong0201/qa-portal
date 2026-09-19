@@ -1,6 +1,6 @@
 import { LoginForm } from "./login-form";
 import { InteractiveBackdrop } from "@/components/interactive-background";
-import { CelebratingCat } from "@/components/celebrating-cat";
+import { BrandAvatar } from "@/components/brand-avatar";
 
 export default async function LoginPage({
   searchParams,
@@ -17,7 +17,7 @@ export default async function LoginPage({
     // select-none stops a drag turning into a text selection.
     //
     // Because nothing scrolls, the page must always fit. On a short screen
-    // (a phone held sideways) the "short" variants drop the cat and shrink
+    // (a phone held sideways) the "short" variants drop the portrait and shrink
     // the type so the form and its button stay on screen.
     <main className="relative flex h-dvh flex-col items-center justify-center overflow-hidden overscroll-none px-4 py-10 short:py-4 touch-manipulation select-none">
       <InteractiveBackdrop />
@@ -25,7 +25,7 @@ export default async function LoginPage({
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center short:mb-2">
           <div className="short:hidden">
-            <CelebratingCat size="h-20 w-20" sparkleSize="text-lg" />
+            <BrandAvatar size={80} />
           </div>
           <h1 className="mt-2 bg-gradient-to-r from-sky-600 via-indigo-600 to-violet-600 bg-clip-text text-3xl font-bold text-transparent short:mt-0">
             Mr Tan Exercise Portal

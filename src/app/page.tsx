@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { InteractiveBackdrop } from "@/components/interactive-background";
-import { CelebratingCat } from "@/components/celebrating-cat";
+import { BrandAvatar } from "@/components/brand-avatar";
 import { InstallButton } from "@/components/pwa";
 
 export default async function Home() {
@@ -18,7 +18,7 @@ export default async function Home() {
       <InteractiveBackdrop />
 
       <div className="short:hidden">
-        <CelebratingCat size="h-28 w-28" sparkleSize="text-2xl" />
+        <BrandAvatar size={112} />
       </div>
 
       <h1 className="mt-3 bg-gradient-to-r from-sky-600 via-indigo-600 to-violet-600 bg-clip-text text-4xl font-bold text-transparent sm:text-5xl">

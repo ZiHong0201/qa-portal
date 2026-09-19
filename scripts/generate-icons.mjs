@@ -60,4 +60,9 @@ await writeMaskable(192, "icon-maskable-192.png");
 // and edge to edge.
 await writeIcon(180, "apple-touch-icon.png");
 
+// The browser-tab icon is just icon-192.png above, pointed at from the root
+// layout's metadata. No favicon.ico is generated: Next runs that filename
+// through its image pipeline, which rejects the PNG-inside-ICO wrapper sharp
+// can produce, and the build fails with "Processing image failed".
+
 console.log("\nDone.");

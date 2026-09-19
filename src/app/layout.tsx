@@ -21,7 +21,13 @@ export const metadata: Metadata = {
   // opens the app on their own home page.
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "Mr Tan", statusBarStyle: "default" },
-  icons: { apple: "/icons/apple-touch-icon.png" },
+  // Both listed explicitly: declaring an `icons` object at all stops Next
+  // auto-emitting the link for a file-based src/app/icon.png, so the tab icon
+  // has to be named here too or the browser falls back to nothing.
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", type: "image/png" }],
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
