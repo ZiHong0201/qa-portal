@@ -86,3 +86,22 @@ export async function getPetView(studentId: string): Promise<PetView | null> {
     }),
   };
 }
+
+/**
+ * Just the look of a student's cat, for theming the decorative cats around
+ * the portal. Returns null when they have not adopted one, which leaves every
+ * one of those cats at its original grey.
+ */
+export async function getPetAppearance(
+  studentId: string
+): Promise<{ coat: string; equipped: string[] } | null> {
+  const pet = await prisma.pet.findUnique({
+    where: { ownerId: studentId },
+    select: {
+      coat: true,
+      owned: { where: { equipped: true }, select: { item: { select: { key: true } } } },
+    },
+  });
+  if (!pet) return null;
+  return { coat: pet.coat, equipped: pet.owned.map((o) => o.item.key) };
+}

@@ -101,6 +101,19 @@ export function clothingKeys() {
   return Object.keys(CLOTHING);
 }
 
+/**
+ * Garments for one slot, ready to drop into any drawing that uses the same
+ * 100x100 grid and body proportions as PetCat. CelebratingCat does; the
+ * companion, the runner and the wink cat are drawn differently, so they take
+ * the coat colour only - a hat positioned for this grid would sit beside
+ * their heads rather than on them.
+ */
+export function clothingFor(equipped: string[], slot: string, stroke: string) {
+  return equipped
+    .filter((key) => CLOTHING[key]?.slot === slot)
+    .map((key) => <g key={key}>{CLOTHING[key].draw(stroke)}</g>);
+}
+
 export function PetCat({
   coat,
   equipped = [],

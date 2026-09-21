@@ -58,7 +58,8 @@ export async function adoptPet(
     },
   });
 
-  revalidatePath("/dashboard/pet");
+  // A new cat re-themes every decorative cat on the dashboard at once.
+  revalidatePath("/dashboard", "layout");
   return { success: "Welcome home!" };
 }
 
@@ -123,8 +124,7 @@ export async function buyPetItem(itemId: string): Promise<PetActionState> {
     }
   });
 
-  revalidatePath("/dashboard/pet");
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
 
   return {
     success:
@@ -161,7 +161,10 @@ export async function togglePetItem(ownedId: string): Promise<PetActionState> {
     });
   });
 
-  revalidatePath("/dashboard/pet");
+  // The coat and accessories theme the decorative cats across the whole
+  // dashboard, so the layout has to be rebuilt too - revalidating just this
+  // page leaves the companion and the celebration cat in the old outfit.
+  revalidatePath("/dashboard", "layout");
   return {};
 }
 
@@ -186,7 +189,7 @@ export async function pettingSession(): Promise<PetActionState> {
     data: { happiness: next.happiness, hunger: stats.hunger, statsAt: new Date() },
   });
 
-  revalidatePath("/dashboard/pet");
+  revalidatePath("/dashboard", "layout");
   return { success: `${pet.name} purrs.` };
 }
 
@@ -209,6 +212,6 @@ export async function renamePet(
     data: { name: parsed.data },
   });
 
-  revalidatePath("/dashboard/pet");
+  revalidatePath("/dashboard", "layout");
   return { success: "Renamed." };
 }

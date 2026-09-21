@@ -1,5 +1,8 @@
 "use client";
 
+import { coatOf } from "@/lib/pet";
+import { usePetAppearance } from "@/components/pet-appearance";
+
 import { useState } from "react";
 import { useQuestionHint } from "./question-hint-context";
 
@@ -95,32 +98,36 @@ export function CatCompanion() {
 // Same cat as CelebratingCat / CatWink, framed as a head-and-ears portrait so
 // it still reads at the 44px the floating button gives it.
 function CatFace() {
+  // Colour only: framed as a head-and-ears portrait on its own proportions, so
+  // garments from the 100x100 grid would not line up. Takes the adopted coat.
+  const { fur, stroke } = coatOf(usePetAppearance()?.coat ?? "grey");
+
   return (
     <svg viewBox="0 0 100 100" width="44" height="44" aria-hidden="true">
       {/* ears, drawn before the head so their bases stay hidden */}
       <path
         d="M25 40 L15 11 L47 29 Z"
-        fill="#8f8983"
-        stroke="#4a4540"
+        fill={fur}
+        stroke={stroke}
         strokeWidth="3"
         strokeLinejoin="round"
       />
       <path
         d="M75 40 L85 11 L53 29 Z"
-        fill="#8f8983"
-        stroke="#4a4540"
+        fill={fur}
+        stroke={stroke}
         strokeWidth="3"
         strokeLinejoin="round"
       />
       <path d="M26 33 L21 18 L39 29 Z" fill="#d9b3ae" />
       <path d="M74 33 L79 18 L61 29 Z" fill="#d9b3ae" />
       {/* head */}
-      <circle cx="50" cy="58" r="33" fill="#8f8983" stroke="#4a4540" strokeWidth="3" />
+      <circle cx="50" cy="58" r="33" fill={fur} stroke={stroke} strokeWidth="3" />
       {/* muzzle */}
       <ellipse cx="50" cy="74.7" rx="18" ry="11.8" fill="#ffffff" />
       {/* eyes */}
-      <circle cx="36.1" cy="56.6" r="7.8" fill="#82b24c" stroke="#4a4540" strokeWidth="2" />
-      <circle cx="63.9" cy="56.6" r="7.8" fill="#82b24c" stroke="#4a4540" strokeWidth="2" />
+      <circle cx="36.1" cy="56.6" r="7.8" fill="#82b24c" stroke={stroke} strokeWidth="2" />
+      <circle cx="63.9" cy="56.6" r="7.8" fill="#82b24c" stroke={stroke} strokeWidth="2" />
       <ellipse cx="36.1" cy="56.6" rx="3.2" ry="5.8" fill="#2f2b27" />
       <ellipse cx="63.9" cy="56.6" rx="3.2" ry="5.8" fill="#2f2b27" />
       <circle cx="33.6" cy="53.3" r="2.2" fill="#ffffff" />
@@ -134,14 +141,14 @@ function CatFace() {
       <path
         d="M50 73.9 Q43.9 80.8 38.3 75.6"
         fill="none"
-        stroke="#4a4540"
+        stroke={stroke}
         strokeWidth="2.4"
         strokeLinecap="round"
       />
       <path
         d="M50 73.9 Q56.1 80.8 61.7 75.6"
         fill="none"
-        stroke="#4a4540"
+        stroke={stroke}
         strokeWidth="2.4"
         strokeLinecap="round"
       />
@@ -149,7 +156,7 @@ function CatFace() {
       <path
         d="M31.9 67.6 Q22.2 64.3 15.2 62.2"
         fill="none"
-        stroke="#4a4540"
+        stroke={stroke}
         strokeWidth="1.5"
         strokeLinecap="round"
         opacity="0.65"
@@ -157,7 +164,7 @@ function CatFace() {
       <path
         d="M31.9 73.3 Q21.5 73.3 13.8 74"
         fill="none"
-        stroke="#4a4540"
+        stroke={stroke}
         strokeWidth="1.5"
         strokeLinecap="round"
         opacity="0.65"
@@ -165,7 +172,7 @@ function CatFace() {
       <path
         d="M68.1 67.6 Q77.8 64.3 84.8 62.2"
         fill="none"
-        stroke="#4a4540"
+        stroke={stroke}
         strokeWidth="1.5"
         strokeLinecap="round"
         opacity="0.65"
@@ -173,7 +180,7 @@ function CatFace() {
       <path
         d="M68.1 73.3 Q78.5 73.3 86.2 74"
         fill="none"
-        stroke="#4a4540"
+        stroke={stroke}
         strokeWidth="1.5"
         strokeLinecap="round"
         opacity="0.65"
