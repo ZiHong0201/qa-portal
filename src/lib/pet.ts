@@ -29,6 +29,20 @@ export function coatOf(key: string) {
   return COATS.find((c) => c.key === key) ?? COATS[0];
 }
 
+/**
+ * The coats a student can actually choose.
+ *
+ * Only grey has drawn artwork, so it is the only one offered. The other
+ * entries in COATS are kept because the SVG fallback still recolours by key,
+ * and because restoring the choice is then a one-line change once art for
+ * another colour exists - nothing else has to be rebuilt.
+ *
+ * Offering a colour with no artwork would be worse than offering none: the
+ * student picks ginger, gets the fallback cat, and it reads as a different
+ * animal rather than a differently coloured one.
+ */
+export const AVAILABLE_COATS = COATS.filter((c) => c.key === "grey");
+
 export type StoredStats = { hunger: number; happiness: number; statsAt: Date };
 export type Stats = { hunger: number; happiness: number };
 

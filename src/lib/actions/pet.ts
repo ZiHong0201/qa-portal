@@ -6,7 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getStudentBalance } from "@/lib/points";
 import { petAccess } from "@/lib/pet.server";
-import { currentStats, applyEffect, COATS, PET_NAME_MAX_LENGTH } from "@/lib/pet";
+import { currentStats, applyEffect, AVAILABLE_COATS, PET_NAME_MAX_LENGTH } from "@/lib/pet";
 
 export type PetActionState = { error?: string; success?: string };
 
@@ -27,7 +27,9 @@ const adoptSchema = z.object({
     .trim()
     .min(1, "Give your cat a name")
     .max(PET_NAME_MAX_LENGTH, `Name must be ${PET_NAME_MAX_LENGTH} characters or fewer`),
-  coat: z.string().refine((c) => COATS.some((x) => x.key === c), "Pick a colour"),
+  coat: z
+    .string()
+    .refine((c) => AVAILABLE_COATS.some((x) => x.key === c), "That colour is not available"),
 });
 
 export async function adoptPet(
