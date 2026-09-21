@@ -118,7 +118,13 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
       <div className="rounded-2xl border border-sky-100 bg-gradient-to-b from-sky-50 to-white p-6 shadow-sm">
         <div className="flex flex-col items-center">
           <div className="relative">
-            <PetCat coat={pet.coat} equipped={equipped} mood={pet.mood.key} className="h-44 w-44" />
+            <PetCat
+              coat={pet.coat}
+              equipped={equipped}
+              mood={pet.mood.key}
+              chewing={effect?.kind === "treat"}
+              className="h-44 w-44"
+            />
 
             {effect?.kind === "treat" && (
               <div

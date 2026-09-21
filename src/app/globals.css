@@ -437,3 +437,133 @@ select {
     animation-duration: 0.01ms;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Virtual cat rig (src/components/pet-cat.tsx).
+
+   Each body part is its own group so it can move independently - tail, ears,
+   head, eyes, paws - which is what makes the cat feel alive rather than a
+   picture that scales. Head-slot clothing lives INSIDE the head group, so a
+   hat tilts along with the head instead of floating free of it.
+
+   transform-box: fill-box is essential: without it an SVG transform-origin is
+   measured from the origin of the whole viewBox, so "rotate about the base of
+   the tail" would swing the tail around the corner of the image instead.
+--------------------------------------------------------------------------- */
+.cat-part {
+  transform-box: fill-box;
+}
+
+/* Tail: a lazy swish from where it joins the body. */
+@keyframes cat-tail {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(7deg);
+  }
+}
+
+.cat-tail {
+  transform-origin: 10% 90%;
+  animation: cat-tail var(--tail-speed, 3.2s) ease-in-out infinite;
+}
+
+/* Head: a small drift, slower than the tail so the two never look locked. */
+@keyframes cat-head {
+  0%,
+  100% {
+    transform: rotate(-1.6deg) translateY(0);
+  }
+  50% {
+    transform: rotate(1.6deg) translateY(-1px);
+  }
+}
+
+.cat-head {
+  transform-origin: 50% 95%;
+  animation: cat-head var(--head-speed, 4.6s) ease-in-out infinite;
+}
+
+/* Blink: shut for a fraction of the cycle, so it reads as a blink rather than
+   a slow wink. Squashed vertically from the middle of the eye. */
+@keyframes cat-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95%,
+  97% {
+    transform: scaleY(0.08);
+  }
+}
+
+.cat-eyes {
+  transform-origin: 50% 50%;
+  animation: cat-blink var(--blink-speed, 5.4s) ease-in-out infinite;
+}
+
+/* Ears flick occasionally, and only briefly - most of the cycle is still. */
+@keyframes cat-ear {
+  0%,
+  86%,
+  100% {
+    transform: rotate(0deg);
+  }
+  90% {
+    transform: rotate(-7deg);
+  }
+  94% {
+    transform: rotate(3deg);
+  }
+}
+
+.cat-ear {
+  transform-origin: 50% 100%;
+  animation: cat-ear 6.8s ease-in-out infinite;
+}
+
+/* Breathing lives on the body now rather than the whole drawing, so the head
+   and tail keep their own motion instead of the lot pulsing together. */
+@keyframes cat-breathe-body {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+.cat-body {
+  transform-origin: 50% 100%;
+  animation: cat-breathe-body 3.6s ease-in-out infinite;
+}
+
+/* Chewing, played while a treat is being eaten. */
+@keyframes cat-chew {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.9) translateY(1px);
+  }
+}
+
+.cat-chewing .cat-head {
+  animation: cat-chew 0.22s ease-in-out 7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cat-tail,
+  .cat-head,
+  .cat-eyes,
+  .cat-ear,
+  .cat-body,
+  .cat-chewing .cat-head {
+    animation: none;
+  }
+}

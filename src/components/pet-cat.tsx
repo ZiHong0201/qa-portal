@@ -105,12 +105,15 @@ export function PetCat({
   coat,
   equipped = [],
   mood,
+  chewing = false,
   className,
 }: {
   coat: string;
   /** PetItem keys currently worn. Unknown keys are ignored. */
   equipped?: string[];
   mood?: Mood["key"];
+  /** Plays the chewing animation - set briefly while a treat is eaten. */
+  chewing?: boolean;
   className?: string;
 }) {
   const { fur, ear, stroke } = coatOf(coat);
@@ -118,73 +121,88 @@ export function PetCat({
   const worn = SLOT_ORDER.flatMap((slot) =>
     equipped.filter((key) => CLOTHING[key]?.slot === slot).map((key) => ({ key, ...CLOTHING[key] }))
   );
+  const inSlot = (slot: string) => worn.filter((w) => w.slot === slot);
 
-  // A hungry or lonely cat sits still; a happy one bobs; otherwise it breathes.
-  // Every one of these either has no transform or starts at scale(1), so the
-  // cat is never invisible when an animation does not run - see the note on
-  // cat-breathe in globals.css.
-  const animation =
+  // Mood drives the pace rather than swapping animations in and out, so the
+  // cat is always moving - a contented cat is simply slower than a delighted
+  // one, and a miserable one barely stirs.
+  const pace =
     mood === "happy"
-      ? "animate-cat-hop"
+      ? { tail: "1.5s", head: "2.4s", blink: "3.2s" }
       : mood === "sad" || mood === "hungry"
-        ? ""
-        : "animate-cat-breathe";
+        ? { tail: "5.5s", head: "7s", blink: "7.5s" }
+        : { tail: "3.2s", head: "4.6s", blink: "5.4s" };
 
   return (
-    <svg viewBox="0 0 100 100" className={`${animation} ${className ?? ""}`} role="img" aria-label="Your cat">
-      {/* tail */}
-      <path d="M71 84 C 90 86 97 68 89 57 C 85 51 77 53 78 61" fill="none" stroke={fur} strokeWidth="9" strokeLinecap="round" />
-      <path d="M71 84 C 90 86 97 68 89 57 C 85 51 77 53 78 61" fill="none" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+    <svg
+      viewBox="0 0 100 100"
+      className={`${chewing ? "cat-chewing" : ""} ${className ?? ""}`}
+      style={{
+        ["--tail-speed" as string]: pace.tail,
+        ["--head-speed" as string]: pace.head,
+        ["--blink-speed" as string]: pace.blink,
+      }}
+      role="img"
+      aria-label="Your cat"
+    >
+      {/* Tail, behind everything and swinging from where it meets the body. */}
+      <g className="cat-part cat-tail">
+        <path d="M71 84 C 90 86 97 68 89 57 C 85 51 77 53 78 61" fill="none" stroke={fur} strokeWidth="9" strokeLinecap="round" />
+        <path d="M71 84 C 90 86 97 68 89 57 C 85 51 77 53 78 61" fill="none" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+      </g>
 
-      {/* body */}
-      <path d="M31 50 C 24 66 19 84 26 90 C 33 96 67 96 74 90 C 81 84 76 66 69 50 Z" fill={fur} stroke={stroke} strokeWidth="2.2" strokeLinejoin="round" />
-      <path d="M50 56 C 61 61 63 79 59 92 L41 92 C 37 79 39 61 50 56 Z" fill="#ffffff" opacity="0.9" />
-      <ellipse cx="39" cy="89" rx="8" ry="5" fill="#ffffff" stroke={stroke} strokeWidth="2" />
-      <ellipse cx="61" cy="89" rx="8" ry="5" fill="#ffffff" stroke={stroke} strokeWidth="2" />
+      {/* Body, breathing gently from its base so the paws stay planted. */}
+      <g className="cat-part cat-body">
+        <path d="M31 50 C 24 66 19 84 26 90 C 33 96 67 96 74 90 C 81 84 76 66 69 50 Z" fill={fur} stroke={stroke} strokeWidth="2.2" strokeLinejoin="round" />
+        <path d="M50 56 C 61 61 63 79 59 92 L41 92 C 37 79 39 61 50 56 Z" fill="#ffffff" opacity="0.9" />
+        <ellipse cx="39" cy="89" rx="8" ry="5" fill="#ffffff" stroke={stroke} strokeWidth="2" />
+        <ellipse cx="61" cy="89" rx="8" ry="5" fill="#ffffff" stroke={stroke} strokeWidth="2" />
+        {inSlot("body").map((w) => <g key={w.key}>{w.draw(stroke)}</g>)}
+      </g>
 
-      {/* body-slot clothing sits over the torso but under the head */}
-      {worn.filter((w) => w.slot === "body").map((w) => <g key={w.key}>{w.draw(stroke)}</g>)}
+      {/* Neck clothing sits under the head so it tucks beneath the chin. */}
+      {inSlot("neck").map((w) => <g key={w.key}>{w.draw(stroke)}</g>)}
 
-      {/* ears, drawn before the head so their bases stay hidden */}
-      <path d="M32 27 L25 6 L48 19 Z" fill={fur} stroke={stroke} strokeWidth="2.2" strokeLinejoin="round" />
-      <path d="M68 27 L75 6 L52 19 Z" fill={fur} stroke={stroke} strokeWidth="2.2" strokeLinejoin="round" />
-      <path d="M34 24 L30 12 L44 20 Z" fill={ear} />
-      <path d="M66 24 L70 12 L56 20 Z" fill={ear} />
+      {/* Everything from here moves as one head: ears, face, and any hat. */}
+      <g className="cat-part cat-head">
+        <g className="cat-part cat-ear">
+          <path d="M32 27 L25 6 L48 19 Z" fill={fur} stroke={stroke} strokeWidth="2.2" strokeLinejoin="round" />
+          <path d="M34 24 L30 12 L44 20 Z" fill={ear} />
+        </g>
+        <g className="cat-part cat-ear" style={{ animationDelay: "0.5s" }}>
+          <path d="M68 27 L75 6 L52 19 Z" fill={fur} stroke={stroke} strokeWidth="2.2" strokeLinejoin="round" />
+          <path d="M66 24 L70 12 L56 20 Z" fill={ear} />
+        </g>
 
-      {/* neck-slot clothing, under the head so it tucks beneath the chin */}
-      {worn.filter((w) => w.slot === "neck").map((w) => <g key={w.key}>{w.draw(stroke)}</g>)}
+        <ellipse cx="50" cy="34" rx="22" ry="19" fill={fur} stroke={stroke} strokeWidth="2.2" />
 
-      {/* head */}
-      <ellipse cx="50" cy="34" rx="22" ry="19" fill={fur} stroke={stroke} strokeWidth="2.2" />
+        {/* Eyes blink as a group. A happy cat keeps them happily shut. */}
+        {mood === "happy" ? (
+          <>
+            <path d="M38 33 q 4 -5 8 0" fill="none" stroke={stroke} strokeWidth="2.4" strokeLinecap="round" />
+            <path d="M54 33 q 4 -5 8 0" fill="none" stroke={stroke} strokeWidth="2.4" strokeLinecap="round" />
+          </>
+        ) : (
+          <g className="cat-part cat-eyes">
+            <ellipse cx="42" cy="33" rx="3.4" ry="4.2" fill={stroke} />
+            <ellipse cx="58" cy="33" rx="3.4" ry="4.2" fill={stroke} />
+            <circle cx="43.2" cy="31.6" r="1.2" fill="#ffffff" />
+            <circle cx="59.2" cy="31.6" r="1.2" fill="#ffffff" />
+          </g>
+        )}
 
-      {/* eyes - closed and content, or open and round */}
-      {mood === "happy" ? (
-        <>
-          <path d="M38 33 q 4 -5 8 0" fill="none" stroke={stroke} strokeWidth="2.4" strokeLinecap="round" />
-          <path d="M54 33 q 4 -5 8 0" fill="none" stroke={stroke} strokeWidth="2.4" strokeLinecap="round" />
-        </>
-      ) : (
-        <>
-          <ellipse cx="42" cy="33" rx="3.4" ry="4.2" fill={stroke} />
-          <ellipse cx="58" cy="33" rx="3.4" ry="4.2" fill={stroke} />
-          <circle cx="43.2" cy="31.6" r="1.2" fill="#ffffff" />
-          <circle cx="59.2" cy="31.6" r="1.2" fill="#ffffff" />
-        </>
-      )}
+        <path d="M47 40 L53 40 L50 43.5 Z" fill={ear} stroke={stroke} strokeWidth="1.2" strokeLinejoin="round" />
+        {mood === "sad" || mood === "hungry" ? (
+          <path d="M44 49 q 6 -4 12 0" fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" />
+        ) : (
+          <path d="M44 45 q 6 5 12 0" fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" />
+        )}
 
-      {/* nose and mouth */}
-      <path d="M47 40 L53 40 L50 43.5 Z" fill={ear} stroke={stroke} strokeWidth="1.2" strokeLinejoin="round" />
-      {mood === "sad" || mood === "hungry" ? (
-        <path d="M44 49 q 6 -4 12 0" fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" />
-      ) : (
-        <path d="M44 45 q 6 5 12 0" fill="none" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" />
-      )}
+        <path d="M28 38 L40 40 M28 43 L40 43 M72 38 L60 40 M72 43 L60 43" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" opacity="0.8" />
 
-      {/* whiskers */}
-      <path d="M28 38 L40 40 M28 43 L40 43 M72 38 L60 40 M72 43 L60 43" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" opacity="0.8" />
-
-      {/* head-slot clothing last, on top of everything */}
-      {worn.filter((w) => w.slot === "head").map((w) => <g key={w.key}>{w.draw(stroke)}</g>)}
+        {/* Hats last, and inside the head group so they tilt with it. */}
+        {inSlot("head").map((w) => <g key={w.key}>{w.draw(stroke)}</g>)}
+      </g>
     </svg>
   );
 }
