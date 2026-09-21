@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { LOCAL_TIME_ZONE } from "@/lib/announcements";
 
 /**
@@ -8,12 +9,21 @@ import { LOCAL_TIME_ZONE } from "@/lib/announcements";
  *
  * Both dates are optional: an empty start means "live already", an empty end
  * means "until switched off".
+ *
+ * Every field is state-backed rather than left to defaultValue. React resets a
+ * form once its action returns, so an uncontrolled field would be wiped the
+ * moment the server rejected anything - losing a carefully typed campaign
+ * window just because the end date was a day early.
  */
 export function WindowFields({
   initial,
 }: {
   initial?: { startsAt: string; endsAt: string; isActive: boolean };
 }) {
+  const [startsAt, setStartsAt] = useState(initial?.startsAt ?? "");
+  const [endsAt, setEndsAt] = useState(initial?.endsAt ?? "");
+  const [isActive, setIsActive] = useState(initial?.isActive ?? true);
+
   return (
     <fieldset className="rounded-md border border-gray-200 p-4">
       <legend className="px-1 text-sm font-medium">Display period</legend>
@@ -27,7 +37,8 @@ export function WindowFields({
             id="startsAt"
             name="startsAt"
             type="datetime-local"
-            defaultValue={initial?.startsAt ?? ""}
+            value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
             className="rounded-md border border-gray-300 px-3 py-2"
           />
           <p className="mt-1 text-xs text-gray-500">Leave empty to start straight away.</p>
@@ -41,7 +52,8 @@ export function WindowFields({
             id="endsAt"
             name="endsAt"
             type="datetime-local"
-            defaultValue={initial?.endsAt ?? ""}
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
             className="rounded-md border border-gray-300 px-3 py-2"
           />
           <p className="mt-1 text-xs text-gray-500">Leave empty to run until switched off.</p>
@@ -60,7 +72,8 @@ export function WindowFields({
           type="checkbox"
           name="isActive"
           value="true"
-          defaultChecked={initial?.isActive ?? true}
+          checked={isActive}
+          onChange={(e) => setIsActive(e.target.checked)}
           className="h-4 w-4"
         />
         Switched on

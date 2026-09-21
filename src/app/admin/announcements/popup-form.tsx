@@ -23,6 +23,11 @@ export function PopupForm({
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
+  // State-backed for the same reason as the window fields: React resets the
+  // form once the action returns, so a rejected submission would otherwise
+  // clear whatever was typed.
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [linkUrl, setLinkUrl] = useState(initial?.linkUrl ?? "");
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -39,7 +44,8 @@ export function PopupForm({
         <input
           id="title"
           name="title"
-          defaultValue={initial?.title ?? ""}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. Mid-term break: portal closed 20-24 Oct"
           className="w-full rounded-md border border-gray-300 px-3 py-2"
         />
@@ -56,7 +62,8 @@ export function PopupForm({
           id="linkUrl"
           name="linkUrl"
           type="url"
-          defaultValue={initial?.linkUrl ?? ""}
+          value={linkUrl}
+          onChange={(e) => setLinkUrl(e.target.value)}
           placeholder="https://example.com"
           className="w-full rounded-md border border-gray-300 px-3 py-2"
         />
