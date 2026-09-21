@@ -1,6 +1,7 @@
 import { LoginForm } from "./login-form";
 import { InteractiveBackdrop } from "@/components/interactive-background";
 import { BrandAvatar } from "@/components/brand-avatar";
+import { DevDisclaimerNote } from "@/components/dev-disclaimer";
 
 export default async function LoginPage({
   searchParams,
@@ -39,6 +40,8 @@ export default async function LoginPage({
           <LoginForm callbackUrl={callbackUrl} />
         </div>
       </div>
+
+      <DevDisclaimerNote />
     </main>
   );
 }

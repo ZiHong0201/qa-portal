@@ -30,6 +30,10 @@ function accuracyColor(accuracy: number) {
   return "text-rose-500";
 }
 
+function days(n: number) {
+  return `${n} day${n === 1 ? "" : "s"}`;
+}
+
 function boardHref(form: string | null, metric: LeaderboardMetric) {
   const params = new URLSearchParams(form ? { form } : {});
   if (metric !== "points") params.set("by", metric);
@@ -62,6 +66,30 @@ function Score({ student, metric }: { student: RankedStudent; metric: Leaderboar
         {student.accuracy}% correct
       </span>
     );
+
+  if (metric === "streak") {
+    // Whether the run is still alive is the interesting part once the best
+    // figure is shown, so it gets the subtitle rather than the marks. Note a
+    // streak counts as alive on the strength of yesterday's check-in - today's
+    // is still there to be claimed - so the wording avoids saying "today".
+    return (
+      <span className="shrink-0 text-right">
+        <span className="block">
+          <span className="text-lg font-bold text-amber-600">{student.longestStreak}</span>
+          <span className="ml-1 text-xs text-gray-500">
+            day{student.longestStreak === 1 ? "" : "s"}
+          </span>
+        </span>
+        <span className="block text-xs text-gray-500">
+          {student.currentStreak === 0
+            ? "streak broken"
+            : student.currentStreak === student.longestStreak
+              ? "still going"
+              : `now on ${days(student.currentStreak)}`}
+        </span>
+      </span>
+    );
+  }
 
   if (metric === "accuracy") {
     return (
@@ -102,7 +130,8 @@ export default async function LeaderboardPage({
   const session = await auth();
   const userId = session!.user.id;
 
-  const metric: LeaderboardMetric = by === "accuracy" ? "accuracy" : "points";
+  const metric: LeaderboardMetric =
+    by === "accuracy" ? "accuracy" : by === "streak" ? "streak" : "points";
 
   // The session carries id and role only, so the viewer's own form - which
   // decides the default board - comes from the user record.
@@ -139,6 +168,9 @@ export default async function LeaderboardPage({
   const myStats = all.find((s) => s.id === userId);
   const excludedForAccuracy =
     metric === "accuracy" && !!myStats && myStats.graded < MIN_GRADED_FOR_ACCURACY;
+  // Unlike accuracy, a student with no check-ins at all has no stats row, so
+  // this covers both "never checked in" and "row exists but streak is 0".
+  const excludedForStreak = metric === "streak" && (!myStats || myStats.longestStreak === 0);
 
   const heading = form ? `Scoreboard · ${form}` : "Scoreboard";
 
@@ -148,7 +180,9 @@ export default async function LeaderboardPage({
       <p className="mb-4 text-sm text-gray-500">
         {metric === "points"
           ? "Top 10 by marks earned. Equal marks are separated by accuracy."
-          : `Top 10 by share of answers correct, among students with at least ${MIN_GRADED_FOR_ACCURACY} marked answers.`}
+          : metric === "streak"
+            ? "Top 10 by the longest run of daily check-ins ever reached. Equal runs are separated by whose streak is still going."
+            : `Top 10 by share of answers correct, among students with at least ${MIN_GRADED_FOR_ACCURACY} marked answers.`}
       </p>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -158,6 +192,9 @@ export default async function LeaderboardPage({
         </Chip>
         <Chip href={boardHref(form, "accuracy")} active={metric === "accuracy"}>
           Accuracy
+        </Chip>
+        <Chip href={boardHref(form, "streak")} active={metric === "streak"}>
+          Longest streak
         </Chip>
       </div>
 
@@ -178,7 +215,9 @@ export default async function LeaderboardPage({
           <p className="mt-1 text-sm text-gray-500">
             {metric === "accuracy"
               ? `No one here has ${MIN_GRADED_FOR_ACCURACY} marked answers yet.`
-              : "Answer some questions and you'll be the first on the board."}
+              : metric === "streak"
+                ? "No one here has checked in yet. Claim your daily marks and you'll be the first on the board."
+                : "Answer some questions and you'll be the first on the board."}
           </p>
         </div>
       ) : (
@@ -238,7 +277,9 @@ export default async function LeaderboardPage({
             <p className="text-xs text-sky-700/70">
               {metric === "points"
                 ? `${(tenth.points - me.points).toLocaleString()} pts behind 10th place`
-                : `${(tenth.accuracy ?? 0) - (me.accuracy ?? 0)}% behind 10th place`}
+                : metric === "streak"
+                  ? `${days(tenth.longestStreak - me.longestStreak)} behind 10th place`
+                  : `${(tenth.accuracy ?? 0) - (me.accuracy ?? 0)}% behind 10th place`}
             </p>
           </div>
           <Score student={me} metric={metric} />
@@ -249,6 +290,16 @@ export default async function LeaderboardPage({
         <p className="mt-4 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">
           You need {MIN_GRADED_FOR_ACCURACY} marked answers to appear on the accuracy board - you
           have {myStats.graded}. Keep going!
+        </p>
+      )}
+
+      {excludedForStreak && (
+        <p className="mt-4 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">
+          Check in on the{" "}
+          <Link href="/dashboard" className="font-medium text-sky-700 hover:underline">
+            home page
+          </Link>{" "}
+          to start a streak and get on this board.
         </p>
       )}
     </div>

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { InteractiveBackdrop } from "@/components/interactive-background";
 import { BrandAvatar } from "@/components/brand-avatar";
 import { InstallButton } from "@/components/pwa";
+import { DevDisclaimerNote } from "@/components/dev-disclaimer";
 
 export default async function Home() {
   const session = await auth();
@@ -42,6 +43,8 @@ export default async function Home() {
       <div className="mt-4">
         <InstallButton />
       </div>
+
+      <DevDisclaimerNote />
     </main>
   );
 }

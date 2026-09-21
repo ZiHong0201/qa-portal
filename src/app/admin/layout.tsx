@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { Nav } from "@/components/nav";
 import { InstallBanner } from "@/components/pwa";
+import { DevDisclaimerBar } from "@/components/dev-disclaimer";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -10,6 +11,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen bg-gray-50">
       <Nav />
+      <DevDisclaimerBar />
       <div className="mx-auto max-w-screen-2xl px-4 py-8">
         <InstallBanner />
         {children}
