@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getStudentBalance } from "@/lib/points";
 import { RedeemButton } from "./redeem-button";
-import { PetCat } from "@/components/pet-cat";
+import { PetPic } from "@/components/pet-pic";
 
 export default async function StudentCataloguePage() {
   const session = await auth();
@@ -50,7 +50,7 @@ export default async function StudentCataloguePage() {
                 {/* An unlocking item has no photograph to show, so the cat
                     itself stands in for one. */}
                 {item.grantsPet && !item.imageUrl && (
-                  <PetCat coat="ginger" mood="happy" className="h-20 w-20 shrink-0" />
+                  <PetPic pose="happy" className="h-20 w-20 shrink-0 object-contain" />
                 )}
                 <div>
                   <p className="font-medium">

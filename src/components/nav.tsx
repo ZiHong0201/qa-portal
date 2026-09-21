@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
-import { getStudentBalance } from "@/lib/points";
-import { prisma } from "@/lib/prisma";
+import { getStudentNav } from "@/lib/points";
 import { SubmitButton } from "@/components/submit-button";
 import { NavDrawer, type NavLink } from "@/components/nav-drawer";
 
@@ -33,17 +32,13 @@ export async function Nav() {
   let balance: number | null = null;
   let links = isAdmin ? ADMIN_LINKS : STUDENT_LINKS;
   if (!isAdmin) {
-    const [bal, user] = await Promise.all([
-      getStudentBalance(session.user.id),
-      prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { petEnabled: true },
-      }),
-    ]);
-    balance = bal.balance;
+    // One round trip for the marks total and the pet flag together. The nav
+    // renders on every page, so anything extra here is paid for everywhere.
+    const nav = await getStudentNav(session.user.id);
+    balance = nav.balance.balance;
     // The cat is opt-in, and a student who does not have it should not see a
     // link to it at all - the page itself redirects them away regardless.
-    if (user?.petEnabled) {
+    if (nav.petEnabled) {
       links = [...STUDENT_LINKS, { href: "/dashboard/pet", label: "My Cat" }];
     }
   }

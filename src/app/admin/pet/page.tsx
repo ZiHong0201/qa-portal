@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { SubmitButton } from "@/components/submit-button";
-import { PetCat } from "@/components/pet-cat";
+import { PetPic } from "@/components/pet-pic";
 import { setPetAccess, togglePetItemActive, deletePetItem } from "@/lib/actions/pet-admin";
 import { currentStats } from "@/lib/pet";
 
@@ -52,7 +52,7 @@ export default async function AdminPetPage() {
                 <li key={s.id} className="flex items-center justify-between gap-4 px-4 py-3">
                   <div className="flex min-w-0 items-center gap-3">
                     {s.pet ? (
-                      <PetCat coat={s.pet.coat} className="h-9 w-9 shrink-0" />
+                      <PetPic face className="h-9 w-9 shrink-0 object-contain" />
                     ) : (
                       <span className="h-9 w-9 shrink-0" />
                     )}
@@ -109,8 +109,8 @@ export default async function AdminPetPage() {
               className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white p-3"
             >
               <div className="flex min-w-0 items-center gap-3">
-                {item.kind === "CLOTHING" && (
-                  <PetCat coat="grey" equipped={[item.key]} className="h-12 w-12 shrink-0" />
+                {item.kind !== "CLOTHING" && (
+                  <PetPic face className="h-12 w-12 shrink-0 object-contain" />
                 )}
                 <div className="min-w-0">
                   <p className="truncate font-medium">

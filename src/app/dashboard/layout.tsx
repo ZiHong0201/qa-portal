@@ -18,16 +18,18 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [session, announcements, popupAds] = await Promise.all([
-    auth(),
+  // auth() reads the JWT and touches no database, so resolving it first costs
+  // nothing and lets all three queries below go out together. Awaiting the
+  // appearance after the others, as this did, added a whole extra round trip
+  // to every page in the dashboard.
+  const session = await auth();
+
+  const [announcements, popupAds, petAppearance] = await Promise.all([
     getLiveAnnouncements(),
     getLivePopupAds(),
+    // Null for anyone without a cat, which leaves every decorative cat grey.
+    session ? getPetAppearance(session.user.id) : Promise.resolve(null),
   ]);
-
-  // Null for anyone without a cat, which leaves every decorative cat grey.
-  const petAppearance = session
-    ? await getPetAppearance(session.user.id)
-    : null;
 
   return (
     <PetAppearanceProvider value={petAppearance}>

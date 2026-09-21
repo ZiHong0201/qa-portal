@@ -60,6 +60,16 @@ export function petSpriteSrc(coat: string, pose: PetPose) {
   return `/pets/${coat}/${pose}.webp`;
 }
 
+/**
+ * A head-and-ears crop of the same cat, for the places it appears at icon
+ * size - a 24px progress marker, a 28px tick, the 44px companion button. A
+ * whole cat shrunk that far is an unreadable blob. Made by
+ * scripts/prepare-pet-face.mjs.
+ */
+export function petFaceSrc(coat: string) {
+  return `/pets/${coat}/face.webp`;
+}
+
 /** The pose that matches a mood, for the ordinary resting state. */
 export function poseForMood(mood: Mood["key"]): PetPose {
   switch (mood) {

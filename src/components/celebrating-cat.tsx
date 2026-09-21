@@ -1,9 +1,14 @@
 "use client";
 
-import { coatOf } from "@/lib/pet";
-import { clothingFor } from "@/components/pet-cat";
-import { usePetAppearance } from "@/components/pet-appearance";
+import { PetPic } from "@/components/pet-pic";
 
+/**
+ * The cat cheering, for finishing a set and for first place on the board.
+ *
+ * Drawn artwork now rather than hand-built SVG. The sparkles stay as markup
+ * because they animate independently of the cat and are cheaper as three
+ * characters than as part of the image.
+ */
 export function CelebratingCat({
   className,
   // The default matches the inline banners; the completion overlay passes a
@@ -15,13 +20,6 @@ export function CelebratingCat({
   size?: string;
   sparkleSize?: string;
 }) {
-  // Matches the student's own cat when they have one, and stays the original
-  // grey when they do not. Same 100x100 grid as PetCat, so worn garments land
-  // in the right places.
-  const appearance = usePetAppearance();
-  const { fur, stroke } = coatOf(appearance?.coat ?? "grey");
-  const worn = appearance?.equipped ?? [];
-
   return (
     <div className={`relative inline-block ${className ?? ""}`}>
       <span
@@ -42,114 +40,7 @@ export function CelebratingCat({
       >
         &#10022;
       </span>
-      <svg viewBox="0 0 100 100" className={`animate-cat-hop ${size}`} aria-hidden="true">
-        {/* tail */}
-        <path
-          d="M71 84 C 90 86 97 68 89 57 C 85 51 77 53 78 61"
-          fill="none"
-          stroke={fur}
-          strokeWidth="9"
-          strokeLinecap="round"
-        />
-        {/* body */}
-        <path
-          d="M31 50 C 24 66 19 84 26 90 C 33 96 67 96 74 90 C 81 84 76 66 69 50 Z"
-          fill={fur}
-          stroke={stroke}
-          strokeWidth="2.2"
-          strokeLinejoin="round"
-        />
-        {/* chest patch */}
-        <path d="M50 56 C 61 61 63 79 59 92 L 41 92 C 37 79 39 61 50 56 Z" fill="#ffffff" />
-        {/* front paws */}
-        <ellipse cx="39" cy="89" rx="8" ry="5" fill="#ffffff" stroke={stroke} strokeWidth="2" />
-        <ellipse cx="61" cy="89" rx="8" ry="5" fill="#ffffff" stroke={stroke} strokeWidth="2" />
-        {clothingFor(worn, "body", stroke)}
-        {clothingFor(worn, "neck", stroke)}
-
-        {/* ears, drawn before the head so their bases stay hidden */}
-        <path
-          d="M32 27 L25 6 L48 19 Z"
-          fill={fur}
-          stroke={stroke}
-          strokeWidth="2.2"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M68 27 L75 6 L52 19 Z"
-          fill={fur}
-          stroke={stroke}
-          strokeWidth="2.2"
-          strokeLinejoin="round"
-        />
-        <path d="M33 22 L29 11 L42 19 Z" fill="#d9b3ae" />
-        <path d="M67 22 L71 11 L58 19 Z" fill="#d9b3ae" />
-        {/* head */}
-        <circle cx="50" cy="40" r="23" fill={fur} stroke={stroke} strokeWidth="2.2" />
-        {/* muzzle */}
-        <ellipse cx="50" cy="52" rx="13" ry="8.5" fill="#ffffff" />
-        {/* eyes */}
-        <circle cx="40" cy="39" r="5.6" fill="#82b24c" stroke={stroke} strokeWidth="1.4" />
-        <circle cx="60" cy="39" r="5.6" fill="#82b24c" stroke={stroke} strokeWidth="1.4" />
-        <ellipse cx="40" cy="39" rx="2.3" ry="4.2" fill="#2f2b27" />
-        <ellipse cx="60" cy="39" rx="2.3" ry="4.2" fill="#2f2b27" />
-        <circle cx="38.2" cy="36.6" r="1.6" fill="#ffffff" />
-        <circle cx="58.2" cy="36.6" r="1.6" fill="#ffffff" />
-        {/* blush */}
-        <ellipse cx="31" cy="48" rx="4" ry="2.6" fill="#f3b6c4" opacity="0.65" />
-        <ellipse cx="69" cy="48" rx="4" ry="2.6" fill="#f3b6c4" opacity="0.65" />
-        {/* nose */}
-        <path d="M46.6 47.6 Q50 45.4 53.4 47.6 Q50 52 46.6 47.6 Z" fill="#d98b93" />
-        {/* mouth */}
-        <path
-          d="M50 51.4 Q45.6 56.4 41.6 52.6"
-          fill="none"
-          stroke={stroke}
-          strokeWidth="1.7"
-          strokeLinecap="round"
-        />
-        <path
-          d="M50 51.4 Q54.4 56.4 58.4 52.6"
-          fill="none"
-          stroke={stroke}
-          strokeWidth="1.7"
-          strokeLinecap="round"
-        />
-        {/* whiskers, fanned out from the muzzle */}
-        <path
-          d="M37 47.5 Q30 45.5 25 43"
-          fill="none"
-          stroke={stroke}
-          strokeWidth="1.1"
-          strokeLinecap="round"
-          opacity="0.65"
-        />
-        <path
-          d="M37 51 Q29.5 51 24 51.5"
-          fill="none"
-          stroke={stroke}
-          strokeWidth="1.1"
-          strokeLinecap="round"
-          opacity="0.65"
-        />
-        <path
-          d="M63 47.5 Q70 45.5 75 43"
-          fill="none"
-          stroke={stroke}
-          strokeWidth="1.1"
-          strokeLinecap="round"
-          opacity="0.65"
-        />
-        <path
-          d="M63 51 Q70.5 51 76 51.5"
-          fill="none"
-          stroke={stroke}
-          strokeWidth="1.1"
-          strokeLinecap="round"
-          opacity="0.65"
-        />
-        {clothingFor(worn, "head", stroke)}
-      </svg>
+      <PetPic pose="celebrating" className={`animate-cat-hop object-contain ${size}`} />
     </div>
   );
 }
