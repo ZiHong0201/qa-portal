@@ -82,10 +82,15 @@ const withAlpha = await sharp(data, { raw: { width, height, channels } })
 const trimmed = await sharp(withAlpha).trim({ threshold: 1 }).toBuffer();
 const t = await sharp(trimmed).metadata();
 
-// Fit inside the canvas, leaving room for the bottom margin.
+// Normalise to a target height rather than merely fitting. Every pose must
+// end up the same apparent size, because the portal renders them all into one
+// fixed 176px box: a cat cropped small from a sticker sheet would otherwise
+// appear half the size of one cropped large, and swap between the two as the
+// mood changed. Upscaling is allowed for exactly that reason - source cells
+// off a sheet are small, and the result is only ever shown at 176px anyway.
+const TARGET_H = Math.round(CANVAS * 0.78);
 const maxW = CANVAS - 48;
-const maxH = CANVAS - BOTTOM_MARGIN - 24;
-const scale = Math.min(maxW / t.width, maxH / t.height, 1);
+const scale = Math.min(TARGET_H / t.height, maxW / t.width);
 const w = Math.round(t.width * scale);
 const h = Math.round(t.height * scale);
 
