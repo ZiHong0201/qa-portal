@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PetCat } from "@/components/pet-cat";
 import { petSpriteSrc, poseForMood, type PetPose } from "@/lib/pet-art";
 import type { Mood } from "@/lib/pet";
@@ -31,7 +31,18 @@ export function PetSprite({
   priority?: boolean;
 }) {
   const [missing, setMissing] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
   const resolved: PetPose = pose ?? poseForMood(mood ?? "content");
+
+  // onError alone is not enough. The image is requested during server render,
+  // so a missing file 404s well before React hydrates and attaches the
+  // handler - the error event has already been and gone, and the student is
+  // left looking at a broken-image icon. Checking the element on mount catches
+  // exactly that case: complete with no intrinsic width means it failed.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth === 0) setMissing(true);
+  }, [coat, resolved]);
 
   if (missing) {
     return <PetCat coat={coat} mood={mood} className={className} />;
@@ -42,6 +53,7 @@ export function PetSprite({
     <img
       // Re-mounts when the file changes, so a pose that failed once does not
       // keep the fallback showing after a different pose loads fine.
+      ref={imgRef}
       key={`${coat}/${resolved}`}
       src={petSpriteSrc(coat, resolved)}
       alt="Your cat"
