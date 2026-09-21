@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { adoptPet } from "@/lib/actions/pet";
 import { COATS, PET_NAME_MAX_LENGTH } from "@/lib/pet";
-import { PetCat } from "@/components/pet-cat";
+import { PetSprite } from "@/components/pet-sprite";
 
 export function AdoptScreen() {
   const [state, formAction, pending] = useActionState(adoptPet, {});
@@ -25,7 +25,7 @@ export function AdoptScreen() {
 
         {/* Live preview, so the choice is made by looking rather than reading. */}
         <div className="mb-5 flex justify-center">
-          <PetCat coat={coat} mood="happy" className="h-40 w-40" />
+          <PetSprite coat={coat} mood="happy" priority className="h-40 w-40 object-contain" />
         </div>
 
         <fieldset className="mb-5">

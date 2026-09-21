@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { currentStats, moodOf, type Stats } from "@/lib/pet";
+import { CLOTHING_ENABLED } from "@/lib/pet-art";
 
 export type ShopItem = {
   id: string;
@@ -53,7 +54,9 @@ export async function getPetView(studentId: string): Promise<PetView | null> {
   if (!pet) return null;
 
   const items = await prisma.petItem.findMany({
-    where: { isActive: true },
+    // Clothing is held back while the artwork changes over - owned rows are
+    // untouched, so wardrobes survive and return when CLOTHING_ENABLED flips.
+    where: { isActive: true, ...(CLOTHING_ENABLED ? {} : { kind: { not: "CLOTHING" } }) },
     orderBy: [{ kind: "asc" }, { sortOrder: "asc" }, { cost: "asc" }],
   });
 

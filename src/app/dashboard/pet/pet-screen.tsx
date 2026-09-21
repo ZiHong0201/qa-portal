@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { PetCat } from "@/components/pet-cat";
+import { PetSprite } from "@/components/pet-sprite";
 import { PetTreat } from "@/components/pet-treat";
 import { buyPetItem, togglePetItem, pettingSession } from "@/lib/actions/pet";
 import {
@@ -11,6 +11,7 @@ import {
   hoursUntilEmpty,
   describeTimeLeft,
 } from "@/lib/pet";
+import { CLOTHING_ENABLED } from "@/lib/pet-art";
 import type { PetView, ShopItem } from "@/lib/pet.server";
 
 function StatBar({ label, value, perHour }: { label: string; value: number; perHour: number }) {
@@ -33,21 +34,19 @@ function StatBar({ label, value, perHour }: { label: string; value: number; perH
   );
 }
 
-const TABS = [
+const ALL_TABS = [
   { key: "FOOD", label: "Food" },
   { key: "SNACK", label: "Snacks" },
   { key: "CLOTHING", label: "Clothes" },
 ] as const;
 
+const TABS = CLOTHING_ENABLED ? ALL_TABS : ALL_TABS.filter((t) => t.key !== "CLOTHING");
+
 export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("FOOD");
+  const [tab, setTab] = useState<(typeof ALL_TABS)[number]["key"]>("FOOD");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  // Optimistic preview: hovering a hat in the shop shows it on the cat before
-  // any points are spent, which is most of the fun of buying one.
-  const [preview, setPreview] = useState<string | null>(null);
 
   // A one-shot overlay above the cat: the treat it was just given, or a puff
   // of hearts from a fuss. The counter is part of the key so giving the same
@@ -93,17 +92,8 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
   const shown = pet.shop.filter((i) => i.kind === tab);
   const wardrobe = pet.shop.filter((i) => i.kind === "CLOTHING" && i.owned);
 
-  // A previewed hat replaces whatever is in the same slot, so the cat never
-  // wears two at once.
-  const previewItem = preview ? pet.shop.find((i) => i.key === preview) : null;
-  const equipped = previewItem
-    ? [
-        ...pet.equippedKeys.filter(
-          (k) => pet.shop.find((i) => i.key === k)?.slot !== previewItem.slot
-        ),
-        previewItem.key,
-      ]
-    : pet.equippedKeys;
+  // Hover-to-try-on only matters while clothing is on; the sprite cat has no
+  // garment layer to preview into.
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -118,12 +108,20 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
       <div className="rounded-2xl border border-sky-100 bg-gradient-to-b from-sky-50 to-white p-6 shadow-sm">
         <div className="flex flex-col items-center">
           <div className="relative">
-            <PetCat
+            <PetSprite
               coat={pet.coat}
-              equipped={equipped}
               mood={pet.mood.key}
-              chewing={effect?.kind === "treat"}
-              className="h-44 w-44"
+              // The pose follows what is happening right now, falling back to
+              // whatever the mood would otherwise show.
+              pose={
+                effect?.kind === "treat"
+                  ? "eating"
+                  : effect?.kind === "fuss"
+                    ? "petted"
+                    : undefined
+              }
+              priority
+              className="h-44 w-44 object-contain"
             />
 
             {effect?.kind === "treat" && (
@@ -181,7 +179,7 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
         </p>
       )}
 
-      {wardrobe.length > 0 && (
+      {CLOTHING_ENABLED && wardrobe.length > 0 && (
         <section className="mt-6">
           <h2 className="mb-2 text-sm font-semibold tracking-wide text-gray-500 uppercase">
             Wardrobe
@@ -194,7 +192,6 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
                 pending={pending}
                 // The ownership row, not the catalogue item - see ShopItem.ownedId.
                 onToggle={() => item.ownedId && run(() => togglePetItem(item.ownedId!))}
-                onPreview={setPreview}
               />
             ))}
           </div>
@@ -237,7 +234,6 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
                     () => item.kind !== "CLOTHING" && showEffect("treat", item.key)
                   )
                 }
-                onPreview={setPreview}
               />
             ))}
           </ul>
@@ -255,20 +251,16 @@ function WardrobeChip({
   item,
   pending,
   onToggle,
-  onPreview,
 }: {
   item: ShopItem;
   pending: boolean;
   onToggle: () => void;
-  onPreview: (key: string | null) => void;
 }) {
   return (
     <button
       type="button"
       onClick={onToggle}
       disabled={pending}
-      onMouseEnter={() => !item.equipped && onPreview(item.key)}
-      onMouseLeave={() => onPreview(null)}
       className={`rounded-full border px-3 py-1.5 text-sm transition-colors disabled:opacity-50 ${
         item.equipped
           ? "border-sky-400 bg-sky-100 font-medium text-sky-800"
@@ -286,13 +278,11 @@ function ShopRow({
   balance,
   pending,
   onBuy,
-  onPreview,
 }: {
   item: ShopItem;
   balance: number;
   pending: boolean;
   onBuy: () => void;
-  onPreview: (key: string | null) => void;
 }) {
   const affordable = balance >= item.cost;
   const isClothing = item.kind === "CLOTHING";
@@ -300,8 +290,6 @@ function ShopRow({
   return (
     <li
       className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3"
-      onMouseEnter={() => isClothing && !item.owned && onPreview(item.key)}
-      onMouseLeave={() => onPreview(null)}
     >
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-gray-900">{item.name}</p>
