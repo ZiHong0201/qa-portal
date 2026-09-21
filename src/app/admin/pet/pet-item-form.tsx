@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import type { FormState } from "@/lib/actions/auth";
 import { PetCat, clothingKeys } from "@/components/pet-cat";
+import { PetTreat, treatKeys } from "@/components/pet-treat";
 
 type Initial = {
   name: string;
@@ -16,6 +17,7 @@ type Initial = {
 };
 
 const GARMENTS = clothingKeys();
+const TREATS = treatKeys();
 
 export function PetItemForm({
   action,
@@ -116,21 +118,32 @@ export function PetItemForm({
         </div>
       ) : (
         <div>
-          <label className="mb-1 block text-sm font-medium" htmlFor="key">
-            Reference
-          </label>
-          <input
-            id="key"
-            name="key"
-            required
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="e.g. food-kibble"
-            className="w-full rounded-md border border-gray-300 px-3 py-2"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            A unique identifier. Not shown to students.
+          <span className="mb-1 block text-sm font-medium">Artwork</span>
+          <p className="mb-2 text-xs text-gray-500">
+            This is what floats up to the cat when the treat is given, so each one has its own
+            picture. More can be added in code later.
           </p>
+          <div className="flex flex-wrap gap-2">
+            {TREATS.map((t) => (
+              <label
+                key={t}
+                className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border-2 p-2 transition-colors ${
+                  key === t ? "border-sky-400 bg-sky-50" : "border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="key"
+                  value={t}
+                  checked={key === t}
+                  onChange={() => setKey(t)}
+                  className="sr-only"
+                />
+                <PetTreat treatKey={t} className="h-14 w-14" />
+                <span className="text-[11px] text-gray-600">{t}</span>
+              </label>
+            ))}
+          </div>
         </div>
       )}
 

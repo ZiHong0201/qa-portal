@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { PetCat } from "@/components/pet-cat";
+import { PetTreat } from "@/components/pet-treat";
 import { buyPetItem, togglePetItem, pettingSession } from "@/lib/actions/pet";
 import {
   statColor,
@@ -48,13 +49,44 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
   // any points are spent, which is most of the fun of buying one.
   const [preview, setPreview] = useState<string | null>(null);
 
-  function run(action: () => Promise<{ error?: string; success?: string }>) {
+  // A one-shot overlay above the cat: the treat it was just given, or a puff
+  // of hearts from a fuss. The counter is part of the key so giving the same
+  // treat twice restarts the animation instead of React reusing the element
+  // and leaving it frozen at its end state.
+  const [effect, setEffect] = useState<{ kind: "treat" | "fuss"; key: string; n: number } | null>(
+    null
+  );
+  const effectCount = useRef(0);
+  const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showEffect(kind: "treat" | "fuss", key = "") {
+    effectCount.current += 1;
+    setEffect({ kind, key, n: effectCount.current });
+    if (clearTimer.current) clearTimeout(clearTimer.current);
+    // Slightly longer than the CSS, so the element is removed after it has
+    // faded rather than vanishing mid-animation.
+    clearTimer.current = setTimeout(() => setEffect(null), 1800);
+  }
+
+  // A pending timer holding a reference to setEffect would fire after the
+  // screen has gone if the student navigates away mid-animation.
+  useEffect(() => () => {
+    if (clearTimer.current) clearTimeout(clearTimer.current);
+  }, []);
+
+  function run(
+    action: () => Promise<{ error?: string; success?: string }>,
+    onSuccess?: () => void
+  ) {
     setError(null);
     setMessage(null);
     startTransition(async () => {
       const result = await action();
       if (result.error) setError(result.error);
-      if (result.success) setMessage(result.success);
+      if (result.success) {
+        setMessage(result.success);
+        onSuccess?.();
+      }
     });
   }
 
@@ -85,13 +117,41 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
 
       <div className="rounded-2xl border border-sky-100 bg-gradient-to-b from-sky-50 to-white p-6 shadow-sm">
         <div className="flex flex-col items-center">
-          <PetCat coat={pet.coat} equipped={equipped} mood={pet.mood.key} className="h-44 w-44" />
+          <div className="relative">
+            <PetCat coat={pet.coat} equipped={equipped} mood={pet.mood.key} className="h-44 w-44" />
+
+            {effect?.kind === "treat" && (
+              <div
+                key={effect.n}
+                className="animate-treat-nom pointer-events-none absolute inset-x-0 bottom-1 flex justify-center"
+              >
+                <PetTreat treatKey={effect.key} className="h-16 w-16 drop-shadow" />
+              </div>
+            )}
+
+            {effect?.kind === "fuss" && (
+              <div key={effect.n} className="pointer-events-none absolute inset-0">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="animate-fuss-heart absolute top-6 left-1/2 text-lg text-rose-400"
+                    style={{
+                      animationDelay: `${i * 0.18}s`,
+                      ["--drift" as string]: `${(i - 1) * 22}px`,
+                    }}
+                  >
+                    &#10084;
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
           <p className="mt-2 text-sm font-medium text-sky-900">{pet.mood.label}</p>
           <p className="text-xs text-gray-500">{pet.mood.line}</p>
 
           <button
             type="button"
-            onClick={() => run(pettingSession)}
+            onClick={() => run(pettingSession, () => showEffect("fuss"))}
             disabled={pending}
             className="mt-3 rounded-full border border-sky-200 px-4 py-1.5 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-50 disabled:opacity-50"
           >
@@ -164,7 +224,12 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
                 item={item}
                 balance={balance}
                 pending={pending}
-                onBuy={() => run(() => buyPetItem(item.id))}
+                onBuy={() =>
+                  run(
+                    () => buyPetItem(item.id),
+                    () => item.kind !== "CLOTHING" && showEffect("treat", item.key)
+                  )
+                }
                 onPreview={setPreview}
               />
             ))}

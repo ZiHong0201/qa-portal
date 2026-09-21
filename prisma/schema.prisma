@@ -178,6 +178,12 @@ model CatalogueItem {
   imageUrl    String?
   cost        Int // points required to redeem
   isActive    Boolean  @default(true)
+
+  // Redeeming this unlocks the virtual cat instead of handing over a physical
+  // gift - it flips User.petEnabled. An admin can still grant or revoke access
+  // directly at /admin/pet; this is the route a student can take themselves.
+  grantsPet Boolean @default(false)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

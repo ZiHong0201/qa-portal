@@ -376,3 +376,64 @@ select {
     animation: none;
   }
 }
+
+/* Feeding and fussing the virtual cat (src/app/dashboard/pet/pet-screen.tsx).
+   Both overlay the cat briefly and then clear themselves. */
+
+/* The treat rises from below the cat, hangs a moment while it is eaten, then
+   shrinks away. Starts and ends invisible, which is fine here: unlike the cat
+   itself this element is meant to disappear, and it is removed from the DOM
+   once the animation finishes. */
+@keyframes treat-nom {
+  0% {
+    transform: translateY(28px) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  55% {
+    transform: translateY(-2px) scale(1.06);
+    opacity: 1;
+  }
+  75% {
+    transform: translateY(-6px) scale(0.92);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-18px) scale(0.25);
+    opacity: 0;
+  }
+}
+
+.animate-treat-nom {
+  animation: treat-nom 1.6s ease-in-out forwards;
+}
+
+/* Hearts drifting up when the cat is fussed. Each one is offset by an inline
+   animation-delay so they stagger rather than moving as a block. */
+@keyframes fuss-heart {
+  0% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--drift, 0px), -46px) scale(1);
+    opacity: 0;
+  }
+}
+
+.animate-fuss-heart {
+  animation: fuss-heart 1.4s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-treat-nom,
+  .animate-fuss-heart {
+    animation-duration: 0.01ms;
+  }
+}

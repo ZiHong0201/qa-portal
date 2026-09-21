@@ -21,6 +21,7 @@ const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
   description: z.string().trim().max(2000).optional(),
   cost: z.coerce.number().int().min(1, "Cost must be at least 1 point").max(1_000_000),
+  grantsPet: z.coerce.boolean().optional(),
 });
 
 async function parseImage(formData: FormData): Promise<{ url?: string; error?: string }> {
@@ -45,6 +46,8 @@ export async function createCatalogueItem(
     name: formData.get("name"),
     description: formData.get("description") || undefined,
     cost: formData.get("cost"),
+    // An unticked checkbox submits nothing at all, which coerces to false.
+    grantsPet: formData.get("grantsPet") ?? false,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
@@ -58,6 +61,7 @@ export async function createCatalogueItem(
       name: parsed.data.name,
       description: parsed.data.description || null,
       cost: parsed.data.cost,
+      grantsPet: parsed.data.grantsPet ?? false,
       imageUrl: image.url,
       createdById: session.user.id,
     },
@@ -81,6 +85,8 @@ export async function updateCatalogueItem(
     name: formData.get("name"),
     description: formData.get("description") || undefined,
     cost: formData.get("cost"),
+    // An unticked checkbox submits nothing at all, which coerces to false.
+    grantsPet: formData.get("grantsPet") ?? false,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
@@ -96,6 +102,7 @@ export async function updateCatalogueItem(
       name: parsed.data.name,
       description: parsed.data.description || null,
       cost: parsed.data.cost,
+      grantsPet: parsed.data.grantsPet ?? false,
       imageUrl: image.url ?? existing.imageUrl,
     },
   });
@@ -148,19 +155,48 @@ export async function redeemCatalogueItem(
     return { error: "This item is no longer available." };
   }
 
+  // Unlocking the cat is a one-off. Without this a student could pay for it
+  // again and again, since there is nothing physical to hand over that would
+  // make the duplicate obvious.
+  if (item.grantsPet) {
+    const student = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { petEnabled: true, pet: { select: { id: true } } },
+    });
+    if (student?.petEnabled || student?.pet) {
+      return { error: "You have already unlocked the virtual cat." };
+    }
+  }
+
   const { balance } = await getStudentBalance(session.user.id);
   if (balance < item.cost) {
     return { error: "You don't have enough points for this item." };
   }
 
-  await prisma.redemption.create({
-    data: {
-      studentId: session.user.id,
-      catalogueItemId: item.id,
-      cost: item.cost,
-    },
+  // One transaction, so a student is never charged without being let in.
+  await prisma.$transaction(async (tx) => {
+    await tx.redemption.create({
+      data: {
+        studentId: session.user.id,
+        catalogueItemId: item.id,
+        cost: item.cost,
+      },
+    });
+
+    if (item.grantsPet) {
+      await tx.user.update({
+        where: { id: session.user.id },
+        data: { petEnabled: true },
+      });
+    }
   });
 
   revalidatePath("/dashboard/catalogue");
+  if (item.grantsPet) {
+    // The nav gains a "My Cat" link the moment this flips, so the layout has
+    // to be rebuilt too, not just this page.
+    revalidatePath("/dashboard", "layout");
+    return { success: `Unlocked! Head to "My Cat" to adopt your new friend.` };
+  }
   return { success: `Redeemed "${item.name}" for ${item.cost} points.` };
 }

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { clothingKeys } from "@/components/pet-cat";
+import { treatKeys } from "@/components/pet-treat";
 import type { FormState } from "./auth";
 
 async function requireAdmin() {
@@ -48,15 +49,17 @@ function readItem(formData: FormData) {
 }
 
 /**
- * Clothing must name a garment the renderer knows how to draw, otherwise a
- * student could buy a hat that never appears. Food and snacks have no artwork,
- * so their key is only an identifier.
+ * Every item must name artwork the renderer knows how to draw - a garment for
+ * clothing, a treat picture for food and snacks. Otherwise a student could buy
+ * a hat that never appears, or feed the cat something that animates as a blank
+ * bowl.
  */
 function validateArtwork(kind: string, key: string): string | null {
-  if (kind !== "CLOTHING") return null;
-  return clothingKeys().includes(key)
-    ? null
-    : `"${key}" is not a garment the cat can wear. Pick one from the list.`;
+  const allowed = kind === "CLOTHING" ? clothingKeys() : treatKeys();
+  if (allowed.includes(key)) return null;
+  return kind === "CLOTHING"
+    ? `"${key}" is not a garment the cat can wear. Pick one from the list.`
+    : `"${key}" has no treat artwork. Pick one from the list.`;
 }
 
 export async function createPetItem(_prev: FormState, formData: FormData): Promise<FormState> {

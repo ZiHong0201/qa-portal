@@ -2,12 +2,13 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getStudentBalance } from "@/lib/points";
 import { RedeemButton } from "./redeem-button";
+import { PetCat } from "@/components/pet-cat";
 
 export default async function StudentCataloguePage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [balance, items, redemptions] = await Promise.all([
+  const [balance, items, redemptions, student] = await Promise.all([
     getStudentBalance(userId),
     prisma.catalogueItem.findMany({
       where: { isActive: true },
@@ -18,7 +19,15 @@ export default async function StudentCataloguePage() {
       orderBy: { createdAt: "desc" },
       include: { catalogueItem: { select: { name: true } } },
     }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { petEnabled: true, pet: { select: { id: true } } },
+    }),
   ]);
+
+  // An unlocking item is a one-off, so once it is theirs the row says so
+  // rather than offering to sell it again.
+  const petUnlocked = !!student?.petEnabled || !!student?.pet;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -38,15 +47,33 @@ export default async function StudentCataloguePage() {
                     className="h-20 w-20 shrink-0 rounded-md border border-gray-200 object-cover"
                   />
                 )}
+                {/* An unlocking item has no photograph to show, so the cat
+                    itself stands in for one. */}
+                {item.grantsPet && !item.imageUrl && (
+                  <PetCat coat="ginger" mood="happy" className="h-20 w-20 shrink-0" />
+                )}
                 <div>
-                  <p className="font-medium">{item.name}</p>
+                  <p className="font-medium">
+                    {item.name}
+                    {item.grantsPet && (
+                      <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                        Unlocks the cat
+                      </span>
+                    )}
+                  </p>
                   {item.description && (
                     <p className="text-sm text-gray-600">{item.description}</p>
                   )}
                   <p className="text-sm text-gray-500">{item.cost} points</p>
                 </div>
               </div>
-              <RedeemButton itemId={item.id} canAfford={balance.balance >= item.cost} />
+              {item.grantsPet && petUnlocked ? (
+                <span className="shrink-0 self-start rounded-full bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700">
+                  Unlocked
+                </span>
+              ) : (
+                <RedeemButton itemId={item.id} canAfford={balance.balance >= item.cost} />
+              )}
             </div>
           </li>
         ))}
