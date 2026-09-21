@@ -48,3 +48,6 @@ next-env.d.ts
 
 # uploaded question diagrams
 /public/uploads
+
+# vercel CLI project link
+.vercel
