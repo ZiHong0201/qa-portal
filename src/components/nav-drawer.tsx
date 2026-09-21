@@ -65,6 +65,14 @@ function LinkIcon({ label }: { label: string }) {
           <path d="M9 10.5l2 2 4-4" />
         </svg>
       );
+    case "Announcements":
+      return (
+        <svg {...common}>
+          <path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1Z" />
+          <path d="M7 14v3a2 2 0 0 0 4 0v-1" />
+          <path d="M17 9a4 4 0 0 1 0 6" />
+        </svg>
+      );
     default:
       return (
         <svg {...common}>

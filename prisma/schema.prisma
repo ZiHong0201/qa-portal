@@ -67,6 +67,62 @@ model User {
 
   subjects StudentSubject[] // students only - a student can take multiple subjects
   checkIns CheckIn[]        @relation("StudentCheckIns")
+
+  createdAnnouncements Announcement[] @relation("AnnouncementCreator")
+  createdPopupAds      PopupAd[]      @relation("PopupAdCreator")
+}
+
+// A notice that scrolls across the top of the portal. Admins write the text
+// and choose the window it runs for at /admin/announcements. Several can be
+// stored at once; whichever are live at page load share the ticker.
+model Announcement {
+  id      String @id @default(cuid())
+  message String
+
+  // The window this runs for, as UTC instants. The admin picks them in
+  // Malaysian time (see CHECK_IN_TIME_ZONE) and the action converts. A null
+  // start means "live already"; a null end means "until switched off".
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  // A manual off switch, independent of the dates - so a notice can be pulled
+  // early, or written ahead of time and armed later, without losing the window.
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy   User   @relation("AnnouncementCreator", fields: [createdById], references: [id])
+  createdById String
+
+  // Every page load asks "what is live right now", so the filter columns are
+  // indexed together.
+  @@index([isActive, startsAt, endsAt])
+}
+
+// A full-image notice shown over the page once per login, managed alongside
+// the ticker at /admin/announcements. Same on/off switch and scheduling window
+// as Announcement; the difference is that this one is a picture, so the image
+// is the whole point and the caption is optional.
+model PopupAd {
+  id       String  @id @default(cuid())
+  title    String?
+  imageUrl String
+  // Optional click-through. Stored as given and rendered with rel="noopener",
+  // since it can point anywhere off-site.
+  linkUrl  String?
+
+  startsAt DateTime?
+  endsAt   DateTime?
+  isActive Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy   User   @relation("PopupAdCreator", fields: [createdById], references: [id])
+  createdById String
+
+  @@index([isActive, startsAt, endsAt])
 }
 
 // One row per day a student opens the portal and claims their daily bonus.

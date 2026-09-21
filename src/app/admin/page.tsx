@@ -2,19 +2,40 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
 export default async function AdminHome() {
-  const [studentCount, setCount, questionCount, pendingCount, catalogueCount] =
-    await Promise.all([
-      prisma.user.count({ where: { role: "STUDENT" } }),
-      prisma.questionSet.count(),
-      prisma.question.count(),
-      prisma.submission.count({ where: { status: "PENDING" } }),
-      prisma.catalogueItem.count(),
-    ]);
+  const now = new Date();
+  // Switched on and inside its window - the same test the ticker and pop-ups
+  // use, so this count matches what students are actually seeing.
+  const liveWindow = {
+    isActive: true,
+    AND: [
+      { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+      { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
+    ],
+  };
+
+  const [
+    studentCount,
+    setCount,
+    questionCount,
+    pendingCount,
+    catalogueCount,
+    liveNoticeCount,
+  ] = await Promise.all([
+    prisma.user.count({ where: { role: "STUDENT" } }),
+    prisma.questionSet.count(),
+    prisma.question.count(),
+    prisma.submission.count({ where: { status: "PENDING" } }),
+    prisma.catalogueItem.count(),
+    Promise.all([
+      prisma.announcement.count({ where: liveWindow }),
+      prisma.popupAd.count({ where: liveWindow }),
+    ]).then(([a, p]) => a + p),
+  ]);
 
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold">Admin overview</h1>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Link href="/admin/students">
           <StatCard label="Students" value={studentCount} />
         </Link>
@@ -29,6 +50,9 @@ export default async function AdminHome() {
         </Link>
         <Link href="/admin/catalogue">
           <StatCard label="Catalogue items" value={catalogueCount} />
+        </Link>
+        <Link href="/admin/announcements">
+          <StatCard label="Live notices" value={liveNoticeCount} />
         </Link>
       </div>
       <div className="mt-8 flex flex-wrap gap-2">

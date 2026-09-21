@@ -311,3 +311,43 @@ select {
     animation: none;
   }
 }
+
+/* Announcement ticker (src/components/announcement-bar.tsx). The track holds
+   two identical copies of the text, so sliding it left by exactly half its
+   width brings the second copy to where the first began - the loop repeats
+   with no visible jump back. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: marquee var(--marquee-duration, 20s) linear infinite;
+}
+
+/* Hovering holds the text still so a long notice can actually be read. */
+.marquee-viewport:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+/* No scrolling for anyone who asked for less motion: drop the duplicate copy
+   and let the notice wrap onto as many lines as it needs. */
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+    width: 100%;
+    white-space: normal;
+  }
+
+  .marquee-track > [aria-hidden="true"] {
+    display: none;
+  }
+
+  .marquee-track > span {
+    padding-right: 0;
+  }
+}

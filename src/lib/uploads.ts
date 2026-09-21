@@ -9,7 +9,10 @@ const ALLOWED_TYPES: Record<string, string> = {
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 
-async function saveImage(file: File, folder: "questions" | "catalogue"): Promise<string> {
+async function saveImage(
+  file: File,
+  folder: "questions" | "catalogue" | "popups"
+): Promise<string> {
   const ext = ALLOWED_TYPES[file.type];
   if (!ext) {
     throw new Error("Image must be a PNG, JPEG, or WebP file.");
@@ -42,5 +45,13 @@ export function saveCatalogueImage(file: File) {
 }
 
 export function deleteCatalogueImage(url: string | null | undefined) {
+  return deleteImage(url);
+}
+
+export function savePopupImage(file: File) {
+  return saveImage(file, "popups");
+}
+
+export function deletePopupImage(url: string | null | undefined) {
   return deleteImage(url);
 }

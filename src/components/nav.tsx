@@ -15,6 +15,7 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/sets", label: "Sets" },
   { href: "/admin/students", label: "Students" },
   { href: "/admin/catalogue", label: "Catalogue" },
+  { href: "/admin/announcements", label: "Announcements" },
   { href: "/admin/review", label: "Review" },
   { href: "/admin/master-data", label: "Master Data" },
   { href: "/dashboard/leaderboard", label: "Scoreboard" },
