@@ -350,3 +350,29 @@ select {
     white-space: normal;
   }
 }
+
+/* Idle breathing for the virtual cat (src/components/pet-cat.tsx).
+   Deliberately starts AND ends at scale(1). The cat is the centrepiece of its
+   page, so it has to stay visible even if the animation never runs - a browser
+   with animations disabled, or a tab that never became visible. That rules out
+   reusing cat-pop here, which begins at scale(0) and opacity 0 and would leave
+   an empty box in exactly those cases. */
+@keyframes cat-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+.animate-cat-breathe {
+  animation: cat-breathe 3.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-cat-breathe {
+    animation: none;
+  }
+}

@@ -55,6 +55,11 @@ model User {
   grade        String? // e.g. "Form 1" .. "Form 5" - students only
   createdAt    DateTime @default(now())
 
+  // The virtual cat is opt-in per student, off by default: an admin turns it
+  // on for whoever it suits. Gating on a column rather than "has a pet row"
+  // means access can be withdrawn without destroying the cat they raised.
+  petEnabled Boolean @default(false)
+
   createdQuestionSets QuestionSet[]  @relation("QuestionSetCreator")
   createdQuestions Question[]   @relation("QuestionCreator")
   submissions      Submission[] @relation("SubmissionStudent")
@@ -70,6 +75,9 @@ model User {
 
   createdAnnouncements Announcement[] @relation("AnnouncementCreator")
   createdPopupAds      PopupAd[]      @relation("PopupAdCreator")
+
+  pet          Pet?          @relation("StudentPet")
+  petPurchases PetPurchase[] @relation("StudentPetPurchases")
 }
 
 // A notice that scrolls across the top of the portal. Admins write the text
@@ -302,4 +310,114 @@ model Submission {
 
   // a student may only answer a given question once
   @@unique([questionId, studentId])
+}
+
+// ---------------------------------------------------------------------------
+// Virtual cat. Opt-in per student (User.petEnabled), paid for out of the same
+// points balance as the catalogue, so a snack genuinely competes with saving
+// for a real reward.
+// ---------------------------------------------------------------------------
+
+enum PetItemKind {
+  CLOTHING // worn, kept forever, can be taken on and off
+  FOOD // eaten once, mostly fills hunger
+  SNACK // eaten once, mostly raises happiness
+}
+
+model Pet {
+  id      String @id @default(cuid())
+  owner   User   @relation("StudentPet", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String @unique // one cat per student
+
+  name String
+  // Coat colour chosen at adoption, as a key the renderer maps to fills.
+  coat String @default("grey")
+
+  // Hunger and happiness as they stood at statsAt. They decay with real time,
+  // so the value that matters is derived on read - see currentStats() in
+  // src/lib/pet.ts. Storing a reading plus its timestamp keeps this to plain
+  // arithmetic instead of a scheduled job ticking every pet in the database.
+  hunger    Int      @default(100)
+  happiness Int      @default(100)
+  statsAt   DateTime @default(now())
+
+  adoptedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owned     PetOwnedItem[]
+  purchases PetPurchase[]
+}
+
+// Something an admin has put in the shop. Clothing is bought once and kept;
+// food and snacks are consumed on purchase.
+model PetItem {
+  id String @id @default(cuid())
+
+  // Stable identifier the SVG renderer switches on, e.g. "hat-party". Kept
+  // separate from the display name so an admin can rename an item without
+  // the artwork disappearing.
+  key  String      @unique
+  name String
+  kind PetItemKind
+
+  // Clothing only: which layer it occupies, so a second hat replaces the
+  // first rather than stacking. Null for food and snacks.
+  slot String?
+
+  cost Int
+
+  // Food and snacks only: what eating it adds, before clamping to 100.
+  hungerEffect    Int @default(0)
+  happinessEffect Int @default(0)
+
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owned     PetOwnedItem[]
+  purchases PetPurchase[]
+
+  @@index([kind, isActive, sortOrder])
+}
+
+// A piece of clothing a pet owns. Food is never recorded here - it is eaten
+// at the moment of purchase.
+model PetOwnedItem {
+  id String @id @default(cuid())
+
+  pet   Pet    @relation(fields: [petId], references: [id], onDelete: Cascade)
+  petId String
+
+  item   PetItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId String
+
+  equipped   Boolean  @default(false)
+  acquiredAt DateTime @default(now())
+
+  @@unique([petId, itemId]) // buying the same hat twice is a no-op, not a duplicate
+}
+
+// Every point spent on the cat. Separate from Redemption, which is tied to a
+// CatalogueItem, but subtracted from the same balance - see getStudentBalance.
+// cost is snapshotted so later price changes never rewrite history.
+model PetPurchase {
+  id String @id @default(cuid())
+
+  // Denormalised onto the student as well as the pet, so the balance query
+  // stays a single aggregate rather than a join through Pet.
+  student   User   @relation("StudentPetPurchases", fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String
+
+  pet   Pet    @relation(fields: [petId], references: [id], onDelete: Cascade)
+  petId String
+
+  item   PetItem @relation(fields: [itemId], references: [id])
+  itemId String
+
+  cost      Int
+  createdAt DateTime @default(now())
+
+  @@index([studentId])
 }

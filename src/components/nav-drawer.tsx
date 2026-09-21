@@ -65,6 +65,18 @@ function LinkIcon({ label }: { label: string }) {
           <path d="M9 10.5l2 2 4-4" />
         </svg>
       );
+    case "My Cat":
+    case "Virtual Cat":
+      return (
+        <svg {...common}>
+          {/* ears and head, echoing the pet artwork */}
+          <path d="M7 9 L5.5 4 L10 6.5 Z" />
+          <path d="M17 9 L18.5 4 L14 6.5 Z" />
+          <ellipse cx="12" cy="12" rx="7" ry="6" />
+          <path d="M9.5 11.5 v1 M14.5 11.5 v1" />
+          <path d="M10.5 15 q 1.5 1.2 3 0" />
+        </svg>
+      );
     case "Announcements":
       return (
         <svg {...common}>

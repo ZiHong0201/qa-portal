@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import { getStudentBalance } from "@/lib/points";
+import { prisma } from "@/lib/prisma";
 import { SubmitButton } from "@/components/submit-button";
 import { NavDrawer, type NavLink } from "@/components/nav-drawer";
 
@@ -16,6 +17,7 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/students", label: "Students" },
   { href: "/admin/catalogue", label: "Catalogue" },
   { href: "/admin/announcements", label: "Announcements" },
+  { href: "/admin/pet", label: "Virtual Cat" },
   { href: "/admin/review", label: "Review" },
   { href: "/admin/master-data", label: "Master Data" },
   { href: "/dashboard/leaderboard", label: "Scoreboard" },
@@ -26,11 +28,23 @@ export async function Nav() {
   if (!session) return null;
 
   const isAdmin = session.user.role === "ADMIN";
-  const links = isAdmin ? ADMIN_LINKS : STUDENT_LINKS;
 
   let balance: number | null = null;
+  let links = isAdmin ? ADMIN_LINKS : STUDENT_LINKS;
   if (!isAdmin) {
-    balance = (await getStudentBalance(session.user.id)).balance;
+    const [bal, user] = await Promise.all([
+      getStudentBalance(session.user.id),
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { petEnabled: true },
+      }),
+    ]);
+    balance = bal.balance;
+    // The cat is opt-in, and a student who does not have it should not see a
+    // link to it at all - the page itself redirects them away regardless.
+    if (user?.petEnabled) {
+      links = [...STUDENT_LINKS, { href: "/dashboard/pet", label: "My Cat" }];
+    }
   }
 
   // The admin pages are laid out wider than the student ones, so the bar
