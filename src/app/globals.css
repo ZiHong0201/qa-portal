@@ -312,20 +312,26 @@ select {
   }
 }
 
-/* Announcement ticker (src/components/announcement-bar.tsx). The track holds
-   two identical copies of the text, so sliding it left by exactly half its
-   width brings the second copy to where the first began - the loop repeats
-   with no visible jump back. */
+/* Announcement ticker (src/components/marquee.tsx). The track is padded on
+   the left by 100% of the viewport, so the text starts just past the right
+   edge of the screen instead of flush against the left. Animating to
+   translateX(-100%) - 100% of the track's own width, i.e. that padding plus
+   the text - carries it right off the left-hand side, so every pass enters
+   from the right, crosses, and leaves. The duration is set from JS, measured
+   against the real width, so the pace is the same on a phone and a desktop. */
 @keyframes marquee {
   from {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translateX(-100%);
   }
 }
 
 .marquee-track {
+  display: inline-block;
+  white-space: nowrap;
+  padding-left: 100%;
   animation: marquee var(--marquee-duration, 20s) linear infinite;
 }
 
@@ -334,20 +340,13 @@ select {
   animation-play-state: paused;
 }
 
-/* No scrolling for anyone who asked for less motion: drop the duplicate copy
-   and let the notice wrap onto as many lines as it needs. */
+/* No scrolling for anyone who asked for less motion: drop the offset that
+   parks the text off-screen and let the notice simply wrap where it is. */
 @media (prefers-reduced-motion: reduce) {
   .marquee-track {
+    display: block;
     animation: none;
-    width: 100%;
+    padding-left: 0;
     white-space: normal;
-  }
-
-  .marquee-track > [aria-hidden="true"] {
-    display: none;
-  }
-
-  .marquee-track > span {
-    padding-right: 0;
   }
 }

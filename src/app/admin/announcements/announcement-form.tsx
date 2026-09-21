@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import type { FormState } from "@/lib/actions/auth";
 import { ANNOUNCEMENT_MAX_LENGTH } from "@/lib/announcements";
 import { WindowFields } from "./window-fields";
+import { Marquee, Megaphone } from "@/components/marquee";
 
 type Initial = {
   message: string;
@@ -75,39 +76,13 @@ export function AnnouncementForm({
   );
 }
 
-// Deliberately a copy of the real bar's markup rather than the component
-// itself: that one takes rows straight from the database, and this needs to
-// render whatever is in the textarea right now.
+// The real bar's own components, so the preview cannot drift from what
+// students actually see - only the source of the text differs.
 function TickerPreview({ text }: { text: string }) {
-  const seconds = Math.max(14, Math.ceil(text.length / 9));
   return (
     <div className="flex items-center gap-2 bg-sky-900 px-3 py-1.5 text-white">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-5 w-5 shrink-0"
-        aria-hidden="true"
-      >
-        <path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1Z" />
-        <path d="M7 14v3a2 2 0 0 0 4 0v-1" />
-        <path d="M17 9a4 4 0 0 1 0 6" />
-        <path d="M19.5 6.5a7.5 7.5 0 0 1 0 11" />
-      </svg>
-      <div className="marquee-viewport min-w-0 flex-1 overflow-hidden">
-        <div
-          className="marquee-track flex w-max text-sm whitespace-nowrap"
-          style={{ ["--marquee-duration" as string]: `${seconds}s` }}
-        >
-          <span className="pr-16">{text}</span>
-          <span className="pr-16" aria-hidden="true">
-            {text}
-          </span>
-        </div>
-      </div>
+      <Megaphone />
+      <Marquee text={text} />
     </div>
   );
 }
