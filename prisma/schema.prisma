@@ -309,6 +309,22 @@ model Submission {
   status        SubmissionStatus @default(PENDING)
   pointsAwarded Int              @default(0)
 
+  // --- integrity signals -------------------------------------------------
+  // Recorded to help a teacher spot answers worth a conversation. None of
+  // them proves anything on its own: a fast correct answer often just means
+  // the student knew it, and a tab switch is as likely to be a notification
+  // as anything else. They are shown to the admin as context, never as a
+  // verdict, and never to the student while they are answering.
+
+  /** Seconds between the question appearing and the answer being submitted. */
+  secondsTaken Int?
+  /** Times the tab lost focus while this question was open. */
+  awayCount Int @default(0)
+  /** Total seconds spent with the tab hidden while this question was open. */
+  awaySeconds Int @default(0)
+  /** Paste attempts blocked on this question. */
+  pasteAttempts Int @default(0)
+
   createdAt  DateTime  @default(now())
   reviewedAt DateTime?
   reviewer   User?     @relation("SubmissionReviewer", fields: [reviewerId], references: [id])

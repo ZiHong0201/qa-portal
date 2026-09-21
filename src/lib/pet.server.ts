@@ -13,6 +13,12 @@ export type ShopItem = {
   /** Clothing only: already bought, so the shop shows "Owned" not a price. */
   owned: boolean;
   equipped: boolean;
+  /**
+   * The PetOwnedItem row id, not this item's id - null until bought. Equipping
+   * acts on the ownership row, so the two must not be confused: passing the
+   * item id makes the ownership lookup miss and report "not yours".
+   */
+  ownedId: string | null;
 };
 
 export type PetView = {
@@ -75,6 +81,7 @@ export async function getPetView(studentId: string): Promise<PetView | null> {
         happinessEffect: item.happinessEffect,
         owned: !!owned,
         equipped: !!owned?.equipped,
+        ownedId: owned?.id ?? null,
       };
     }),
   };

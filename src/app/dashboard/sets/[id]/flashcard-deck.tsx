@@ -17,7 +17,7 @@ export type FlashcardQuestion = {
   diagramUrl: string | null;
   points: number;
   choices: FlashcardChoice[];
-  submission: { status: string; pointsAwarded: number } | null;
+  submission: { status: string; pointsAwarded: number; secondsTaken?: number | null } | null;
   correctAnswerText: string | null;
   explanation: string | null;
   hints: string[];
@@ -30,6 +30,65 @@ const MESSAGES: Record<string, (points: number) => string> = {
   APPROVED: (p) => `Approved! You earned ${p} marks.`,
   REJECTED: () => "Your answer wasn't approved. No marks were awarded.",
 };
+
+/** Seconds as "1m 20s", or "45s" under a minute. */
+function humanTime(seconds: number) {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const rem = seconds % 60;
+  return rem === 0 ? `${m}m` : `${m}m ${rem}s`;
+}
+
+/**
+ * Shown only once every question is answered. Students see how long they took
+ * per question afterwards, as something to reflect on - never while they are
+ * still working, where a visible clock would just add pressure.
+ *
+ * Questions answered before timing was recorded have no value, so they are
+ * left out of the average rather than counted as zero.
+ */
+function TimingSummary({ cards }: { cards: FlashcardQuestion[] }) {
+  const timed = cards
+    .map((c, i) => ({ n: i + 1, seconds: c.submission?.secondsTaken ?? null, card: c }))
+    .filter((t): t is { n: number; seconds: number; card: FlashcardQuestion } => t.seconds !== null);
+
+  if (timed.length === 0) return null;
+
+  const total = timed.reduce((sum, t) => sum + t.seconds, 0);
+  const average = Math.round(total / timed.length);
+  const slowest = timed.reduce((a, b) => (b.seconds > a.seconds ? b : a));
+
+  return (
+    <details className="mb-6 rounded-xl border border-sky-100 bg-white p-4">
+      <summary className="cursor-pointer text-sm font-medium text-sky-900">
+        How long you took &middot; {humanTime(total)} in total, {humanTime(average)} on average
+      </summary>
+
+      <p className="mt-2 text-xs text-gray-500">
+        Your slowest was question {slowest.n} at {humanTime(slowest.seconds)}. Taking longer is not
+        a bad thing - it usually means you were working it through.
+      </p>
+
+      <ul className="mt-3 flex flex-col gap-1">
+        {timed.map((t) => {
+          const status = t.card.submission!.status;
+          return (
+            <li key={t.card.id} className="flex items-center gap-2 text-xs">
+              <span className="w-8 shrink-0 text-gray-400">Q{t.n}</span>
+              <span
+                className={`h-1.5 rounded-full ${isCorrect(status) ? "bg-emerald-400" : "bg-rose-300"}`}
+                // Relative to the slowest answer, so the shape of the set is
+                // visible at a glance without reading every number.
+                style={{ width: `${Math.max(4, (t.seconds / slowest.seconds) * 60)}%` }}
+              />
+              <span className="shrink-0 text-gray-500">{humanTime(t.seconds)}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </details>
+  );
+}
 
 function isCorrect(status: string) {
   return status === "CORRECT" || status === "APPROVED";
@@ -139,12 +198,15 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
       )}
 
       {complete ? (
-        <div className="mb-6 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          {justCompleted && <CelebratingCat className="shrink-0" />}
-          <p className="font-medium text-emerald-800">
-            You&apos;ve completed this set. Marks obtained: {marksObtained} / {totalMarks}
-          </p>
-        </div>
+        <>
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            {justCompleted && <CelebratingCat className="shrink-0" />}
+            <p className="font-medium text-emerald-800">
+              You&apos;ve completed this set. Marks obtained: {marksObtained} / {totalMarks}
+            </p>
+          </div>
+          <TimingSummary cards={cards} />
+        </>
       ) : (
         <p className="mb-6 inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-800">
           {answered} / {total} answered

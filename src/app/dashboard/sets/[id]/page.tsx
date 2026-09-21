@@ -50,7 +50,15 @@ export default async function StudentSetPage({
       diagramUrl: q.diagramUrl,
       points: q.points,
       choices: q.choices.map((c) => ({ id: c.id, text: c.text })),
-      submission: submission ? { status: submission.status, pointsAwarded: submission.pointsAwarded } : null,
+      submission: submission
+        ? {
+            status: submission.status,
+            pointsAwarded: submission.pointsAwarded,
+            // Held back until the whole set is done - a timer on screen while
+            // you are still thinking is pressure, not feedback.
+            secondsTaken: submission.secondsTaken,
+          }
+        : null,
       correctAnswerText: submission ? (q.choices.find((c) => c.isCorrect)?.text ?? null) : null,
       explanation: submission ? q.explanation : null,
       hints: [q.hint1, q.hint2].filter((h): h is string => !!h),

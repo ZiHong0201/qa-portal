@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import { submitAnswer, type SubmitAnswerState } from "@/lib/actions/submissions";
+import { useIntegrityTracker, blockingHandlers } from "@/lib/integrity";
 
 type Choice = { id: string; text: string };
 
@@ -24,6 +25,7 @@ export function AnswerForm({
 }) {
   const action = submitAnswer.bind(null, questionId);
   const [state, formAction, pending] = useActionState(action, {});
+  const { read, countPaste } = useIntegrityTracker(questionId);
 
   useEffect(() => {
     if (state.result) onSubmitted(state.result);
@@ -37,7 +39,20 @@ export function AnswerForm({
   }, [pending]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form
+      action={(formData) => {
+        // Read the signals at submit time and send them with the answer, so
+        // the server never has to trust a separate request to arrive.
+        const signals = read();
+        formData.set("secondsTaken", String(signals.secondsTaken));
+        formData.set("awayCount", String(signals.awayCount));
+        formData.set("awaySeconds", String(signals.awaySeconds));
+        formData.set("pasteAttempts", String(signals.pasteAttempts));
+        formAction(formData);
+      }}
+      className="flex flex-col gap-3"
+      {...blockingHandlers(countPaste)}
+    >
       {state.error && (
         <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{state.error}</p>
       )}

@@ -19,6 +19,7 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/announcements", label: "Announcements" },
   { href: "/admin/pet", label: "Virtual Cat" },
   { href: "/admin/review", label: "Review" },
+  { href: "/admin/integrity", label: "Integrity" },
   { href: "/admin/master-data", label: "Master Data" },
   { href: "/dashboard/leaderboard", label: "Scoreboard" },
 ];

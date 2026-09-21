@@ -192,7 +192,8 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
                 key={item.id}
                 item={item}
                 pending={pending}
-                onToggle={() => run(() => togglePetItem(item.id))}
+                // The ownership row, not the catalogue item - see ShopItem.ownedId.
+                onToggle={() => item.ownedId && run(() => togglePetItem(item.ownedId!))}
                 onPreview={setPreview}
               />
             ))}

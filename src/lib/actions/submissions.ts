@@ -27,6 +27,28 @@ export type SubmitAnswerState = FormState & {
 // submitting feels instant. The set-list page's "answered" counts and the
 // nav's points balance go stale until the student's next full navigation -
 // an acceptable tradeoff for how much faster each answer feels.
+/**
+ * Integrity signals travel with the answer. They come from the browser, so a
+ * determined student could forge them - which is exactly why they are context
+ * for a teacher rather than anything the portal acts on automatically. Values
+ * are clamped so a bad or hostile number cannot poison the admin view.
+ */
+function readSignals(formData: FormData) {
+  const num = (key: string, max: number) => {
+    const raw = Number(formData.get(key));
+    if (!Number.isFinite(raw) || raw < 0) return 0;
+    return Math.min(Math.round(raw), max);
+  };
+  return {
+    // A day is far longer than any real answer; anything above it is a tab
+    // left open overnight, which says nothing useful.
+    secondsTaken: num("secondsTaken", 86_400),
+    awayCount: num("awayCount", 1_000),
+    awaySeconds: num("awaySeconds", 86_400),
+    pasteAttempts: num("pasteAttempts", 1_000),
+  };
+}
+
 export async function submitAnswer(
   questionId: string,
   _prevState: SubmitAnswerState,
@@ -34,6 +56,8 @@ export async function submitAnswer(
 ): Promise<SubmitAnswerState> {
   const session = await auth();
   if (!session) return { error: "You must be logged in." };
+
+  const signals = readSignals(formData);
 
   const question = await prisma.question.findUnique({
     where: { id: questionId },
@@ -59,6 +83,7 @@ export async function submitAnswer(
           selectedChoiceId: choice.id,
           status: choice.isCorrect ? "CORRECT" : "INCORRECT",
           pointsAwarded: choice.isCorrect ? question.points : 0,
+          ...signals,
         },
       });
     } catch (error) {
@@ -91,6 +116,7 @@ export async function submitAnswer(
         answerText: answerText.trim(),
         status: "PENDING",
         pointsAwarded: 0,
+        ...signals,
       },
     });
   } catch (error) {
