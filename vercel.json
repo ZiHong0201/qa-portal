@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/clear-integrity",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/annual-reset",
+      "schedule": "30 16 * * *"
     }
   ]
 }

@@ -3,10 +3,15 @@ import { auth } from "@/auth";
 import { Nav } from "@/components/nav";
 import { InstallBanner } from "@/components/pwa";
 import { DevDisclaimerBar } from "@/components/dev-disclaimer";
+import { ResetWarning } from "@/components/reset-warning";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { getLiveAnnouncements } from "@/lib/announcements.server";
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await auth();
   if (!session || session.user.role !== "ADMIN") redirect("/dashboard");
 
@@ -20,6 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <AnnouncementBar announcements={announcements} />
       <Nav />
       <DevDisclaimerBar />
+      <ResetWarning />
       <div className="mx-auto max-w-screen-2xl px-4 py-8">
         <InstallBanner />
         {children}

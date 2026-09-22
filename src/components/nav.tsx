@@ -20,6 +20,7 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/review", label: "Review" },
   { href: "/admin/integrity", label: "Integrity" },
   { href: "/admin/master-data", label: "Master Data" },
+  { href: "/admin/reset", label: "Reset" },
   { href: "/dashboard/leaderboard", label: "Scoreboard" },
 ];
 

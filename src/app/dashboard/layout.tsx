@@ -4,6 +4,7 @@ import { CatCompanion } from "@/components/cat-companion";
 import { InstallBanner } from "@/components/pwa";
 import { QuestionHintProvider } from "@/components/question-hint-context";
 import { DevDisclaimerBar } from "@/components/dev-disclaimer";
+import { ResetWarning } from "@/components/reset-warning";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { PopupAds } from "@/components/popup-ads";
 import {
@@ -42,6 +43,7 @@ export default async function DashboardLayout({
           {/* Below the sticky bar, not inside it, so it does not eat viewport
             height on a phone - it is still the first thing on every page. */}
           <DevDisclaimerBar />
+          <ResetWarning />
           <div className="mx-auto max-w-4xl px-4 py-8">
             <InstallBanner />
             {children}

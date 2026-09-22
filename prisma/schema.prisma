@@ -443,3 +443,33 @@ model PetPurchase {
 
   @@index([studentId])
 }
+
+// A record of each time the portal was reset back to zero. Exists mainly so
+// the scheduled reset can tell whether it has already run - without it, a
+// daily job would wipe the portal again every single day after the date
+// passes. Doubles as an audit trail of what was destroyed and where the
+// snapshot went.
+model PortalReset {
+  id String @id @default(cuid())
+
+  ranAt DateTime @default(now())
+
+  // The scheduled date this run satisfied. Null for a manual reset, which is
+  // what keeps a hand-run reset from cancelling the scheduled one.
+  scheduledFor DateTime?
+
+  // Null when run by the cron, otherwise the admin who pressed the button.
+  triggeredById String?
+
+  // Where the pre-wipe snapshot was stored. Null only if the export failed
+  // and an admin chose to continue anyway.
+  snapshotUrl String?
+
+  submissionsCleared  Int @default(0)
+  checkInsCleared     Int @default(0)
+  adjustmentsCleared  Int @default(0)
+  redemptionsCleared  Int @default(0)
+  petPurchasesCleared Int @default(0)
+
+  @@index([scheduledFor])
+}
