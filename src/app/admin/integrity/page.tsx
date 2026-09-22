@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { SubmitButton } from "@/components/submit-button";
+import { clearIntegrityNow } from "@/lib/actions/integrity";
+import { integrityRetentionStatus, INTEGRITY_RETENTION_DAYS } from "@/lib/integrity.server";
 
 // A correct answer faster than this is worth a glance. Reading a typical SPM
 // question alone takes longer, so anything under it was almost certainly not
@@ -14,7 +17,7 @@ function humanTime(seconds: number | null) {
 }
 
 export default async function IntegrityPage() {
-  const [flagged, stats] = await Promise.all([
+  const [flagged, stats, retention] = await Promise.all([
     prisma.submission.findMany({
       where: {
         OR: [
@@ -35,6 +38,7 @@ export default async function IntegrityPage() {
       _avg: { secondsTaken: true },
       _count: { _all: true },
     }),
+    integrityRetentionStatus(),
   ]);
 
   return (
@@ -53,6 +57,42 @@ export default async function IntegrityPage() {
         {stats._count._all.toLocaleString()} timed answers so far, averaging{" "}
         {humanTime(stats._avg.secondsTaken ? Math.round(stats._avg.secondsTaken) : null)} each.
       </p>
+
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
+        <p className="text-sm font-medium text-gray-800">Retention</p>
+        <p className="mt-1 text-xs text-gray-500">
+          Signals are wiped automatically once they are {INTEGRITY_RETENTION_DAYS} days old. Marks,
+          answers and dates are never touched - only the timing and tab-switch columns.
+        </p>
+        <p className="mt-2 text-xs text-gray-500">
+          {retention.carrying === 0
+            ? "Nothing is currently held."
+            : `${retention.carrying.toLocaleString()} answer${
+                retention.carrying === 1 ? "" : "s"
+              } currently carry signals, the oldest from ${retention.oldest?.toLocaleDateString()}.`}
+        </p>
+
+        {retention.carrying > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <form action={clearIntegrityNow.bind(null, "old")}>
+              <SubmitButton
+                pendingText="Clearing…"
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium hover:bg-gray-50"
+              >
+                Clear older than {INTEGRITY_RETENTION_DAYS} days
+              </SubmitButton>
+            </form>
+            <form action={clearIntegrityNow.bind(null, "all")}>
+              <SubmitButton
+                pendingText="Clearing…"
+                className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+              >
+                Clear everything now
+              </SubmitButton>
+            </form>
+          </div>
+        )}
+      </div>
 
       {flagged.length === 0 ? (
         <p className="rounded-xl border border-gray-200 bg-white p-6 text-center text-gray-500">
