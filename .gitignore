@@ -51,3 +51,6 @@ next-env.d.ts
 
 # vercel CLI project link
 .vercel
+
+# Scratch crops from scripts/import-english-k1.mjs
+.english-crops/
