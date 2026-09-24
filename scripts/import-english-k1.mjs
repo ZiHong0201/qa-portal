@@ -112,15 +112,42 @@ function renderBody(q) {
   return `${q.context}\n\n──────────\n\n${q.body}`;
 }
 
+/**
+ * The set description a student sees above the questions.
+ *
+ * Two of the fifteen papers - Kuala Lumpur and Sarawak - arrived without a
+ * usable answer key: Sarawak has no scheme file at all, and KL's is for a
+ * different paper ("Modul KL TOP 5", whose questions are about the Japanese
+ * writing system and Leo Clubs rather than this paper's virus notice and
+ * Shaolin Temple). Their answers are worked out from the questions instead.
+ *
+ * That is said on the set rather than kept in a comment here. A student
+ * revising has a right to know that a mark against their answer is a reading
+ * of the question and not the board's own key.
+ */
+function describe(paper) {
+  if (paper.keySource !== "derived") return paper.description;
+  return `${paper.description}
+
+Note: no official answer scheme was issued with this paper, so the answers here are worked out from the questions themselves. Check anything that looks wrong with your teacher.`;
+}
+
 async function importPaper(state) {
   const mod = await import(pathToFileURL(path.join(DATA_DIR, `${state}.mjs`)).href);
   const paper = mod.default;
 
   const part1 = paper.questions.filter((q) => q.part === 1);
-  const outDir = path.join(HERE, "..", ".english-crops", state);
-  const crops = cropStimuli(paper, outDir);
 
-  if (crops.length !== part1.length) {
+  // Part 1 is not laid out the same way in every state. Kedah prints a picture
+  // beside each question - an advertisement, a chat screenshot, a poster - so
+  // those are cropped from the PDF. Johor prints a bordered box of text, which
+  // is transcribed into the question instead, because text reflows on a phone
+  // and a scan of a paragraph does not. A paper declares which it is by having
+  // stimulusPages or not.
+  const outDir = path.join(HERE, "..", ".english-crops", state);
+  const crops = paper.stimulusPages ? cropStimuli(paper, outDir) : [];
+
+  if (paper.stimulusPages && crops.length !== part1.length) {
     throw new Error(
       `${state}: found ${crops.length} stimulus crops for ${part1.length} Part 1 questions. ` +
         `Check the band split in ${outDir}/bands.json and adjust stimulusSkip before retrying.`
@@ -128,7 +155,14 @@ async function importPaper(state) {
   }
 
   console.log(`\n${paper.title}`);
-  console.log(`  ${paper.questions.length} questions, ${crops.length} Part 1 pictures`);
+  console.log(
+    `  ${paper.questions.length} questions, ` +
+      (paper.stimulusPages ? `${crops.length} Part 1 pictures` : "Part 1 stimuli as text")
+  );
+
+  if (paper.keySource === "derived") {
+    console.log("  ! no official scheme for this paper - answers are derived");
+  }
 
   const keyNotes = paper.questions.filter((q) => q.keyNote);
   for (const q of keyNotes) console.log(`  ! Q${q.n}: ${q.keyNote}`);
@@ -154,7 +188,7 @@ async function importPaper(state) {
   await db.execute({
     sql: `INSERT INTO QuestionSet (id, title, description, subject, isActive, createdAt, updatedAt, createdById)
           VALUES (?, ?, ?, ?, 1, ?, ?, ?)`,
-    args: [setId, paper.title, paper.description, SUBJECT, now(), now(), createdById],
+    args: [setId, paper.title, describe(paper), SUBJECT, now(), now(), createdById],
   });
   await db.execute({
     sql: `INSERT INTO QuestionSetGrade (id, questionSetId, grade, createdAt) VALUES (?, ?, ?, ?)`,
@@ -165,8 +199,10 @@ async function importPaper(state) {
   for (const q of paper.questions) {
     const questionId = id();
     const isFree = q.type === "FREE";
-    const diagramUrl = q.part === 1 ? urls[picture++] : null;
-    if (q.part === 1 && !diagramUrl) throw new Error(`${state}: Q${q.n} has no picture.`);
+    const diagramUrl = q.part === 1 && urls.length ? urls[picture++] : null;
+    if (q.part === 1 && paper.stimulusPages && !diagramUrl) {
+      throw new Error(`${state}: Q${q.n} has no picture.`);
+    }
 
     await db.execute({
       sql: `INSERT INTO Question (id, body, explanation, diagramUrl, type, points, isActive, createdAt, updatedAt, questionSetId, createdById)
@@ -177,7 +213,9 @@ async function importPaper(state) {
         // For a written answer the explanation carries the word the scheme
         // wants, which is what the marker needs in front of them and what the
         // student sees once they have answered.
-        isFree ? `Answer: ${q.answer}` : (q.explanation ?? null),
+        isFree
+          ? [`Answer: ${q.answer}`, q.explanation].filter(Boolean).join(" — ")
+          : (q.explanation ?? null),
         diagramUrl,
         isFree ? "FREE_RESPONSE" : "MULTIPLE_CHOICE",
         POINTS,
