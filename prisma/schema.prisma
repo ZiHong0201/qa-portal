@@ -453,6 +453,40 @@ model PetPurchase {
 // daily job would wipe the portal again every single day after the date
 // passes. Doubles as an audit trail of what was destroyed and where the
 // snapshot went.
+// A teacher clearing one student's answers so they can sit the work again.
+//
+// Logged for the same reason submissions record their reviewer: a student's
+// marks changing needs to be answerable afterwards. Deleting the submissions
+// is otherwise silent - the answers simply are not there any more, and there
+// is nothing to say a teacher meant it.
+model AnswerReset {
+  id String @id @default(cuid())
+
+  ranAt DateTime @default(now())
+
+  // Ids kept as plain columns rather than relations, like PortalReset above.
+  // The log has to outlive what it refers to: a foreign key would either block
+  // deleting a question set later or quietly take this record with it, and an
+  // audit trail that disappears when the evidence does is not one. The names
+  // are stored alongside for the same reason - so the entry still reads
+  // properly once the set has been renamed or the account is gone.
+  studentId   String
+  studentName String
+
+  // Null when the whole of a student's history was cleared at once.
+  questionSetId    String?
+  questionSetTitle String?
+
+  clearedById   String?
+  clearedByName String?
+
+  answersCleared Int @default(0)
+  // Marks the student loses by clearing, and will earn again on the redo.
+  marksWithdrawn Int @default(0)
+
+  @@index([studentId])
+}
+
 model PortalReset {
   id String @id @default(cuid())
 

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getStudentBalance } from "@/lib/points";
 import { AdjustmentForm } from "./adjustment-form";
 import { DeleteStudentButton } from "./delete-student-button";
+import { ClearAnswersButton } from "./clear-answers-button";
 
 export default async function AdminStudentDetailPage({
   params,
@@ -18,7 +19,7 @@ export default async function AdminStudentDetailPage({
   });
   if (!student) notFound();
 
-  const [balance, adjustments, redemptions, submissions] = await Promise.all([
+  const [balance, adjustments, redemptions, submissions, answerResets] = await Promise.all([
     getStudentBalance(id),
     prisma.pointAdjustment.findMany({
       where: { studentId: id },
@@ -43,6 +44,11 @@ export default async function AdminStudentDetailPage({
           },
         },
       },
+    }),
+    prisma.answerReset.findMany({
+      where: { studentId: id },
+      orderBy: { ranAt: "desc" },
+      take: 20,
     }),
   ]);
 
@@ -85,6 +91,9 @@ export default async function AdminStudentDetailPage({
     if (sub.createdAt > entry.lastAnsweredAt) entry.lastAnsweredAt = sub.createdAt;
     progressBySet.set(set.id, entry);
   }
+  const totalAnswered = submissions.length;
+  const totalMarksEarned = submissions.reduce((sum, s) => sum + s.pointsAwarded, 0);
+
   const progress = Array.from(progressBySet.entries())
     .map(([setId, p]) => ({ setId, ...p }))
     .sort((a, b) => b.lastAnsweredAt.getTime() - a.lastAnsweredAt.getTime());
@@ -130,7 +139,19 @@ export default async function AdminStudentDetailPage({
                 <Link href={`/admin/sets/${p.setId}`} className="font-medium hover:underline">
                   {p.title}
                 </Link>
-                <span className="text-xs text-gray-400">{p.subject}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400">{p.subject}</span>
+                  <ClearAnswersButton
+                    studentId={student.id}
+                    studentName={student.name}
+                    questionSetId={p.setId}
+                    setTitle={p.title}
+                    answered={p.answered}
+                    marks={p.marksObtained}
+                    balance={balance.balance}
+                    label="Reset paper"
+                  />
+                </div>
               </div>
               <div className="mt-1 flex items-center gap-4 text-xs text-gray-600">
                 <span>
@@ -183,6 +204,31 @@ export default async function AdminStudentDetailPage({
         </ul>
       </div>
 
+      {answerResets.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-3 font-medium">Cleared for redo</h2>
+          <ul className="flex flex-col gap-2">
+            {answerResets.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+              >
+                <div>
+                  <span>{r.questionSetTitle ?? "All question sets"}</span>
+                  <span className="ml-2 text-gray-500">
+                    {r.answersCleared} answer{r.answersCleared === 1 ? "" : "s"}, -
+                    {r.marksWithdrawn} marks
+                  </span>
+                </div>
+                <span className="text-xs text-gray-400">
+                  {r.clearedByName ?? "Unknown"} · {r.ranAt.toLocaleDateString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div>
         <h2 className="mb-3 font-medium">Redemption history</h2>
         <ul className="flex flex-col gap-2">
@@ -202,6 +248,28 @@ export default async function AdminStudentDetailPage({
           )}
         </ul>
       </div>
+
+      {progress.length > 0 && (
+        <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <h2 className="mb-1 font-medium text-amber-900">Reset every paper</h2>
+          <p className="mb-3 text-sm text-amber-800">
+            Clears every answer {student.name} has given, across all {progress.length} set
+            {progress.length === 1 ? "" : "s"}, so the whole lot can be redone. The{" "}
+            {totalMarksEarned} mark{totalMarksEarned === 1 ? "" : "s"} those answers earned are
+            taken back, and earned again by redoing the work. The account, points adjustments and
+            rewards are untouched.
+          </p>
+          <ClearAnswersButton
+            studentId={student.id}
+            studentName={student.name}
+            answered={totalAnswered}
+            marks={totalMarksEarned}
+            balance={balance.balance}
+            label="Reset every paper"
+            className="rounded-md border border-amber-400 bg-white px-4 py-2 text-sm text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+          />
+        </div>
+      )}
 
       <div className="mt-8 rounded-lg border border-red-200 bg-red-50 p-4">
         <h2 className="mb-1 font-medium text-red-800">Danger zone</h2>
