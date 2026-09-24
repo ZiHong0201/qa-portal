@@ -1,7 +1,14 @@
 import Link from "next/link";
+import { auth } from "@/auth";
+import { isAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export default async function AdminHome() {
+  // Teachers share this page. They see the same teaching figures and lose the
+  // two cards that link into admin-only sections - a card that bounces you
+  // back to the page you clicked it from is worse than no card.
+  const admin = isAdmin(await auth());
+
   const now = new Date();
   // Switched on and inside its window - the same test the ticker and pop-ups
   // use, so this count matches what students are actually seeing.
@@ -48,12 +55,16 @@ export default async function AdminHome() {
             highlight={pendingCount > 0}
           />
         </Link>
-        <Link href="/admin/catalogue">
-          <StatCard label="Catalogue items" value={catalogueCount} />
-        </Link>
-        <Link href="/admin/announcements">
-          <StatCard label="Live notices" value={liveNoticeCount} />
-        </Link>
+        {admin && (
+          <>
+            <Link href="/admin/catalogue">
+              <StatCard label="Catalogue items" value={catalogueCount} />
+            </Link>
+            <Link href="/admin/announcements">
+              <StatCard label="Live notices" value={liveNoticeCount} />
+            </Link>
+          </>
+        )}
       </div>
       <div className="mt-8 flex flex-wrap gap-2">
         <Link
@@ -68,12 +79,14 @@ export default async function AdminHome() {
         >
           + New student
         </Link>
-        <Link
-          href="/admin/catalogue/new"
-          className="rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50"
-        >
-          + New catalogue item
-        </Link>
+        {admin && (
+          <Link
+            href="/admin/catalogue/new"
+            className="rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50"
+          >
+            + New catalogue item
+          </Link>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+
+import { revalidatePath } from "next/cache";
+import { isAdmin } from "@/lib/permissions";
 import { runReset } from "@/lib/reset.server";
 
 /**
@@ -15,8 +17,10 @@ export async function resetPortalNow(
   _prev: { error?: string; success?: string },
   formData: FormData
 ): Promise<{ error?: string; success?: string }> {
+  // Returns the refusal rather than throwing, unlike requireAdmin: this is a
+  // form action, and the message belongs in the form next to the button.
   const session = await auth();
-  if (!session || session.user.role !== "ADMIN") return { error: "Forbidden" };
+  if (!isAdmin(session)) return { error: "Forbidden" };
 
   if (String(formData.get("confirm") ?? "").trim().toUpperCase() !== "RESET") {
     return { error: 'Type RESET in the box to confirm.' };

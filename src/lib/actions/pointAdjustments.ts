@@ -2,17 +2,10 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
+import { requireStaff } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "./auth";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    throw new Error("Forbidden");
-  }
-  return session;
-}
 
 const adjustmentSchema = z.object({
   amount: z.coerce
@@ -28,7 +21,7 @@ export async function createPointAdjustment(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const session = await requireAdmin();
+  const session = await requireStaff();
 
   const student = await prisma.user.findFirst({ where: { id: studentId, role: "STUDENT" } });
   if (!student) return { error: "Student not found." };

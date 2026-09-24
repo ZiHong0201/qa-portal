@@ -3,19 +3,13 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireAdmin } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { saveCatalogueImage, deleteCatalogueImage } from "@/lib/uploads";
 import { getStudentBalance } from "@/lib/points";
 import type { FormState } from "./auth";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    throw new Error("Forbidden");
-  }
-  return session;
-}
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),

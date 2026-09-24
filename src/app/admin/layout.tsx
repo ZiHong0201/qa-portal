@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { isStaff } from "@/lib/permissions";
 import { Nav } from "@/components/nav";
 import { InstallBanner } from "@/components/pwa";
 import { DevDisclaimerBar } from "@/components/dev-disclaimer";
@@ -13,7 +14,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session || session.user.role !== "ADMIN") redirect("/dashboard");
+  if (!isStaff(session)) redirect("/dashboard");
 
   // The ticker shows here too, so an admin can see what students are seeing.
   // Pop-ups deliberately do not - they are aimed at students, and an admin

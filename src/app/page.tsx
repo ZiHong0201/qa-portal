@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
+import { isStaff } from "@/lib/permissions";
 import { InteractiveBackdrop } from "@/components/interactive-background";
 import { BrandAvatar } from "@/components/brand-avatar";
 import { InstallButton } from "@/components/pwa";
@@ -9,7 +10,10 @@ import { DevDisclaimerNote } from "@/components/dev-disclaimer";
 export default async function Home() {
   const session = await auth();
   if (session) {
-    redirect(session.user.role === "ADMIN" ? "/admin" : "/dashboard");
+    // Also the post-login landing: signIn sends everyone here, so a teacher
+    // has to be routed to /admin from this line or they arrive at the student
+    // dashboard and have to find their way out of it.
+    redirect(isStaff(session) ? "/admin" : "/dashboard");
   }
 
   return (

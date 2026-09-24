@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { requireStaff } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { extractFromDocx, extractFromPdf, type ExtractedQuestion } from "@/lib/examImport";
 import type { FormState } from "./auth";
@@ -12,20 +12,13 @@ const MAX_FILE_SIZE = 30 * 1024 * 1024;
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    throw new Error("Forbidden");
-  }
-  return session;
-}
 
 export async function importQuestionsFromFile(
   setId: string,
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const session = await requireAdmin();
+  const session = await requireStaff();
 
   const set = await prisma.questionSet.findUnique({ where: { id: setId } });
   if (!set) return { error: "Question set not found." };

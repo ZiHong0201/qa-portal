@@ -3,17 +3,10 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { requireStaff } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "./auth";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    throw new Error("Forbidden");
-  }
-  return session;
-}
 
 const setSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
@@ -46,7 +39,7 @@ export async function createQuestionSet(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const session = await requireAdmin();
+  const session = await requireStaff();
 
   const parsed = setSchema.safeParse({
     title: formData.get("title"),
@@ -82,7 +75,7 @@ export async function updateQuestionSet(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireAdmin();
+  await requireStaff();
 
   const parsed = setSchema.safeParse({
     title: formData.get("title"),
@@ -120,14 +113,14 @@ export async function updateQuestionSet(
 }
 
 export async function toggleQuestionSetActive(setId: string, isActive: boolean) {
-  await requireAdmin();
+  await requireStaff();
   await prisma.questionSet.update({ where: { id: setId }, data: { isActive } });
   revalidatePath("/admin/sets");
   revalidatePath(`/admin/sets/${setId}`);
 }
 
 export async function deleteQuestionSet(setId: string) {
-  await requireAdmin();
+  await requireStaff();
 
   const count = await prisma.submission.count({ where: { question: { questionSetId: setId } } });
   if (count > 0) {

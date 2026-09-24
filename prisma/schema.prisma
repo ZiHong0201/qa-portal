@@ -12,6 +12,10 @@ datasource db {
 
 enum Role {
   STUDENT
+  // A second teacher: everything academic - sets, questions, grading,
+  // students and their points, and the integrity signals - but none of the
+  // portal's own configuration. See src/lib/permissions.ts for the split.
+  TEACHER
   ADMIN
 }
 

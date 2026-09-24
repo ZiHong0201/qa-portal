@@ -3,19 +3,12 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { savePopupImage, deletePopupImage } from "@/lib/uploads";
 import { localInputToDate, ANNOUNCEMENT_MAX_LENGTH } from "@/lib/announcements";
 import type { FormState } from "./auth";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    throw new Error("Forbidden");
-  }
-  return session;
-}
 
 // The ticker and the pop-ups share a scheduling window, so they share this.
 const windowSchema = z.object({

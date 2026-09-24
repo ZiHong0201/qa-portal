@@ -3,17 +3,12 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { clothingKeys } from "@/components/pet-cat";
 import { treatKeys } from "@/components/pet-treat";
 import type { FormState } from "./auth";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") throw new Error("Forbidden");
-  return session;
-}
 
 /** Turns the cat on or off for one student. */
 export async function setPetAccess(studentId: string, enabled: boolean) {

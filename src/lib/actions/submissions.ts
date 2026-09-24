@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireStaff } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
@@ -130,10 +131,10 @@ export async function submitAnswer(
 }
 
 export async function reviewSubmission(submissionId: string, formData: FormData) {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    throw new Error("Forbidden");
-  }
+  // Marking is the teaching job, so teachers do it too. The reviewer is
+  // recorded on the submission either way, which is what makes it answerable
+  // later for who awarded the marks.
+  const session = await requireStaff();
 
   const decision = formData.get("decision");
   if (decision !== "APPROVED" && decision !== "REJECTED") {

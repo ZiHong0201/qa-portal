@@ -4,17 +4,10 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { requireStaff } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "./auth";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    throw new Error("Forbidden");
-  }
-  return session;
-}
 
 const createStudentSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
@@ -28,7 +21,7 @@ export async function createStudent(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireAdmin();
+  await requireStaff();
 
   const parsed = createStudentSchema.safeParse({
     name: formData.get("name"),
@@ -83,7 +76,7 @@ export async function updateStudent(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireAdmin();
+  await requireStaff();
 
   const parsed = updateStudentSchema.safeParse({
     name: formData.get("name"),
@@ -126,7 +119,7 @@ export async function updateStudent(
 }
 
 export async function deleteStudent(studentId: string) {
-  await requireAdmin();
+  await requireStaff();
 
   const student = await prisma.user.findFirst({ where: { id: studentId, role: "STUDENT" } });
   if (!student) return;
@@ -144,7 +137,7 @@ export async function deleteStudent(studentId: string) {
 }
 
 export async function updateStudentGrade(studentId: string, formData: FormData) {
-  await requireAdmin();
+  await requireStaff();
 
   const grade = formData.get("grade");
   if (typeof grade !== "string" || !(await prisma.grade.findUnique({ where: { name: grade } }))) {
@@ -160,7 +153,7 @@ export async function updateStudentGrade(studentId: string, formData: FormData) 
 }
 
 export async function updateStudentSubjects(studentId: string, formData: FormData) {
-  await requireAdmin();
+  await requireStaff();
 
   const subjects = [...new Set(formData.getAll("subjects").filter((s): s is string => typeof s === "string"))];
   const validCount = subjects.length

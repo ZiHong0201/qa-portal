@@ -11,6 +11,18 @@ const STUDENT_LINKS: NavLink[] = [
   { href: "/dashboard/leaderboard", label: "Scoreboard" },
 ];
 
+// The teaching half of /admin: everything a teacher and an admin both use.
+const STAFF_LINKS: NavLink[] = [
+  { href: "/admin/sets", label: "Sets" },
+  { href: "/admin/students", label: "Students" },
+  { href: "/admin/review", label: "Review" },
+  { href: "/admin/integrity", label: "Integrity" },
+  { href: "/dashboard/leaderboard", label: "Scoreboard" },
+];
+
+// Spelled out rather than composed from the two lists above, because the
+// admin bar has an order the admin is used to reading and it is not the
+// concatenation of the other two.
 const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/sets", label: "Sets" },
   { href: "/admin/students", label: "Students" },
@@ -20,6 +32,7 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/review", label: "Review" },
   { href: "/admin/integrity", label: "Integrity" },
   { href: "/admin/master-data", label: "Master Data" },
+  { href: "/admin/staff", label: "Staff" },
   { href: "/admin/reset", label: "Reset" },
   { href: "/dashboard/leaderboard", label: "Scoreboard" },
 ];
@@ -28,11 +41,13 @@ export async function Nav() {
   const session = await auth();
   if (!session) return null;
 
-  const isAdmin = session.user.role === "ADMIN";
+  const role = session.user.role;
+  const isAdmin = role === "ADMIN";
+  const isStaff = isAdmin || role === "TEACHER";
 
   let balance: number | null = null;
-  let links = isAdmin ? ADMIN_LINKS : STUDENT_LINKS;
-  if (!isAdmin) {
+  let links = isAdmin ? ADMIN_LINKS : isStaff ? STAFF_LINKS : STUDENT_LINKS;
+  if (!isStaff) {
     // One round trip for the marks total and the pet flag together. The nav
     // renders on every page, so anything extra here is paid for everywhere.
     const nav = await getStudentNav(session.user.id);
@@ -46,7 +61,7 @@ export async function Nav() {
 
   // The admin pages are laid out wider than the student ones, so the bar
   // matches whichever it sits above instead of ending short of the content.
-  const width = isAdmin ? "max-w-screen-2xl" : "max-w-4xl";
+  const width = isStaff ? "max-w-screen-2xl" : "max-w-4xl";
 
   const logOut = (
     <form
@@ -80,7 +95,7 @@ export async function Nav() {
         </NavDrawer>
 
         <Link
-          href={isAdmin ? "/admin" : "/dashboard"}
+          href={isStaff ? "/admin" : "/dashboard"}
           className="leading-tight font-semibold text-sky-950"
         >
           Mr Tan

@@ -3,18 +3,11 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { requireStaff } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { saveDiagram, deleteDiagram } from "@/lib/uploads";
 import type { FormState } from "./auth";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    throw new Error("Forbidden");
-  }
-  return session;
-}
 
 const questionSchema = z.object({
   body: z.string().trim().min(1, "Question text is required").max(5000),
@@ -47,7 +40,7 @@ export async function createQuestion(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const session = await requireAdmin();
+  const session = await requireStaff();
 
   const set = await prisma.questionSet.findUnique({ where: { id: setId } });
   if (!set) return { error: "Question set not found." };
@@ -97,7 +90,7 @@ export async function updateQuestion(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireAdmin();
+  await requireStaff();
 
   const existing = await prisma.question.findUnique({
     where: { id: questionId },
@@ -156,7 +149,7 @@ export async function updateQuestion(
 }
 
 export async function deleteQuestion(questionId: string) {
-  await requireAdmin();
+  await requireStaff();
 
   const question = await prisma.question.findUnique({ where: { id: questionId } });
   if (!question) return;
@@ -174,7 +167,7 @@ export async function deleteQuestion(questionId: string) {
 }
 
 export async function toggleQuestionActive(questionId: string, isActive: boolean) {
-  await requireAdmin();
+  await requireStaff();
   const question = await prisma.question.update({
     where: { id: questionId },
     data: { isActive },
@@ -186,7 +179,7 @@ export async function toggleQuestionActive(questionId: string, isActive: boolean
 // it stays editable even after a question has submissions - explanations are
 // usually added *because* students got something wrong.
 export async function updateQuestionExplanation(questionId: string, formData: FormData) {
-  await requireAdmin();
+  await requireStaff();
 
   const explanation = (formData.get("explanation") as string | null)?.trim() || null;
   if (explanation && explanation.length > 2000) {
