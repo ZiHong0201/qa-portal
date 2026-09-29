@@ -14,6 +14,17 @@ function stemOf(body: string, limit = 120): string {
   return stem.length > limit ? `${stem.slice(0, limit).trimEnd()}…` : stem;
 }
 
+/**
+ * The marking note, without repeating the label.
+ *
+ * Imported written questions store their expected answer as "Answer: pace",
+ * which reads correctly to the student after they answer. Under the "Scheme:"
+ * heading here that prefix just says the same thing twice.
+ */
+function schemeNote(explanation: string): string {
+  return explanation.replace(/^Answer:\s*/i, "");
+}
+
 export default async function ReviewPage() {
   const pending = await prisma.submission.findMany({
     where: { status: "PENDING" },
@@ -41,7 +52,7 @@ export default async function ReviewPage() {
                 above only says "write the word that belongs in gap (37)". */}
             {s.question.explanation && (
               <p className="mb-3 rounded-md border border-sky-100 bg-sky-50 px-3 py-2 text-sm text-sky-900">
-                <span className="font-medium">Scheme:</span> {s.question.explanation}
+                <span className="font-medium">Scheme:</span> {schemeNote(s.question.explanation)}
               </p>
             )}
             <form action={reviewSubmission.bind(null, s.id)} className="flex items-center gap-3">
