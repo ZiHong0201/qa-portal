@@ -47,6 +47,10 @@ export default async function StudentSetPage({
     return {
       id: q.id,
       body: q.body,
+      // Without this the deck cannot tell a written question from a
+      // multiple-choice one, and a free-response question renders as an empty
+      // list of options with nothing to answer in.
+      type: q.type,
       diagramUrl: q.diagramUrl,
       points: q.points,
       choices: q.choices.map((c) => ({ id: c.id, text: c.text })),

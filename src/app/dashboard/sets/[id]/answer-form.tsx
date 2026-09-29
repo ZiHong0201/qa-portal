@@ -8,11 +8,18 @@ type Choice = { id: string; text: string };
 
 export function AnswerForm({
   questionId,
+  type,
   choices,
   onSubmitted,
   onPendingChange,
 }: {
   questionId: string;
+  /**
+   * Which input the question needs. A written question has no choices at all,
+   * so without this the form would render an empty list and a submit button
+   * that can never be satisfied.
+   */
+  type: "MULTIPLE_CHOICE" | "FREE_RESPONSE";
   choices: Choice[];
   onSubmitted: (result: NonNullable<SubmitAnswerState["result"]>) => void;
   /**
@@ -56,17 +63,37 @@ export function AnswerForm({
       {state.error && (
         <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{state.error}</p>
       )}
-      <div className="flex flex-col gap-2">
-        {choices.map((c) => (
-          <label
-            key={c.id}
-            className="flex items-center gap-2 rounded-lg border border-sky-100 px-3 py-2.5 transition-colors hover:border-sky-300 hover:bg-sky-50"
-          >
-            <input type="radio" name="choiceId" value={c.id} required className="accent-sky-600" />
-            {c.text}
-          </label>
-        ))}
-      </div>
+      {type === "FREE_RESPONSE" ? (
+        <div className="flex flex-col gap-1">
+          <textarea
+            name="answerText"
+            required
+            rows={3}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Type your answer"
+            className="w-full resize-y rounded-lg border border-sky-100 px-3 py-2.5 text-gray-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+          />
+          {/* Pasting is blocked across the whole card, so saying so here saves
+              a student wondering why nothing happened. */}
+          <p className="text-xs text-gray-500">
+            Type your answer in your own words - pasting is turned off. Your teacher marks this
+            one, so it will not be graded straight away.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {choices.map((c) => (
+            <label
+              key={c.id}
+              className="flex items-center gap-2 rounded-lg border border-sky-100 px-3 py-2.5 transition-colors hover:border-sky-300 hover:bg-sky-50"
+            >
+              <input type="radio" name="choiceId" value={c.id} required className="accent-sky-600" />
+              {c.text}
+            </label>
+          ))}
+        </div>
+      )}
       <button
         type="submit"
         disabled={pending}

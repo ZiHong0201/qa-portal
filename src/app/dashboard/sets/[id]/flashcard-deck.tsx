@@ -14,6 +14,7 @@ export type FlashcardChoice = { id: string; text: string };
 export type FlashcardQuestion = {
   id: string;
   body: string;
+  type: "MULTIPLE_CHOICE" | "FREE_RESPONSE";
   diagramUrl: string | null;
   points: number;
   choices: FlashcardChoice[];
@@ -76,7 +77,7 @@ function TimingSummary({ cards }: { cards: FlashcardQuestion[] }) {
             <li key={t.card.id} className="flex items-center gap-2 text-xs">
               <span className="w-8 shrink-0 text-gray-400">Q{t.n}</span>
               <span
-                className={`h-1.5 rounded-full ${isCorrect(status) ? "bg-emerald-400" : "bg-rose-300"}`}
+                className={`h-1.5 rounded-full ${BAR_COLOR(status)}`}
                 // Relative to the slowest answer, so the shape of the set is
                 // visible at a glance without reading every number.
                 style={{ width: `${Math.max(4, (t.seconds / slowest.seconds) * 60)}%` }}
@@ -92,6 +93,19 @@ function TimingSummary({ cards }: { cards: FlashcardQuestion[] }) {
 
 function isCorrect(status: string) {
   return status === "CORRECT" || status === "APPROVED";
+}
+
+/**
+ * The bar colour for one answer in the end-of-set summary.
+ *
+ * A written answer sits at PENDING until a teacher marks it, and that is not
+ * the same as getting it wrong - showing it red would tell a student they had
+ * failed a question nobody has looked at yet.
+ */
+function BAR_COLOR(status: string) {
+  if (isCorrect(status)) return "bg-emerald-400";
+  if (status === "PENDING") return "bg-blue-300";
+  return "bg-rose-300";
 }
 
 const STATUS_TEXT_COLOR: Record<string, string> = {
@@ -263,6 +277,7 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
         ) : (
           <AnswerForm
             questionId={q.id}
+            type={q.type}
             choices={q.choices}
             onSubmitted={(result) => handleSubmitted(q.id, result)}
             onPendingChange={setSubmitting}
