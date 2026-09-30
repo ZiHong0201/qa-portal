@@ -27,6 +27,28 @@ export function previousDayKey(day: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * The Monday that starts the week containing `day`, as a day key.
+ *
+ * Weeks run Monday to Sunday: the weekly scoreboard starts clean at midnight
+ * going into Monday, Malaysian time, so a school week and a scoreboard week
+ * are the same week.
+ */
+export function weekStartKey(day: string = dayKey()): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  const sinceMonday = (d.getUTCDay() + 6) % 7; // getUTCDay: 0 = Sunday
+  d.setUTCDate(d.getUTCDate() - sinceMonday);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The instant a day begins in Malaysia. Malaysia is a fixed UTC+8 with no
+ * daylight saving, so the offset can be written down rather than looked up.
+ */
+export function startOfDay(day: string): Date {
+  return new Date(`${day}T00:00:00+08:00`);
+}
+
 export const CHECK_IN_BASE_MARKS = 5;
 export const CHECK_IN_MAX_DAILY_MARKS = 10;
 export const CHECK_IN_MILESTONE_EVERY = 7;

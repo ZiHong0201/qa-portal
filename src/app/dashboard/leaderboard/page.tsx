@@ -7,7 +7,9 @@ import {
   MIN_GRADED_FOR_ACCURACY,
   type RankedStudent,
   type LeaderboardMetric,
+  type LeaderboardPeriod,
 } from "@/lib/leaderboard";
+import { weekStartKey } from "@/lib/check-in";
 import { CelebratingCat } from "@/components/celebrating-cat";
 
 const MEDAL_STYLES: Record<number, string> = {
@@ -34,10 +36,22 @@ function days(n: number) {
   return `${n} day${n === 1 ? "" : "s"}`;
 }
 
-function boardHref(form: string | null, metric: LeaderboardMetric) {
+function boardHref(form: string | null, metric: LeaderboardMetric, period: LeaderboardPeriod) {
   const params = new URLSearchParams(form ? { form } : {});
   if (metric !== "points") params.set("by", metric);
+  // The weekly board is the default, so only the all-time one needs saying.
+  if (period === "all") params.set("period", "all");
   return `/dashboard/leaderboard?${params.toString()}`;
+}
+
+/** "Mon 28 Sep" - the day the current week began, for the description. */
+function weekLabel(day: string) {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
 }
 
 function Chip({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
@@ -56,7 +70,15 @@ function Chip({ href, active, children }: { href: string; active: boolean; child
 }
 
 /** The headline figure for the board being shown, with the other beneath it. */
-function Score({ student, metric }: { student: RankedStudent; metric: LeaderboardMetric }) {
+function Score({
+  student,
+  metric,
+  period,
+}: {
+  student: RankedStudent;
+  metric: LeaderboardMetric;
+  period: LeaderboardPeriod;
+}) {
   const accuracy =
     student.accuracy === null ? null : (
       <span
@@ -66,6 +88,20 @@ function Score({ student, metric }: { student: RankedStudent; metric: Leaderboar
         {student.accuracy}% correct
       </span>
     );
+
+  if (metric === "streak" && period === "week") {
+    return (
+      <span className="shrink-0 text-right">
+        <span className="block">
+          <span className="text-lg font-bold text-amber-600">{student.checkInDays}</span>
+          <span className="ml-1 text-xs text-gray-500">of 7 days</span>
+        </span>
+        <span className="block text-xs text-gray-500">
+          {student.currentStreak > 0 ? `on a ${days(student.currentStreak)} run` : "run broken"}
+        </span>
+      </span>
+    );
+  }
 
   if (metric === "streak") {
     // Whether the run is still alive is the interesting part once the best
@@ -124,19 +160,22 @@ function Score({ student, metric }: { student: RankedStudent; metric: Leaderboar
 export default async function LeaderboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ form?: string; by?: string }>;
+  searchParams: Promise<{ form?: string; by?: string; period?: string }>;
 }) {
-  const { form: formParam, by } = await searchParams;
+  const { form: formParam, by, period: periodParam } = await searchParams;
   const session = await auth();
   const userId = session!.user.id;
 
   const metric: LeaderboardMetric =
     by === "accuracy" ? "accuracy" : by === "streak" ? "streak" : "points";
+  // This week by default: it is the board a student can actually move on.
+  const period: LeaderboardPeriod = periodParam === "all" ? "all" : "week";
+  const weekStart = weekStartKey();
 
   // The session carries id and role only, so the viewer's own form - which
   // decides the default board - comes from the user record.
   const [all, viewer] = await Promise.all([
-    getStudentStats(),
+    getStudentStats(period),
     prisma.user.findUnique({ where: { id: userId }, select: { grade: true } }),
   ]);
   const myGrade = viewer?.grade ?? null;
@@ -154,7 +193,7 @@ export default async function LeaderboardPage({
     null;
 
   const scoped = form ? all.filter((s) => s.grade === form) : [];
-  const ranked = rankStudents(scoped, metric);
+  const ranked = rankStudents(scoped, metric, period);
 
   // Filter by rank, not by position, so students tied for 10th all stay on
   // the board rather than one of them being cut off arbitrarily.
@@ -170,31 +209,46 @@ export default async function LeaderboardPage({
     metric === "accuracy" && !!myStats && myStats.graded < MIN_GRADED_FOR_ACCURACY;
   // Unlike accuracy, a student with no check-ins at all has no stats row, so
   // this covers both "never checked in" and "row exists but streak is 0".
-  const excludedForStreak = metric === "streak" && (!myStats || myStats.longestStreak === 0);
+  const excludedForStreak =
+    metric === "streak" &&
+    (!myStats || (period === "week" ? myStats.checkInDays : myStats.longestStreak) === 0);
 
   const heading = form ? `Scoreboard · ${form}` : "Scoreboard";
+  const scope = period === "week" ? `this week, since ${weekLabel(weekStart)}` : "of all time";
 
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-1 text-2xl font-bold text-sky-950">{heading}</h1>
       <p className="mb-4 text-sm text-gray-500">
         {metric === "points"
-          ? "Top 10 by marks earned. Equal marks are separated by accuracy."
+          ? `Top 10 by marks earned ${scope}. Equal marks are separated by accuracy.`
           : metric === "streak"
-            ? "Top 10 by the longest run of daily check-ins ever reached. Equal runs are separated by whose streak is still going."
-            : `Top 10 by share of answers correct, among students with at least ${MIN_GRADED_FOR_ACCURACY} marked answers.`}
+            ? period === "week"
+              ? `Top 10 by days checked in ${scope}. Equal counts are separated by who is on the longer run.`
+              : "Top 10 by the longest run of daily check-ins ever reached. Equal runs are separated by whose streak is still going."
+            : `Top 10 by share of answers correct ${scope}, among students with at least ${MIN_GRADED_FOR_ACCURACY} marked answers.`}
       </p>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Period</span>
+        <Chip href={boardHref(form, metric, "week")} active={period === "week"}>
+          This week
+        </Chip>
+        <Chip href={boardHref(form, metric, "all")} active={period === "all"}>
+          All time
+        </Chip>
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Rank by</span>
-        <Chip href={boardHref(form, "points")} active={metric === "points"}>
+        <Chip href={boardHref(form, "points", period)} active={metric === "points"}>
           Points
         </Chip>
-        <Chip href={boardHref(form, "accuracy")} active={metric === "accuracy"}>
+        <Chip href={boardHref(form, "accuracy", period)} active={metric === "accuracy"}>
           Accuracy
         </Chip>
-        <Chip href={boardHref(form, "streak")} active={metric === "streak"}>
-          Longest streak
+        <Chip href={boardHref(form, "streak", period)} active={metric === "streak"}>
+          {period === "week" ? "Check-ins" : "Longest streak"}
         </Chip>
       </div>
 
@@ -202,7 +256,7 @@ export default async function LeaderboardPage({
         <div className="mb-6 flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Form</span>
           {forms.map((f) => (
-            <Chip key={f} href={boardHref(f, metric)} active={form === f}>
+            <Chip key={f} href={boardHref(f, metric, period)} active={form === f}>
               {f}
             </Chip>
           ))}
@@ -214,10 +268,12 @@ export default async function LeaderboardPage({
           <p className="font-medium text-gray-700">Nothing to show yet</p>
           <p className="mt-1 text-sm text-gray-500">
             {metric === "accuracy"
-              ? `No one here has ${MIN_GRADED_FOR_ACCURACY} marked answers yet.`
+              ? `No one here has ${MIN_GRADED_FOR_ACCURACY} marked answers${period === "week" ? " this week" : ""} yet.`
               : metric === "streak"
-                ? "No one here has checked in yet. Claim your daily marks and you'll be the first on the board."
-                : "Answer some questions and you'll be the first on the board."}
+                ? `No one here has checked in${period === "week" ? " this week" : ""} yet. Claim your daily marks and you'll be the first on the board.`
+                : period === "week"
+                  ? "A fresh week - nobody has scored yet. Answer a few questions and you'll be top of the board."
+                  : "Answer some questions and you'll be the first on the board."}
           </p>
         </div>
       ) : (
@@ -257,7 +313,7 @@ export default async function LeaderboardPage({
                   </div>
                 )}
 
-                <Score student={student} metric={metric} />
+                <Score student={student} metric={metric} period={period} />
               </li>
             );
           })}
@@ -278,18 +334,21 @@ export default async function LeaderboardPage({
               {metric === "points"
                 ? `${(tenth.points - me.points).toLocaleString()} pts behind 10th place`
                 : metric === "streak"
-                  ? `${days(tenth.longestStreak - me.longestStreak)} behind 10th place`
+                  ? period === "week"
+                    ? `${days(tenth.checkInDays - me.checkInDays)} behind 10th place`
+                    : `${days(tenth.longestStreak - me.longestStreak)} behind 10th place`
                   : `${(tenth.accuracy ?? 0) - (me.accuracy ?? 0)}% behind 10th place`}
             </p>
           </div>
-          <Score student={me} metric={metric} />
+          <Score student={me} metric={metric} period={period} />
         </div>
       )}
 
       {excludedForAccuracy && (
         <p className="mt-4 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">
-          You need {MIN_GRADED_FOR_ACCURACY} marked answers to appear on the accuracy board - you
-          have {myStats.graded}. Keep going!
+          You need {MIN_GRADED_FOR_ACCURACY} marked answers
+          {period === "week" ? " this week" : ""} to appear on the accuracy board - you have{" "}
+          {myStats.graded}. Keep going!
         </p>
       )}
 
@@ -299,7 +358,7 @@ export default async function LeaderboardPage({
           <Link href="/dashboard" className="font-medium text-sky-700 hover:underline">
             home page
           </Link>{" "}
-          to start a streak and get on this board.
+          {period === "week" ? "to get on this week's board." : "to start a streak and get on this board."}
         </p>
       )}
     </div>
