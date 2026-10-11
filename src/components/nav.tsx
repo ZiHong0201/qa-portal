@@ -17,6 +17,7 @@ const STAFF_LINKS: NavLink[] = [
   { href: "/admin/students", label: "Students" },
   { href: "/admin/review", label: "Review" },
   { href: "/admin/integrity", label: "Integrity" },
+  { href: "/admin/live", label: "Live Quiz" },
   { href: "/dashboard/leaderboard", label: "Scoreboard" },
 ];
 
@@ -31,6 +32,7 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/pet", label: "Virtual Cat" },
   { href: "/admin/review", label: "Review" },
   { href: "/admin/integrity", label: "Integrity" },
+  { href: "/admin/live", label: "Live Quiz" },
   { href: "/admin/master-data", label: "Master Data" },
   { href: "/admin/staff", label: "Staff" },
   { href: "/admin/reset", label: "Reset" },

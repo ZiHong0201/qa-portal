@@ -64,10 +64,10 @@ model User {
   // means access can be withdrawn without destroying the cat they raised.
   petEnabled Boolean @default(false)
 
-  createdQuestionSets QuestionSet[]  @relation("QuestionSetCreator")
-  createdQuestions Question[]   @relation("QuestionCreator")
-  submissions      Submission[] @relation("SubmissionStudent")
-  reviewedSubmissions Submission[] @relation("SubmissionReviewer")
+  createdQuestionSets QuestionSet[] @relation("QuestionSetCreator")
+  createdQuestions    Question[]    @relation("QuestionCreator")
+  submissions         Submission[]  @relation("SubmissionStudent")
+  reviewedSubmissions Submission[]  @relation("SubmissionReviewer")
 
   createdCatalogueItems CatalogueItem[]   @relation("CatalogueItemCreator")
   redemptions           Redemption[]      @relation("StudentRedemptions")
@@ -176,20 +176,20 @@ model StudentSubject {
 
 // A gift/reward students can redeem with their points balance.
 model CatalogueItem {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   description String?
   imageUrl    String?
   cost        Int // points required to redeem
-  isActive    Boolean  @default(true)
+  isActive    Boolean @default(true)
 
   // Redeeming this unlocks the virtual cat instead of handing over a physical
   // gift - it flips User.petEnabled. An admin can still grant or revoke access
   // directly at /admin/pet; this is the route a student can take themselves.
   grantsPet Boolean @default(false)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   createdBy   User   @relation("CatalogueItemCreator", fields: [createdById], references: [id])
   createdById String
@@ -232,9 +232,9 @@ model QuestionSet {
   description   String?
   subject       String   @default("General") // e.g. "Mathematics" - students only see their own subject's sets
   simulationUrl String? // optional embedded interactive simulation related to this set's topic (e.g. a PhET sim)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   createdBy   User   @relation("QuestionSetCreator", fields: [createdById], references: [id])
   createdById String
@@ -264,8 +264,8 @@ model Question {
   diagramUrl  String?
   // AI-generated study nudges for the cat companion, don't reveal the answer -
   // generated once by scripts/generate-hints.mjs and cached here
-  hint1 String?
-  hint2 String?
+  hint1       String?
+  hint2       String?
   type        QuestionType
   points      Int          @default(10)
   isActive    Boolean      @default(true)
@@ -283,10 +283,10 @@ model Question {
 }
 
 model Choice {
-  id         String  @id @default(cuid())
-  text       String
-  isCorrect  Boolean @default(false)
-  order      Int     @default(0)
+  id        String  @id @default(cuid())
+  text      String
+  isCorrect Boolean @default(false)
+  order     Int     @default(0)
 
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   questionId String
@@ -295,7 +295,7 @@ model Choice {
 }
 
 model Submission {
-  id     String @id @default(cuid())
+  id String @id @default(cuid())
 
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   questionId String
@@ -320,14 +320,22 @@ model Submission {
   // as anything else. They are shown to the admin as context, never as a
   // verdict, and never to the student while they are answering.
 
-  /** Seconds between the question appearing and the answer being submitted. */
-  secondsTaken Int?
-  /** Times the tab lost focus while this question was open. */
-  awayCount Int @default(0)
-  /** Total seconds spent with the tab hidden while this question was open. */
-  awaySeconds Int @default(0)
-  /** Paste attempts blocked on this question. */
-  pasteAttempts Int @default(0)
+  /**
+   * Seconds between the question appearing and the answer being submitted.
+   */
+  secondsTaken  Int?
+  /**
+   * Times the tab lost focus while this question was open.
+   */
+  awayCount     Int  @default(0)
+  /**
+   * Total seconds spent with the tab hidden while this question was open.
+   */
+  awaySeconds   Int  @default(0)
+  /**
+   * Paste attempts blocked on this question.
+   */
+  pasteAttempts Int  @default(0)
 
   createdAt  DateTime  @default(now())
   reviewedAt DateTime?
@@ -510,4 +518,99 @@ model PortalReset {
   petPurchasesCleared Int @default(0)
 
   @@index([scheduledFor])
+}
+
+// ---------------------------------------------------------------------------
+// Live quiz: a host-run, Kahoot-style game anyone can join by scanning a QR
+// code and typing a name. Deliberately separate from Submission and the
+// points economy - the players are members of the public with no account, and
+// a game played in a hall should not move anyone's marks or scoreboard place.
+// ---------------------------------------------------------------------------
+
+enum LiveQuizStatus {
+  LOBBY
+  RUNNING
+  FINISHED
+}
+
+model LiveQuiz {
+  id String @id @default(cuid())
+
+  // Six digits, typed by players who do not scan. Unique among games still in
+  // use rather than forever, which the column cannot express - see
+  // generateCode() in src/lib/actions/live.ts.
+  code  String
+  title String
+
+  // The set it was built from, and a snapshot of which of its questions, in
+  // play order. Snapshotting means editing the set mid-game, or shuffling,
+  // cannot change the order players are already part-way through. Plain
+  // columns rather than relations, like PortalReset: deleting the set or the
+  // host later should not take the game's results with it.
+  questionSetId      String?
+  questionIds        String // JSON array of Question ids
+  secondsPerQuestion Int     @default(20)
+  hostId             String
+
+  status       LiveQuizStatus @default(LOBBY)
+  // -1 in the lobby, then 0-based.
+  currentIndex Int            @default(-1)
+  // The current question opens at startsAt - a few seconds after the host
+  // presses Next, so every phone has caught up before the clock starts - and
+  // closes at endsAt. The phase in between is derived from these, never
+  // stored, so a game cannot get stuck because nobody pressed "reveal".
+  startsAt     DateTime?
+  endsAt       DateTime?
+
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  participants LiveParticipant[]
+  answers      LiveAnswer[]
+
+  @@index([code])
+}
+
+model LiveParticipant {
+  id     String   @id @default(cuid())
+  quiz   LiveQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizId String
+
+  name    String
+  // Lower-cased for the uniqueness check, so "Ali" and "ali" cannot both join
+  // and confuse everyone reading the scoreboard.
+  nameKey String
+
+  // What the player's phone proves it is them with. Only the hash is kept, so
+  // reading the table does not let anyone answer as someone else.
+  tokenHash String @unique
+
+  score    Int      @default(0)
+  // Set when the host removes a player - an unpleasant name, usually. Kept as
+  // a flag rather than deleted so they cannot simply rejoin under it.
+  removed  Boolean  @default(false)
+  joinedAt DateTime @default(now())
+
+  answers LiveAnswer[]
+
+  @@unique([quizId, nameKey])
+}
+
+model LiveAnswer {
+  id            String          @id @default(cuid())
+  quiz          LiveQuiz        @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizId        String
+  participant   LiveParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  participantId String
+
+  questionIndex Int
+  choiceId      String
+  correct       Boolean
+  points        Int
+  answeredAt    DateTime @default(now())
+
+  // One answer per player per question: a second tap is refused by the
+  // database, not just hidden by the phone.
+  @@unique([participantId, questionIndex])
+  @@index([quizId, questionIndex])
 }
