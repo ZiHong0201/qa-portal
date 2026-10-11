@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { LIVE_RETENTION_DAYS, phaseOf } from "@/lib/live";
 import { NewLiveQuizForm } from "./new-live-quiz-form";
+import { DeleteGameButton } from "./delete-game-button";
 
 const PHASE_LABEL = {
   LOBBY: "Waiting for players",
@@ -93,6 +94,9 @@ export default async function LiveQuizzesPage() {
                   >
                     {phase === "FINISHED" ? "Results" : "Open host screen"}
                   </Link>
+                  {/* Only once it is over: deleting a game people are playing
+                      would leave a hall of phones pointing at nothing. */}
+                  {phase === "FINISHED" && <DeleteGameButton quizId={g.id} title={g.title} />}
                 </li>
               );
             })}
