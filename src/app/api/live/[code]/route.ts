@@ -14,13 +14,15 @@ import { getLiveState } from "@/lib/live.server";
  * the countdown runs on each phone from the deadline, and the server checks
  * that deadline itself when an answer arrives.
  */
-export async function GET(_req: NextRequest, ctx: RouteContext<"/api/live/[code]">) {
+export async function GET(req: NextRequest, ctx: RouteContext<"/api/live/[code]">) {
   const { code } = await ctx.params;
   if (!/^\d{6}$/.test(code)) {
     return Response.json({ error: "There is no quiz with that code." }, { status: 404 });
   }
 
-  const state = await getLiveState(code);
+  // ?fresh= is the host screen asking right after pressing a button; it skips
+  // the in-process cache as well as (being a different URL) the CDN's.
+  const state = await getLiveState(code, req.nextUrl.searchParams.has("fresh"));
   if (!state) {
     return Response.json({ error: "There is no quiz with that code." }, { status: 404 });
   }

@@ -92,6 +92,20 @@ export function secondsUntil(at: number | null, now: number): number {
   return Math.max(0, Math.ceil((at - now) / 1000));
 }
 
+/**
+ * Standard competition ranks (1, 2, 2, 4) for standings already sorted by
+ * score. Used for every place number shown anywhere, so the projector and a
+ * player's phone can never disagree about where someone came.
+ */
+export function withRanks<T extends { score: number }>(standings: T[]): (T & { rank: number })[] {
+  let rank = 0;
+  return standings.map((s, i) => {
+    // A new score starts a new place; an equal one shares the place above.
+    if (i === 0 || standings[i - 1].score !== s.score) rank = i + 1;
+    return { ...s, rank };
+  });
+}
+
 /** Standard competition rank (1, 2, 2, 4) of a player within the standings. */
 export function rankIn(standings: { id: string; score: number }[], id: string): number | null {
   const me = standings.find((s) => s.id === id);

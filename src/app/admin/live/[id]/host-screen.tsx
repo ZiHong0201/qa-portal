@@ -9,7 +9,7 @@ import {
   removePlayer,
 } from "@/lib/actions/live";
 import { CHOICE_STYLES, HOST_POLL_MS, type LiveState } from "@/lib/live";
-import { secondsUntil, useLiveState, useServerNow } from "@/lib/use-live-state";
+import { secondsUntil, useLiveState, useServerNow, withRanks } from "@/lib/use-live-state";
 
 /**
  * The projector view of a live game, and the host's controls for it.
@@ -321,9 +321,9 @@ function Stage({
           <aside className="w-full rounded-2xl bg-white/10 p-5 lg:w-80">
             <h2 className="mb-3 text-xl font-bold">Top 5</h2>
             <ol className="flex flex-col gap-2">
-              {state.standings.slice(0, 5).map((s, i) => (
+              {withRanks(state.standings).slice(0, 5).map((s) => (
                 <li key={s.id} className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2">
-                  <span className="w-6 text-lg font-bold text-white/70">{i + 1}</span>
+                  <span className="w-6 text-lg font-bold text-white/70">{s.rank}</span>
                   <span className="flex-1 truncate text-lg font-semibold">{s.name}</span>
                   <span className="text-right">
                     <span className="block font-bold tabular-nums">{s.score.toLocaleString()}</span>
@@ -339,39 +339,43 @@ function Stage({
   }
 
   if (state.phase === "FINISHED" && state.standings) {
-    const [first, second, third] = state.standings;
-    const rest = state.standings.slice(3, 10);
+    // Ranked with ties shared, so two players on equal points stand on the
+    // same step - and the medal follows the rank, not the position in line.
+    const ranked = withRanks(state.standings);
+    const [first, second, third] = ranked;
+    const rest = ranked.slice(3, 10);
+    const medal = (rank: number) => ["🥇", "🥈", "🥉"][rank - 1] ?? "🏅";
     const podium = [
-      { p: second, place: 2, h: "h-40", medal: "🥈" },
-      { p: first, place: 1, h: "h-56", medal: "🥇" },
-      { p: third, place: 3, h: "h-28", medal: "🥉" },
+      { p: second, slot: 2, h: "h-40" },
+      { p: first, slot: 1, h: "h-56" },
+      { p: third, slot: 3, h: "h-28" },
     ];
     return (
       <div className="flex flex-1 flex-col items-center gap-8">
         <h2 className="text-4xl font-black">Final results</h2>
         <div className="flex items-end gap-4">
-          {podium.map(({ p, place, h, medal }) =>
+          {podium.map(({ p, slot, h }) =>
             p ? (
-              <div key={place} className="flex w-44 flex-col items-center">
-                <span className="text-5xl">{medal}</span>
+              <div key={slot} className="flex w-44 flex-col items-center">
+                <span className="text-5xl">{medal(p.rank)}</span>
                 <span className="mt-2 w-full truncate text-center text-2xl font-bold">{p.name}</span>
                 <span className="text-lg text-white/70 tabular-nums">{p.score.toLocaleString()}</span>
                 <div
                   className={`mt-2 flex w-full items-start justify-center rounded-t-2xl bg-white/15 pt-3 text-4xl font-black ${h}`}
                 >
-                  {place}
+                  {p.rank}
                 </div>
               </div>
             ) : (
-              <div key={place} className="w-44" />
+              <div key={slot} className="w-44" />
             )
           )}
         </div>
         {rest.length > 0 && (
-          <ol className="grid w-full max-w-3xl gap-2 sm:grid-cols-2" start={4}>
-            {rest.map((s, i) => (
+          <ol className="grid w-full max-w-3xl gap-2 sm:grid-cols-2">
+            {rest.map((s) => (
               <li key={s.id} className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-2">
-                <span className="w-6 font-bold text-white/60">{i + 4}</span>
+                <span className="w-6 font-bold text-white/60">{s.rank}</span>
                 <span className="flex-1 truncate font-semibold">{s.name}</span>
                 <span className="font-bold tabular-nums">{s.score.toLocaleString()}</span>
               </li>

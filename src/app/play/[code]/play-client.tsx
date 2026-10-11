@@ -8,7 +8,7 @@ import {
   PLAYER_POLL_MS,
   type LiveState,
 } from "@/lib/live";
-import { rankIn, secondsUntil, useLiveState, useServerNow } from "@/lib/use-live-state";
+import { rankIn, secondsUntil, useLiveState, useServerNow, withRanks } from "@/lib/use-live-state";
 
 /**
  * A player's phone. No account: the name typed here and a token handed back
@@ -414,7 +414,9 @@ function Game({
               {mine.score.toLocaleString()} pts
             </p>
           )}
-          <p className="mt-4 text-xs text-gray-400">Next question coming up…</p>
+          <p className="mt-4 text-xs text-gray-400">
+            {state.index + 1 >= state.total ? "Final results coming up…" : "Next question coming up…"}
+          </p>
         </Card>
       </Screen>
     );
@@ -438,13 +440,13 @@ function Game({
             </>
           )}
           <ol className="mt-5 flex flex-col gap-1 text-left">
-            {state.standings.slice(0, 3).map((s, i) => (
+            {withRanks(state.standings).slice(0, 3).map((s) => (
               <li
                 key={s.id}
                 className={`flex justify-between rounded-lg px-3 py-1.5 ${s.id === me.participantId ? "bg-amber-100" : "bg-gray-50"}`}
               >
                 <span className="truncate">
-                  {["🥇", "🥈", "🥉"][i]} {s.name}
+                  {["🥇", "🥈", "🥉"][s.rank - 1]} {s.name}
                 </span>
                 <span className="font-semibold tabular-nums">{s.score.toLocaleString()}</span>
               </li>
