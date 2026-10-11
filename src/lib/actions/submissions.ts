@@ -7,8 +7,22 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import type { FormState } from "./auth";
 
+/**
+ * The second of two answers to the same question, refused by the unique index
+ * on (questionId, studentId).
+ *
+ * P2002 is Prisma's code for that, but through the libsql adapter it never
+ * arrives: the violation comes back as P2039, a generic "database error"
+ * carrying SQLite's own message. Checking only P2002 meant a double submit -
+ * two tabs, or a double tap that raced - reached the student as an error page
+ * instead of "You have already answered this question." (The data was always
+ * safe; the index refused the second row either way.) P2002 is kept for the
+ * day the adapter starts mapping it properly.
+ */
 function isDuplicateSubmission(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (error.code === "P2002") return true;
+  return error.code === "P2039" && /UNIQUE constraint failed/i.test(error.message);
 }
 
 export type SubmitAnswerState = FormState & {
