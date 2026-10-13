@@ -8,8 +8,9 @@ import {
   nextQuestion,
   removePlayer,
 } from "@/lib/actions/live";
-import { CHOICE_STYLES, HOST_POLL_MS, type LiveState } from "@/lib/live";
-import { secondsUntil, useLiveState, useServerNow, withRanks } from "@/lib/use-live-state";
+import { ALL_ANSWERED_GRACE_MS, CHOICE_STYLES, HOST_POLL_MS, type LiveState, withRanks } from "@/lib/live";
+import { secondsUntil, useLiveState, useServerNow } from "@/lib/use-live-state";
+import { AnswerBreakdownPanel } from "./answer-breakdown";
 
 /**
  * The projector view of a live game, and the host's controls for it.
@@ -44,7 +45,7 @@ export function HostScreen({
     }
   };
 
-  // Close the question as soon as everyone has answered, rather than making a
+  // Close the question shortly after everyone has answered, rather than making a
   // hall sit through the rest of the clock. Once per question: the ref stops a
   // second poll firing it again before the state catches up.
   const autoClosed = useRef(-1);
@@ -56,7 +57,7 @@ export function HostScreen({
   useEffect(() => {
     if (!state || !everyoneIn || autoClosed.current === state.index) return;
     autoClosed.current = state.index;
-    void closeQuestion(quizId, state.index).then(() => refresh());
+    void closeQuestion(quizId, state.index, ALL_ANSWERED_GRACE_MS).then(() => refresh());
   }, [everyoneIn, state, quizId, refresh]);
 
   const fullscreen = () => {
@@ -109,6 +110,7 @@ export function HostScreen({
           <div className="m-auto h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" />
         ) : (
           <Stage
+            quizId={quizId}
             state={state}
             now={now}
             busy={busy}
@@ -128,6 +130,7 @@ export function HostScreen({
 }
 
 function Stage({
+  quizId,
   state,
   now,
   busy,
@@ -140,6 +143,7 @@ function Stage({
   onFinish,
   onRemove,
 }: {
+  quizId: string;
   state: LiveState;
   now: number;
   busy: boolean;
@@ -294,6 +298,15 @@ function Stage({
             })}
           </div>
 
+          {reveal && (
+            <AnswerBreakdownPanel
+              quizId={quizId}
+              index={state.index}
+              choices={state.question.choices}
+              correctChoiceId={reveal.correctChoiceId}
+            />
+          )}
+
           <div className="mt-auto flex justify-center pt-2">
             {reveal ? (
               last ? (
@@ -382,9 +395,17 @@ function Stage({
             ))}
           </ol>
         )}
-        <Link href="/admin/live" className="text-white/70 underline hover:text-white">
-          Back to live quizzes
-        </Link>
+        <div className="flex flex-wrap justify-center gap-6">
+          <Link
+            href={`/admin/live/${quizId}/results`}
+            className="rounded-xl bg-white/15 px-5 py-2 font-semibold hover:bg-white/25"
+          >
+            Every player&apos;s answers
+          </Link>
+          <Link href="/admin/live" className="self-center text-white/70 underline hover:text-white">
+            Back to live quizzes
+          </Link>
+        </div>
       </div>
     );
   }

@@ -326,26 +326,39 @@ export async function recordAnswer(
   const points = pointsFor(correct, receivedAt - opens, closes - opens);
   const playerId = String(player.id);
 
-  try {
-    // Both or neither: a batch is one transaction, so a refused second tap
-    // cannot leave the score added without the answer recorded.
-    await db.batch(
-      [
-        {
-          sql: `INSERT INTO LiveAnswer (id, quizId, participantId, questionIndex, choiceId, correct, points, answeredAt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [randomUUID(), quiz.id, playerId, index, choiceId, correct ? 1 : 0, points, isoNow()],
-        },
-        { sql: `UPDATE LiveParticipant SET score = score + ? WHERE id = ?`, args: [points, playerId] },
-      ],
-      "write"
-    );
-  } catch (e) {
-    // A double tap, or a retry after a slow response. The first answer stands
-    // and the score was only added once, so this is not an error to the player.
-    if (isUniqueViolation(e)) return { ok: true };
-    throw e;
-  }
+  // A player may change their answer until the question closes - misclicks
+  // on a phone are common, and being stuck with one is the commonest
+  // complaint. The answer standing at the close is the one that counts, and
+  // it is scored on when *it* was given: otherwise tapping anything at once
+  // and switching to the right answer later would keep the fast-answer bonus.
+  //
+  // Both statements run as one transaction. The score is adjusted by the
+  // difference between the new answer's points and the old one's, read in the
+  // same transaction, so it always equals the sum of the answers on record.
+  // Tapping the answer already chosen changes nothing - a double tap must not
+  // cost points by restarting the clock.
+  await db.batch(
+    [
+      {
+        sql: `UPDATE LiveParticipant
+              SET score = score + ? - COALESCE(
+                (SELECT points FROM LiveAnswer WHERE participantId = ? AND questionIndex = ?), 0)
+              WHERE id = ? AND NOT EXISTS (
+                SELECT 1 FROM LiveAnswer WHERE participantId = ? AND questionIndex = ? AND choiceId = ?)`,
+        args: [points, playerId, index, playerId, playerId, index, choiceId],
+      },
+      {
+        sql: `INSERT INTO LiveAnswer (id, quizId, participantId, questionIndex, choiceId, correct, points, answeredAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT (participantId, questionIndex) DO UPDATE SET
+                choiceId = excluded.choiceId, correct = excluded.correct,
+                points = excluded.points, answeredAt = excluded.answeredAt
+              WHERE LiveAnswer.choiceId <> excluded.choiceId`,
+        args: [randomUUID(), quiz.id, playerId, index, choiceId, correct ? 1 : 0, points, isoNow()],
+      },
+    ],
+    "write"
+  );
   return { ok: true };
 }
 

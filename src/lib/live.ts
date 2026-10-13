@@ -26,6 +26,13 @@ export const PLAYER_POLL_MS = 2_000;
 /** The host screen polls faster: it is one device, and it is on a projector. */
 export const HOST_POLL_MS = 1_000;
 
+/**
+ * How long the question stays open once every player has answered. Answers
+ * can be changed until the close, so this is the window for anyone who has
+ * just noticed they tapped the wrong colour.
+ */
+export const ALL_ANSWERED_GRACE_MS = 3_000;
+
 export const NAME_MAX_LENGTH = 20;
 
 /**
@@ -153,3 +160,24 @@ export const CHOICE_STYLES = [
   { letter: "G", bg: "bg-teal-500", hover: "hover:bg-teal-600", soft: "bg-teal-100", text: "text-teal-700" },
   { letter: "H", bg: "bg-fuchsia-500", hover: "hover:bg-fuchsia-600", soft: "bg-fuchsia-100", text: "text-fuchsia-700" },
 ] as const;
+
+/**
+ * Standard competition ranks (1, 2, 2, 4) for standings already sorted by
+ * score. Used for every place number shown anywhere - projector, phones and
+ * the results page - so they can never disagree about where someone came.
+ */
+export function withRanks<T extends { score: number }>(standings: T[]): (T & { rank: number })[] {
+  let rank = 0;
+  return standings.map((s, i) => {
+    // A new score starts a new place; an equal one shares the place above.
+    if (i === 0 || standings[i - 1].score !== s.score) rank = i + 1;
+    return { ...s, rank };
+  });
+}
+
+/** Standard competition rank (1, 2, 2, 4) of a player within the standings. */
+export function rankIn(standings: { id: string; score: number }[], id: string): number | null {
+  const me = standings.find((s) => s.id === id);
+  if (!me) return null;
+  return standings.filter((s) => s.score > me.score).length + 1;
+}

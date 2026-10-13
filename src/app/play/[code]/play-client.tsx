@@ -7,8 +7,10 @@ import {
   NAME_MAX_LENGTH,
   PLAYER_POLL_MS,
   type LiveState,
+  rankIn,
+  withRanks,
 } from "@/lib/live";
-import { rankIn, secondsUntil, useLiveState, useServerNow, withRanks } from "@/lib/use-live-state";
+import { secondsUntil, useLiveState, useServerNow } from "@/lib/use-live-state";
 
 /**
  * A player's phone. No account: the name typed here and a token handed back
@@ -63,6 +65,7 @@ export function PlayClient({ code }: { code: string }) {
   );
   const [kicked, setKicked] = useState(false);
   const [answerError, setAnswerError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
 
   if (!hydrated || (!state && !missing)) return <Screen tone="sky"><Spinner /></Screen>;
 
@@ -141,15 +144,24 @@ export function PlayClient({ code }: { code: string }) {
     );
   }
 
+  // Answers can be changed until the question closes. One at a time,
+  // though: two changes in flight could reach the server in the wrong order
+  // and leave it holding the answer the player had already moved away from.
   const submit = async (index: number, choiceId: string) => {
+    if (sending || answers[index] === choiceId) return;
     setAnswerError(null);
+    const previous = answers[index];
     const next = { ...answers, [index]: choiceId };
     setAnswers(next);
     write(`${idKey}:answers`, next);
+    setSending(true);
 
+    // On failure, go back to whatever the server still holds: the previous
+    // answer if there was one, none if this was the first.
     const undo = () => {
       const rest = { ...next };
-      delete rest[index];
+      if (previous) rest[index] = previous;
+      else delete rest[index];
       setAnswers(rest);
       write(`${idKey}:answers`, rest);
     };
@@ -168,6 +180,8 @@ export function PlayClient({ code }: { code: string }) {
     } catch {
       undo();
       setAnswerError("No connection - tap your answer again.");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -177,6 +191,7 @@ export function PlayClient({ code }: { code: string }) {
       now={now}
       me={me}
       chosen={answers[state.index] ?? null}
+      sending={sending}
       error={answerError}
       onAnswer={submit}
     />
@@ -259,6 +274,7 @@ function Game({
   now,
   me,
   chosen,
+  sending,
   error,
   onAnswer,
 }: {
@@ -266,6 +282,7 @@ function Game({
   now: number;
   me: Identity;
   chosen: string | null;
+  sending: boolean;
   error: string | null;
   onAnswer: (index: number, choiceId: string) => void;
 }) {
@@ -321,7 +338,10 @@ function Game({
     // answers a moment longer, but a button that still works after the
     // countdown shows 0 would look like a bug.
     const timeUp = left <= 0;
-    const locked = !!chosen || timeUp;
+    // Still tappable after choosing - a different option replaces the answer
+    // until the clock runs out. Only time, or an answer still being sent,
+    // locks the buttons.
+    const locked = timeUp || sending;
 
     return (
       <Screen tone="indigo" align="top">
@@ -362,8 +382,8 @@ function Game({
                 disabled={locked}
                 onClick={() => onAnswer(state.index, c.id)}
                 className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-white shadow-md transition-all ${style.bg} ${
-                  locked ? (isMine ? "ring-4 ring-white" : "opacity-35") : `${style.hover} active:scale-[0.98]`
-                }`}
+                  isMine ? "ring-4 ring-white" : chosen || timeUp ? "opacity-40" : ""
+                } ${locked ? "" : `${style.hover} active:scale-[0.98]`}`}
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/25 font-bold">
                   {style.letter}
@@ -375,7 +395,14 @@ function Game({
         </div>
 
         <p className="mt-3 text-center text-sm text-white/90" role="status">
-          {error ?? (chosen ? "Answer locked in. Waiting for the others…" : timeUp ? "Time's up!" : "")}
+          {error ??
+            (timeUp
+              ? chosen
+                ? "Time's up! Your answer is in."
+                : "Time's up!"
+              : chosen
+                ? "Answer in. Tap another option to change it before time runs out."
+                : "")}
         </p>
       </Screen>
     );
@@ -452,6 +479,31 @@ function Game({
               </li>
             ))}
           </ol>
+          {state.standings.length > 3 && (
+            // Everyone, not just the podium: most of a hall is not in the top
+            // three, and wants to see where their friends came.
+            <details className="mt-3 text-left">
+              <summary className="cursor-pointer text-center text-sm font-medium text-amber-700">
+                All {state.standings.length} players
+              </summary>
+              <ol className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto">
+                {withRanks(state.standings).map((s) => (
+                  <li
+                    key={s.id}
+                    className={`flex justify-between gap-2 rounded-lg px-3 py-1 text-sm ${
+                      s.id === me.participantId ? "bg-amber-100 font-semibold" : ""
+                    }`}
+                  >
+                    <span className="truncate">
+                      <span className="mr-2 text-gray-400 tabular-nums">{s.rank}</span>
+                      {s.name}
+                    </span>
+                    <span className="tabular-nums">{s.score.toLocaleString()}</span>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
           <p className="mt-4 text-xs text-gray-400">Thanks for playing!</p>
         </Card>
       </Screen>

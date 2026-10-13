@@ -89,7 +89,7 @@ export default async function LiveQuizzesPage() {
                     {PHASE_LABEL[phase]}
                   </span>
                   <Link
-                    href={`/admin/live/${g.id}`}
+                    href={phase === "FINISHED" ? `/admin/live/${g.id}/results` : `/admin/live/${g.id}`}
                     className="text-sm font-medium text-sky-700 hover:underline"
                   >
                     {phase === "FINISHED" ? "Results" : "Open host screen"}

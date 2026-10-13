@@ -137,14 +137,24 @@ export async function nextQuestion(quizId: string, fromIndex: number) {
 }
 
 /** Closes the open question now - everyone has answered, or the host is moving on. */
-export async function closeQuestion(quizId: string, index: number) {
+/**
+ * Brings the open question's deadline forward - to now, or `afterMs` from now.
+ *
+ * The host's "stop the clock" button closes at once. When everyone has
+ * answered, the host screen asks for a short delay instead: players can
+ * change their answer until the close, and closing the instant the last
+ * person tapped would take that chance away from everyone else.
+ */
+export async function closeQuestion(quizId: string, index: number, afterMs = 0) {
   await requireStaff();
   const now = new Date();
+  const closeAt = new Date(now.getTime() + Math.max(0, Math.min(afterMs, 10_000)));
   await prisma.liveQuiz.updateMany({
     // Only a question that has actually opened: closing one still in its
     // get-ready seconds would show the answer before anyone saw the question.
-    where: { id: quizId, currentIndex: index, startsAt: { lte: now }, endsAt: { gt: now } },
-    data: { endsAt: now },
+    // And only ever earlier, never later than the clock already says.
+    where: { id: quizId, currentIndex: index, startsAt: { lte: now }, endsAt: { gt: closeAt } },
+    data: { endsAt: closeAt },
   });
 }
 
@@ -174,4 +184,47 @@ export async function deleteLiveQuiz(quizId: string) {
   await prisma.liveQuiz.delete({ where: { id: quizId } }).catch(() => undefined);
   revalidatePath("/admin/live");
   redirect("/admin/live");
+}
+
+export type AnswerBreakdown = {
+  /** Who chose each option, by choice id, fastest-scoring first. */
+  byChoice: Record<string, { id: string; name: string; points: number }[]>;
+  /** Players in the game with no answer to this question. */
+  unanswered: { id: string; name: string }[];
+};
+
+/**
+ * Who answered what on one question - for the host, once it is revealed.
+ *
+ * A staff action rather than part of the state every phone polls: phones
+ * have no use for it, it would multiply the size of what a hundred of them
+ * download every two seconds, and it keeps a room's answers, by name, out of
+ * a public URL.
+ */
+export async function getAnswerBreakdown(quizId: string, index: number): Promise<AnswerBreakdown> {
+  await requireStaff();
+  const [players, answers] = await Promise.all([
+    prisma.liveParticipant.findMany({
+      where: { quizId, removed: false },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.liveAnswer.findMany({
+      where: { quizId, questionIndex: index, participant: { removed: false } },
+      orderBy: { points: "desc" },
+      select: { participantId: true, choiceId: true, points: true },
+    }),
+  ]);
+
+  const nameOf = new Map(players.map((p) => [p.id, p.name]));
+  const byChoice: AnswerBreakdown["byChoice"] = {};
+  for (const a of answers) {
+    (byChoice[a.choiceId] ??= []).push({
+      id: a.participantId,
+      name: nameOf.get(a.participantId) ?? "?",
+      points: a.points,
+    });
+  }
+  const answered = new Set(answers.map((a) => a.participantId));
+  return { byChoice, unanswered: players.filter((p) => !answered.has(p.id)) };
 }
