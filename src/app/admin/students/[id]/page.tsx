@@ -5,6 +5,9 @@ import { getStudentBalance } from "@/lib/points";
 import { AdjustmentForm } from "./adjustment-form";
 import { DeleteStudentButton } from "./delete-student-button";
 import { ClearAnswersButton } from "./clear-answers-button";
+import { SuspensionPanel } from "./suspension-panel";
+import { auth } from "@/auth";
+import { isAdmin } from "@/lib/permissions";
 
 export default async function AdminStudentDetailPage({
   params,
@@ -18,6 +21,13 @@ export default async function AdminStudentDetailPage({
     include: { subjects: true },
   });
   if (!student) notFound();
+
+  const [session, suspendedBy] = await Promise.all([
+    auth(),
+    student.suspendedById
+      ? prisma.user.findUnique({ where: { id: student.suspendedById }, select: { name: true } })
+      : null,
+  ]);
 
   const [balance, adjustments, redemptions, submissions, answerResets] = await Promise.all([
     getStudentBalance(id),
@@ -118,6 +128,26 @@ export default async function AdminStudentDetailPage({
           ? student.subjects.map((s) => s.subject).join(", ")
           : "No subjects"}
       </p>
+
+      <SuspensionPanel
+        studentId={student.id}
+        studentName={student.name}
+        canEdit={isAdmin(session)}
+        suspension={
+          student.suspendedAt
+            ? {
+                reason: student.suspensionReason ?? "",
+                since: student.suspendedAt.toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                  timeZone: "Asia/Kuala_Lumpur",
+                }),
+                by: suspendedBy?.name ?? null,
+              }
+            : null
+        }
+      />
 
       <div className="mb-6 grid grid-cols-5 gap-3">
         <StatCard label="Earned" value={balance.earned} />

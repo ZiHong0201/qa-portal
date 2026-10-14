@@ -64,6 +64,16 @@ model User {
   // means access can be withdrawn without destroying the cat they raised.
   petEnabled Boolean @default(false)
 
+  // Suspension - set by an admin, for unpaid fees, a broken rule and so on.
+  // A suspended student can still log in, but every page of the student side
+  // shows only the notice and its reason, and every student action refuses.
+  // Nothing is deleted: lifting it puts them back exactly where they were.
+  // suspendedById is a plain column, not a relation, so the record outlives
+  // the admin account that set it.
+  suspendedAt      DateTime?
+  suspensionReason String?
+  suspendedById    String?
+
   createdQuestionSets QuestionSet[] @relation("QuestionSetCreator")
   createdQuestions    Question[]    @relation("QuestionCreator")
   submissions         Submission[]  @relation("SubmissionStudent")

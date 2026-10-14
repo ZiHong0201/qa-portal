@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 
 export type StudentBalance = {
@@ -38,6 +39,8 @@ type BalanceRow = {
   redeemed: number | bigint;
   petSpend: number | bigint;
   petEnabled?: number | bigint | null;
+  suspensionReason?: string | null;
+  suspendedAt?: string | null;
 };
 
 const n = (v: number | bigint | null | undefined) => Number(v ?? 0);
@@ -55,7 +58,9 @@ async function balanceRow(studentId: string): Promise<BalanceRow> {
         WHERE studentId = ${studentId}) AS redeemed,
       (SELECT COALESCE(SUM(cost), 0) FROM PetPurchase
         WHERE studentId = ${studentId}) AS petSpend,
-      (SELECT petEnabled FROM User WHERE id = ${studentId}) AS petEnabled
+      (SELECT petEnabled FROM User WHERE id = ${studentId}) AS petEnabled,
+      (SELECT suspensionReason FROM User WHERE id = ${studentId}) AS suspensionReason,
+      (SELECT suspendedAt FROM User WHERE id = ${studentId}) AS suspendedAt
   `;
   return rows[0] ?? { earned: 0, checkInBonus: 0, adjustments: 0, redeemed: 0, petSpend: 0 };
 }
@@ -80,13 +85,28 @@ export async function getStudentBalance(studentId: string): Promise<StudentBalan
   return toBalance(await balanceRow(studentId));
 }
 
+export type Suspension = { reason: string; since: Date };
+
 /**
  * Everything the nav bar needs, in one query. Previously the balance and the
  * pet flag were two separate trips on every page.
+ *
+ * Also whether the account is suspended, which the dashboard layout checks
+ * before rendering anything. Wrapped in React's cache() so that check and the
+ * nav share this one query within a request, rather than every page paying
+ * an extra round trip to Tokyo for a flag that is almost always unset.
  */
-export async function getStudentNav(
-  studentId: string
-): Promise<{ balance: StudentBalance; petEnabled: boolean }> {
-  const row = await balanceRow(studentId);
-  return { balance: toBalance(row), petEnabled: !!n(row.petEnabled) };
-}
+export const getStudentNav = cache(
+  async (
+    studentId: string
+  ): Promise<{ balance: StudentBalance; petEnabled: boolean; suspension: Suspension | null }> => {
+    const row = await balanceRow(studentId);
+    return {
+      balance: toBalance(row),
+      petEnabled: !!n(row.petEnabled),
+      suspension: row.suspendedAt
+        ? { reason: row.suspensionReason ?? "", since: new Date(row.suspendedAt) }
+        : null,
+    };
+  }
+);

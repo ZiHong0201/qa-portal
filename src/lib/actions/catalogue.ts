@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { SUSPENDED_ERROR, isSuspended } from "@/lib/suspension";
 import { saveCatalogueImage, deleteCatalogueImage } from "@/lib/uploads";
 import { getStudentBalance } from "@/lib/points";
 import type { FormState } from "./auth";
@@ -143,6 +144,7 @@ export async function redeemCatalogueItem(
   if (!session || session.user.role !== "STUDENT") {
     return { error: "You must be logged in as a student." };
   }
+  if (await isSuspended(session.user.id)) return { error: SUSPENDED_ERROR };
 
   const item = await prisma.catalogueItem.findUnique({ where: { id: itemId } });
   if (!item || !item.isActive) {

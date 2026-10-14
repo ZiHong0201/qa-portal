@@ -13,6 +13,8 @@ import {
 } from "@/lib/announcements.server";
 import { getPetAppearance } from "@/lib/pet.server";
 import { PetAppearanceProvider } from "@/components/pet-appearance";
+import { SuspendedNotice } from "@/components/suspended-notice";
+import { getStudentNav } from "@/lib/points";
 
 export default async function DashboardLayout({
   children,
@@ -25,12 +27,24 @@ export default async function DashboardLayout({
   // to every page in the dashboard.
   const session = await auth();
 
-  const [announcements, popupAds, petAppearance] = await Promise.all([
+  const isStudent = session?.user.role === "STUDENT";
+  const [announcements, popupAds, petAppearance, nav] = await Promise.all([
     getLiveAnnouncements(),
     getLivePopupAds(),
     // Null for anyone without a cat, which leaves every decorative cat grey.
     session ? getPetAppearance(session.user.id) : Promise.resolve(null),
+    // The same cached query the nav makes, so checking for a suspension here
+    // costs nothing extra: the nav below reuses this result.
+    session && isStudent ? getStudentNav(session.user.id) : Promise.resolve(null),
   ]);
+
+  // A suspended student sees only the notice, on every page under /dashboard.
+  // Checked here rather than in the middleware because a suspension has to
+  // bite on the next page load, and the session cookie would not learn of it
+  // until the student logged in again.
+  if (session && nav?.suspension) {
+    return <SuspendedNotice name={session.user.name ?? ""} suspension={nav.suspension} />;
+  }
 
   return (
     <PetAppearanceProvider value={petAppearance}>

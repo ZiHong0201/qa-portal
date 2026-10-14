@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { SUSPENDED_ERROR, isSuspended } from "@/lib/suspension";
 import { getStudentBalance } from "@/lib/points";
 import { petAccess } from "@/lib/pet.server";
 import { currentStats, applyEffect, AVAILABLE_COATS, PET_NAME_MAX_LENGTH } from "@/lib/pet";
@@ -15,6 +16,7 @@ async function requirePetStudent() {
   if (!session || session.user.role !== "STUDENT") {
     return { error: "You must be signed in as a student." as const };
   }
+  if (await isSuspended(session.user.id)) return { error: SUSPENDED_ERROR };
   if (!(await petAccess(session.user.id))) {
     return { error: "The cat is not available on your account." as const };
   }

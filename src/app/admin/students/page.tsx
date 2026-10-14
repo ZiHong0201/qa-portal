@@ -155,6 +155,14 @@ export default async function AdminStudentsPage({
                   <Link href={`/admin/students/${s.id}`} className="hover:underline">
                     {s.name}
                   </Link>
+                  {s.suspendedAt && (
+                    <span
+                      className="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700"
+                      title={s.suspensionReason ?? undefined}
+                    >
+                      Suspended
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-2 text-gray-500">{s.email}</td>
                 <td className="px-4 py-2">

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { SUSPENDED_ERROR, isSuspended } from "@/lib/suspension";
 import { Prisma } from "@/generated/prisma/client";
 import type { FormState } from "./auth";
 
@@ -71,6 +72,7 @@ export async function submitAnswer(
 ): Promise<SubmitAnswerState> {
   const session = await auth();
   if (!session) return { error: "You must be logged in." };
+  if (await isSuspended(session.user.id)) return { error: SUSPENDED_ERROR };
 
   const signals = readSignals(formData);
 

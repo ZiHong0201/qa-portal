@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { SUSPENDED_ERROR, isSuspended } from "@/lib/suspension";
 import { dayKey, previousDayKey, marksForStreak } from "@/lib/check-in";
 
 export type CheckInResult = {
@@ -17,6 +18,7 @@ export async function claimDailyCheckIn(): Promise<CheckInResult> {
     return { error: "Check-ins are for students only." };
   }
   const studentId = session.user.id;
+  if (await isSuspended(studentId)) return { error: SUSPENDED_ERROR };
 
   const today = dayKey();
   const yesterday = previousDayKey(today);
