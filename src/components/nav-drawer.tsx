@@ -35,7 +35,7 @@ function LinkIcon({ label }: { label: string }) {
           <path d="M8 4v16" />
         </svg>
       );
-    case "Catalogue":
+    case "Gift Exchange":
       return (
         <svg {...common}>
           <path d="M3 8h18v12H3z" />

@@ -14,7 +14,7 @@ export function AdoptScreen() {
     <div className="mx-auto max-w-lg">
       <h1 className="mb-1 text-2xl font-bold text-sky-950">Adopt a cat</h1>
       <p className="mb-6 text-sm text-gray-500">
-        Yours to look after. Feeding it costs the same points you spend in the catalogue, so
+        Yours to look after. Feeding it costs the same points you spend in the gift exchange, so
         treats and rewards come out of one pot.
       </p>
 

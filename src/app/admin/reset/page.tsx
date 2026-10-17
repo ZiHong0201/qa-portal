@@ -10,7 +10,7 @@ export default async function AdminResetPage() {
     ["Answers submitted", counts.submissions],
     ["Daily check-ins", counts.checkIns],
     ["Point adjustments", counts.adjustments],
-    ["Catalogue redemptions", counts.redemptions],
+    ["Gift exchanges", counts.redemptions],
     ["Cat purchases", counts.petPurchases],
   ];
 
@@ -60,7 +60,7 @@ export default async function AdminResetPage() {
           ))}
         </ul>
         <p className="mt-3 text-xs text-red-700">
-          Accounts, question sets, catalogue items and the cats themselves are kept. A JSON
+          Accounts, question sets, gifts and the cats themselves are kept. A JSON
           snapshot is saved to blob storage before anything is deleted, so a reset run by mistake
           can still be recovered from.
         </p>

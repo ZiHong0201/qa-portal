@@ -20,7 +20,7 @@ const ROLE_OPTIONS = [
     value: "ADMIN",
     label: "Admin",
     blurb:
-      "Everything a teacher can do, plus the catalogue, announcements, the virtual cat, master data, staff accounts, and resetting the portal.",
+      "Everything a teacher can do, plus the gift exchange, announcements, the virtual cat, master data, staff accounts, and resetting the portal.",
   },
 ] as const;
 

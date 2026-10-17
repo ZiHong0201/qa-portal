@@ -9,6 +9,8 @@ type InitialItem = {
   cost: number;
   imageUrl: string | null;
   grantsPet: boolean;
+  stock: number | null;
+  limitPerStudent: number | null;
 };
 
 export function CatalogueForm({
@@ -25,6 +27,11 @@ export function CatalogueForm({
   // action returns, and an unlocking item silently reverting to an ordinary
   // gift after a validation error would be easy to miss.
   const [grantsPet, setGrantsPet] = useState(initial?.grantsPet ?? false);
+  // Held as text so "blank" (no stock kept / no limit) survives a failed save.
+  const [stock, setStock] = useState(initial?.stock == null ? "" : String(initial.stock));
+  const [limit, setLimit] = useState(
+    initial?.limitPerStudent == null ? "" : String(initial.limitPerStudent)
+  );
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -75,6 +82,47 @@ export function CatalogueForm({
           defaultValue={initial?.cost ?? 100}
           className="w-32 rounded-md border border-gray-300 px-3 py-2"
         />
+      </div>
+
+      <div className="flex flex-wrap gap-6">
+        <div>
+          <label className="mb-1 block text-sm font-medium" htmlFor="stock">
+            Stock
+          </label>
+          <input
+            id="stock"
+            name="stock"
+            type="number"
+            min={0}
+            max={100000}
+            value={stock}
+            onChange={(e) => setStock(e.target.value)}
+            placeholder="Not counted"
+            className="w-32 rounded-md border border-gray-300 px-3 py-2"
+          />
+          <p className="mt-1 max-w-[16rem] text-xs text-gray-500">
+            How many are left. Blank means stock is not counted. Students cannot exchange it at 0.
+          </p>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium" htmlFor="limitPerStudent">
+            Limit per student
+          </label>
+          <input
+            id="limitPerStudent"
+            name="limitPerStudent"
+            type="number"
+            min={1}
+            max={1000}
+            value={limit}
+            onChange={(e) => setLimit(e.target.value)}
+            placeholder="No limit"
+            className="w-32 rounded-md border border-gray-300 px-3 py-2"
+          />
+          <p className="mt-1 max-w-[16rem] text-xs text-gray-500">
+            Most times one student may exchange this gift. Blank means no limit.
+          </p>
+        </div>
       </div>
 
       <label className="flex items-start gap-2 rounded-md border border-gray-200 p-3 text-sm">

@@ -8,8 +8,9 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { SUSPENDED_ERROR, isSuspended } from "@/lib/suspension";
 import { saveCatalogueImage, deleteCatalogueImage } from "@/lib/uploads";
-import { getStudentBalance } from "@/lib/points";
+import { exchangeGift } from "@/lib/gift-exchange.server";
 import type { FormState } from "./auth";
+
 
 
 const itemSchema = z.object({
@@ -17,7 +18,32 @@ const itemSchema = z.object({
   description: z.string().trim().max(2000).optional(),
   cost: z.coerce.number().int().min(1, "Cost must be at least 1 point").max(1_000_000),
   grantsPet: z.coerce.boolean().optional(),
+  // Blank means "not counted" / "no limit", so both are optional numbers.
+  stock: z.coerce.number().int().min(0, "Stock cannot be negative").max(100_000).optional(),
+  limitPerStudent: z.coerce
+    .number()
+    .int()
+    .min(1, "A limit must be at least 1 - leave it blank for no limit")
+    .max(1000)
+    .optional(),
 });
+
+/** Reads the item form. Blank number fields arrive as "" and mean "none". */
+function readItemForm(formData: FormData) {
+  const optionalNumber = (key: string) => {
+    const v = formData.get(key);
+    return typeof v === "string" && v.trim() !== "" ? v : undefined;
+  };
+  return itemSchema.safeParse({
+    name: formData.get("name"),
+    description: formData.get("description") || undefined,
+    cost: formData.get("cost"),
+    // An unticked checkbox submits nothing at all, which coerces to false.
+    grantsPet: formData.get("grantsPet") ?? false,
+    stock: optionalNumber("stock"),
+    limitPerStudent: optionalNumber("limitPerStudent"),
+  });
+}
 
 async function parseImage(formData: FormData): Promise<{ url?: string; error?: string }> {
   const file = formData.get("image");
@@ -37,13 +63,7 @@ export async function createCatalogueItem(
 ): Promise<FormState> {
   const session = await requireAdmin();
 
-  const parsed = itemSchema.safeParse({
-    name: formData.get("name"),
-    description: formData.get("description") || undefined,
-    cost: formData.get("cost"),
-    // An unticked checkbox submits nothing at all, which coerces to false.
-    grantsPet: formData.get("grantsPet") ?? false,
-  });
+  const parsed = readItemForm(formData);
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
@@ -57,6 +77,8 @@ export async function createCatalogueItem(
       description: parsed.data.description || null,
       cost: parsed.data.cost,
       grantsPet: parsed.data.grantsPet ?? false,
+      stock: parsed.data.stock ?? null,
+      limitPerStudent: parsed.data.limitPerStudent ?? null,
       imageUrl: image.url,
       createdById: session.user.id,
     },
@@ -76,13 +98,7 @@ export async function updateCatalogueItem(
   const existing = await prisma.catalogueItem.findUnique({ where: { id: itemId } });
   if (!existing) return { error: "Item not found." };
 
-  const parsed = itemSchema.safeParse({
-    name: formData.get("name"),
-    description: formData.get("description") || undefined,
-    cost: formData.get("cost"),
-    // An unticked checkbox submits nothing at all, which coerces to false.
-    grantsPet: formData.get("grantsPet") ?? false,
-  });
+  const parsed = readItemForm(formData);
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
@@ -98,6 +114,11 @@ export async function updateCatalogueItem(
       description: parsed.data.description || null,
       cost: parsed.data.cost,
       grantsPet: parsed.data.grantsPet ?? false,
+      // The form shows the current count, so saving it unchanged is a no-op
+      // and editing it is a stock-take correction. Topping up during the day
+      // is the list's "Add stock", which adds rather than overwrites.
+      stock: parsed.data.stock ?? null,
+      limitPerStudent: parsed.data.limitPerStudent ?? null,
       imageUrl: image.url ?? existing.imageUrl,
     },
   });
@@ -146,53 +167,62 @@ export async function redeemCatalogueItem(
   }
   if (await isSuspended(session.user.id)) return { error: SUSPENDED_ERROR };
 
-  const item = await prisma.catalogueItem.findUnique({ where: { id: itemId } });
-  if (!item || !item.isActive) {
-    return { error: "This item is no longer available." };
+  const result = await exchangeGift(session.user.id, itemId);
+  if (result.success) {
+    revalidatePath("/dashboard/catalogue");
+    revalidatePath("/admin/catalogue");
+    // The nav gains a "My Cat" link the moment the cat unlocks, so the
+    // layout has to be rebuilt too, not just this page.
+    if (result.unlockedPet) revalidatePath("/dashboard", "layout");
   }
+  return { error: result.error, success: result.success };
+}
 
-  // Unlocking the cat is a one-off. Without this a student could pay for it
-  // again and again, since there is nothing physical to hand over that would
-  // make the duplicate obvious.
-  if (item.grantsPet) {
-    const student = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { petEnabled: true, pet: { select: { id: true } } },
-    });
-    if (student?.petEnabled || student?.pet) {
-      return { error: "You have already unlocked the virtual cat." };
-    }
-  }
+/* --------------------------- stock & delivery --------------------------- */
 
-  const { balance } = await getStudentBalance(session.user.id);
-  if (balance < item.cost) {
-    return { error: "You don't have enough points for this item." };
-  }
+/**
+ * Adds stock to a gift - a delivery from the supplier, say. Adds to whatever
+ * is there rather than setting a number, so an exchange made while the admin
+ * was typing is not quietly undone. A gift not yet counted starts counting
+ * from the amount added.
+ */
+export async function addStock(itemId: string, formData: FormData): Promise<{ error?: string }> {
+  await requireAdmin();
+  const amount = z.coerce.number().int().min(1).max(100_000).safeParse(formData.get("amount"));
+  if (!amount.success) return { error: "Enter how many to add." };
 
-  // One transaction, so a student is never charged without being let in.
-  await prisma.$transaction(async (tx) => {
-    await tx.redemption.create({
-      data: {
-        studentId: session.user.id,
-        catalogueItemId: item.id,
-        cost: item.cost,
-      },
-    });
+  const item = await prisma.catalogueItem.findUnique({ where: { id: itemId }, select: { stock: true } });
+  if (!item) return { error: "Gift not found." };
 
-    if (item.grantsPet) {
-      await tx.user.update({
-        where: { id: session.user.id },
-        data: { petEnabled: true },
-      });
-    }
+  await prisma.catalogueItem.update({
+    where: { id: itemId },
+    data: item.stock === null ? { stock: amount.data } : { stock: { increment: amount.data } },
   });
-
+  revalidatePath("/admin/catalogue");
   revalidatePath("/dashboard/catalogue");
-  if (item.grantsPet) {
-    // The nav gains a "My Cat" link the moment this flips, so the layout has
-    // to be rebuilt too, not just this page.
-    revalidatePath("/dashboard", "layout");
-    return { success: `Unlocked! Head to "My Cat" to adopt your new friend.` };
-  }
-  return { success: `Redeemed "${item.name}" for ${item.cost} points.` };
+  return {};
+}
+
+/** Marks exchanged gifts as handed over. Takes several, for a delivery run. */
+export async function markGiftsDelivered(redemptionIds: string[]): Promise<void> {
+  const session = await requireAdmin();
+  if (redemptionIds.length === 0) return;
+  await prisma.redemption.updateMany({
+    // Only ones still pending, so marking twice never moves the date.
+    where: { id: { in: redemptionIds }, deliveredAt: null },
+    data: { deliveredAt: new Date(), deliveredById: session.user.id },
+  });
+  revalidatePath("/admin/catalogue");
+  revalidatePath("/dashboard/catalogue");
+}
+
+/** Puts a gift back on the to-prepare list - for one marked by mistake. */
+export async function undoGiftDelivered(redemptionId: string): Promise<void> {
+  await requireAdmin();
+  await prisma.redemption.update({
+    where: { id: redemptionId },
+    data: { deliveredAt: null, deliveredById: null },
+  });
+  revalidatePath("/admin/catalogue");
+  revalidatePath("/dashboard/catalogue");
 }

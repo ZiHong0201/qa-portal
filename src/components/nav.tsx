@@ -7,7 +7,7 @@ import { NavDrawer, type NavLink } from "@/components/nav-drawer";
 const STUDENT_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Home" },
   { href: "/dashboard/sets", label: "My Sets" },
-  { href: "/dashboard/catalogue", label: "Catalogue" },
+  { href: "/dashboard/catalogue", label: "Gift Exchange" },
   { href: "/dashboard/leaderboard", label: "Scoreboard" },
 ];
 
@@ -27,7 +27,7 @@ const STAFF_LINKS: NavLink[] = [
 const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/sets", label: "Sets" },
   { href: "/admin/students", label: "Students" },
-  { href: "/admin/catalogue", label: "Catalogue" },
+  { href: "/admin/catalogue", label: "Gift Exchange" },
   { href: "/admin/announcements", label: "Announcements" },
   { href: "/admin/pet", label: "Virtual Cat" },
   { href: "/admin/review", label: "Review" },

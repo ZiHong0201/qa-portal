@@ -121,7 +121,7 @@ export function CheckInCard({ state }: { state: CheckInState }) {
       <p className="relative mt-3 text-xs text-sky-200/80">
         Daily marks grow with your streak, up to {CHECK_IN_MAX_DAILY_MARKS} a day, plus +
         {CHECK_IN_MILESTONE_BONUS} every {CHECK_IN_MILESTONE_EVERY}th day. Bonus marks are spendable
-        in the catalogue — the scoreboard still ranks marks you earn from questions.
+        in the gift exchange — the scoreboard still ranks marks you earn from questions.
       </p>
     </div>
   );

@@ -16,7 +16,7 @@ export default async function EditCatalogueItemPage({
 
   return (
     <div className="mx-auto max-w-xl">
-      <h1 className="mb-6 text-2xl font-bold">Edit catalogue item</h1>
+      <h1 className="mb-6 text-2xl font-bold">Edit gift</h1>
       <CatalogueForm
         action={action}
         submitLabel="Save changes"
@@ -26,6 +26,8 @@ export default async function EditCatalogueItemPage({
           cost: item.cost,
           imageUrl: item.imageUrl,
           grantsPet: item.grantsPet,
+          stock: item.stock,
+          limitPerStudent: item.limitPerStudent,
         }}
       />
     </div>

@@ -58,7 +58,7 @@ export default async function AdminHome() {
         {admin && (
           <>
             <Link href="/admin/catalogue">
-              <StatCard label="Catalogue items" value={catalogueCount} />
+              <StatCard label="Gifts" value={catalogueCount} />
             </Link>
             <Link href="/admin/announcements">
               <StatCard label="Live notices" value={liveNoticeCount} />
@@ -84,7 +84,7 @@ export default async function AdminHome() {
             href="/admin/catalogue/new"
             className="rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50"
           >
-            + New catalogue item
+            + New gift
           </Link>
         )}
       </div>

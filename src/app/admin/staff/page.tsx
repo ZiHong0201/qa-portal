@@ -36,7 +36,7 @@ export default async function AdminStaffPage({
       </div>
       <p className="mb-6 max-w-2xl text-sm text-gray-600">
         Teachers write and mark question sets, manage students and their points, and see
-        integrity signals. Admins do all of that, and also hold the catalogue, announcements, the
+        integrity signals. Admins do all of that, and also hold the gift exchange, announcements, the
         virtual cat, master data, these staff accounts, and the portal reset.
       </p>
 

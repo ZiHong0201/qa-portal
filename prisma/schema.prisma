@@ -198,6 +198,13 @@ model CatalogueItem {
   // directly at /admin/pet; this is the route a student can take themselves.
   grantsPet Boolean @default(false)
 
+  // How many are left to exchange. Null means no stock is kept - the cat
+  // unlock, or anything the admin does not want to count. Every exchange
+  // takes one, and none can be made at nought; an admin tops it back up.
+  stock Int?
+  // Most times one student may exchange this gift, ever. Null is no limit.
+  limitPerStudent Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -219,6 +226,14 @@ model Redemption {
 
   catalogueItem   CatalogueItem @relation(fields: [catalogueItemId], references: [id])
   catalogueItemId String
+
+  // When the gift was handed over - with the next material delivery. Null
+  // while it is still to be prepared; that is the admin's pending list.
+  // deliveredById is a plain column so the record outlives the admin account.
+  deliveredAt   DateTime?
+  deliveredById String?
+
+  @@index([deliveredAt])
 }
 
 // A manual admin credit/deduction to a student's points balance, outside of

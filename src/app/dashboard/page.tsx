@@ -220,7 +220,7 @@ export default async function DashboardPage() {
         >
           <span className="text-2xl">🎁</span>
           <span>
-            <span className="block font-semibold text-rose-900">Rewards catalogue</span>
+            <span className="block font-semibold text-rose-900">Gift Exchange</span>
             <span className="block text-xs text-rose-700">Spend your marks on gifts</span>
           </span>
         </Link>

@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 
 export type StudentBalance = {
   earned: number;
@@ -45,8 +46,13 @@ type BalanceRow = {
 
 const n = (v: number | bigint | null | undefined) => Number(v ?? 0);
 
-async function balanceRow(studentId: string): Promise<BalanceRow> {
-  const rows = await prisma.$queryRaw<BalanceRow[]>`
+// `db` lets a caller run this inside its own transaction - the gift exchange
+// re-checks the balance after charging, before it commits.
+async function balanceRow(
+  studentId: string,
+  db: Prisma.TransactionClient = prisma
+): Promise<BalanceRow> {
+  const rows = await db.$queryRaw<BalanceRow[]>`
     SELECT
       (SELECT COALESCE(SUM(pointsAwarded), 0) FROM Submission
         WHERE studentId = ${studentId} AND status IN ('CORRECT', 'APPROVED')) AS earned,
@@ -81,8 +87,11 @@ function toBalance(r: BalanceRow): StudentBalance {
   };
 }
 
-export async function getStudentBalance(studentId: string): Promise<StudentBalance> {
-  return toBalance(await balanceRow(studentId));
+export async function getStudentBalance(
+  studentId: string,
+  db: Prisma.TransactionClient = prisma
+): Promise<StudentBalance> {
+  return toBalance(await balanceRow(studentId, db));
 }
 
 export type Suspension = { reason: string; since: Date };

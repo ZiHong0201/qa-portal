@@ -242,7 +242,7 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
 
       <p className="mt-6 text-center text-xs text-gray-400">
         {CLOTHING_ENABLED ? "Food and clothes" : "Treats"} come out of the same points you spend in
-        the catalogue.
+        the gift exchange.
       </p>
     </div>
   );
