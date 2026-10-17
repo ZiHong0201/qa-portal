@@ -9,13 +9,22 @@ const day = (d: Date) =>
   d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Kuala_Lumpur" });
 
 export default async function AdminGiftExchangePage() {
-  const [items, pending, delivered] = await Promise.all([
+  const [items, pending, delivered, rejected] = await Promise.all([
     prisma.catalogueItem.findMany({
       orderBy: { createdAt: "desc" },
-      include: { _count: { select: { redemptions: true } } },
+      include: {
+        _count: {
+          select: {
+            // Every row, rejected included, decides whether the gift can be
+            // deleted (the rows reference it); only the rest were exchanged.
+            redemptions: true,
+          },
+        },
+        redemptions: { where: { rejectedAt: null }, select: { id: true } },
+      },
     }),
     prisma.redemption.findMany({
-      where: { deliveredAt: null },
+      where: { deliveredAt: null, rejectedAt: null },
       orderBy: { createdAt: "asc" },
       select: {
         id: true,
@@ -34,6 +43,19 @@ export default async function AdminGiftExchangePage() {
         id: true,
         createdAt: true,
         deliveredAt: true,
+        student: { select: { name: true, grade: true } },
+        catalogueItem: { select: { name: true } },
+      },
+    }),
+    prisma.redemption.findMany({
+      where: { rejectedAt: { not: null } },
+      orderBy: { rejectedAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        cost: true,
+        rejectedAt: true,
+        rejectionReason: true,
         student: { select: { name: true, grade: true } },
         catalogueItem: { select: { name: true } },
       },
@@ -73,6 +95,15 @@ export default async function AdminGiftExchangePage() {
           exchangedOn: day(r.createdAt),
           deliveredOn: day(r.deliveredAt!),
         }))}
+        recentlyRejected={rejected.map((r) => ({
+          id: r.id,
+          student: r.student.name,
+          grade: r.student.grade,
+          gift: r.catalogueItem.name,
+          refunded: r.cost,
+          reason: r.rejectionReason ?? "",
+          rejectedOn: day(r.rejectedAt!),
+        }))}
       />
 
       <ul className="flex flex-col gap-3">
@@ -91,7 +122,7 @@ export default async function AdminGiftExchangePage() {
                 <div>
                   <p className="font-medium">{item.name}</p>
                   <p className="text-sm text-gray-500">
-                    {item.cost} points · {item._count.redemptions} exchanged
+                    {item.cost} points · {item.redemptions.length} exchanged
                     {item.limitPerStudent !== null &&
                       ` · limit ${item.limitPerStudent} per student`}
                   </p>

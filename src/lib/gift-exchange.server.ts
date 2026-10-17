@@ -48,7 +48,9 @@ export async function exchangeGift(studentId: string, itemId: string): Promise<E
     await prisma.$transaction(async (tx) => {
       if (item.limitPerStudent !== null) {
         const already = await tx.redemption.count({
-          where: { studentId: studentId, catalogueItemId: item.id },
+          // A rejected exchange does not use up the limit - the student
+          // never got the gift, and may try again.
+          where: { studentId: studentId, catalogueItemId: item.id, rejectedAt: null },
         });
         if (already >= item.limitPerStudent) {
           throw new ExchangeRefused(
@@ -99,4 +101,45 @@ export async function exchangeGift(studentId: string, itemId: string): Promise<E
   return {
     success: `Exchanged "${item.name}" for ${item.cost} points. It will be delivered with the next material delivery.`,
   };
+}
+
+/**
+ * Turns down an exchange that has not been delivered - out of stock in
+ * reality, a mistake, a gift withdrawn - and gives the student their points
+ * back, with the reason shown to them.
+ *
+ * The points return by the exchange no longer counting as spent (see the
+ * balance query), so there is no second record to write that could fail on
+ * its own. In the same transaction the gift's stock, if counted, goes back up
+ * by one. Only a pending exchange can be rejected: once a gift has been
+ * handed over, taking the points back would be a different decision.
+ */
+export async function rejectExchange(
+  redemptionId: string,
+  reason: string,
+  adminId: string
+): Promise<{ error?: string }> {
+  const why = reason.trim();
+  if (!why) return { error: "Give a reason - the student will see it." };
+  if (why.length > 300) return { error: "Keep the reason to 300 characters." };
+
+  const done = await prisma.$transaction(async (tx) => {
+    const marked = await tx.redemption.updateMany({
+      where: { id: redemptionId, deliveredAt: null, rejectedAt: null },
+      data: { rejectedAt: new Date(), rejectionReason: why, rejectedById: adminId },
+    });
+    if (marked.count === 0) return false;
+
+    const r = await tx.redemption.findUnique({
+      where: { id: redemptionId },
+      select: { catalogueItemId: true },
+    });
+    await tx.catalogueItem.updateMany({
+      where: { id: r!.catalogueItemId, stock: { not: null } },
+      data: { stock: { increment: 1 } },
+    });
+    return true;
+  });
+  if (!done) return { error: "That exchange has already been delivered or rejected." };
+  return {};
 }

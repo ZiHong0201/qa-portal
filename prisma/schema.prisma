@@ -233,6 +233,15 @@ model Redemption {
   deliveredAt   DateTime?
   deliveredById String?
 
+  // Set when an admin turns the exchange down - the gift ran out, say. The
+  // row stays, so the student can see what happened and why, but a rejected
+  // exchange no longer counts as spent: the points come back by not being
+  // subtracted, rather than by a second entry that could fail to be written.
+  // Its stock is returned and it stops counting towards the student's limit.
+  rejectedAt      DateTime?
+  rejectionReason String?
+  rejectedById    String?
+
   @@index([deliveredAt])
 }
 

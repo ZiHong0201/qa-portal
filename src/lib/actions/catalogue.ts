@@ -8,7 +8,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { SUSPENDED_ERROR, isSuspended } from "@/lib/suspension";
 import { saveCatalogueImage, deleteCatalogueImage } from "@/lib/uploads";
-import { exchangeGift } from "@/lib/gift-exchange.server";
+import { exchangeGift, rejectExchange } from "@/lib/gift-exchange.server";
 import type { FormState } from "./auth";
 
 
@@ -208,8 +208,9 @@ export async function markGiftsDelivered(redemptionIds: string[]): Promise<void>
   const session = await requireAdmin();
   if (redemptionIds.length === 0) return;
   await prisma.redemption.updateMany({
-    // Only ones still pending, so marking twice never moves the date.
-    where: { id: { in: redemptionIds }, deliveredAt: null },
+    // Only ones still pending, so marking twice never moves the date - and
+    // never a rejected one, which was refunded and is not being handed over.
+    where: { id: { in: redemptionIds }, deliveredAt: null, rejectedAt: null },
     data: { deliveredAt: new Date(), deliveredById: session.user.id },
   });
   revalidatePath("/admin/catalogue");
@@ -225,4 +226,24 @@ export async function undoGiftDelivered(redemptionId: string): Promise<void> {
   });
   revalidatePath("/admin/catalogue");
   revalidatePath("/dashboard/catalogue");
+}
+
+/**
+ * Rejects a pending exchange and refunds it - the rules are in
+ * rejectExchange; this adds who may do it and the pages to refresh.
+ */
+export async function rejectGiftExchange(
+  redemptionId: string,
+  reason: string
+): Promise<{ error?: string }> {
+  const session = await requireAdmin();
+  const result = await rejectExchange(redemptionId, reason, session.user.id);
+  if (result.error) return result;
+
+  revalidatePath("/admin/catalogue");
+  revalidatePath("/dashboard/catalogue");
+  revalidatePath("/admin/students");
+  // The nav shows the balance on every student page.
+  revalidatePath("/dashboard", "layout");
+  return {};
 }

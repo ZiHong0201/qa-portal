@@ -60,8 +60,9 @@ async function balanceRow(
         WHERE studentId = ${studentId}) AS checkInBonus,
       (SELECT COALESCE(SUM(amount), 0) FROM PointAdjustment
         WHERE studentId = ${studentId}) AS adjustments,
+      -- A rejected exchange is refunded by simply not counting here.
       (SELECT COALESCE(SUM(cost), 0) FROM Redemption
-        WHERE studentId = ${studentId}) AS redeemed,
+        WHERE studentId = ${studentId} AND rejectedAt IS NULL) AS redeemed,
       (SELECT COALESCE(SUM(cost), 0) FROM PetPurchase
         WHERE studentId = ${studentId}) AS petSpend,
       (SELECT petEnabled FROM User WHERE id = ${studentId}) AS petEnabled,

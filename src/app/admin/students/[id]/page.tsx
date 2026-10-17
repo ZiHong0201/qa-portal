@@ -260,21 +260,36 @@ export default async function AdminStudentDetailPage({
       )}
 
       <div>
-        <h2 className="mb-3 font-medium">Redemption history</h2>
+        <h2 className="mb-3 font-medium">Gift exchanges</h2>
         <ul className="flex flex-col gap-2">
           {redemptions.map((r) => (
             <li
               key={r.id}
               className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
             >
-              <span>{r.catalogueItem.name}</span>
-              <span className="text-xs text-gray-400">
+              <span>
+                {r.catalogueItem.name}
+                {r.rejectedAt ? (
+                  <span className="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-700">
+                    Rejected, refunded{r.rejectionReason ? ` - ${r.rejectionReason}` : ""}
+                  </span>
+                ) : r.deliveredAt ? (
+                  <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                    Delivered
+                  </span>
+                ) : (
+                  <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+                    Pending
+                  </span>
+                )}
+              </span>
+              <span className={`text-xs ${r.rejectedAt ? "text-gray-300 line-through" : "text-gray-400"}`}>
                 -{r.cost} pts · {r.createdAt.toLocaleDateString()}
               </span>
             </li>
           ))}
           {redemptions.length === 0 && (
-            <p className="text-sm text-gray-500">No redemptions yet.</p>
+            <p className="text-sm text-gray-500">No gift exchanges yet.</p>
           )}
         </ul>
       </div>

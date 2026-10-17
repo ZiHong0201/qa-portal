@@ -29,8 +29,11 @@ export default async function GiftExchangePage() {
   // rather than offering to sell it again.
   const petUnlocked = !!student?.petEnabled || !!student?.pet;
 
+  // Rejected exchanges were refunded and do not use up a limit.
   const mine = new Map<string, number>();
-  for (const r of redemptions) mine.set(r.catalogueItemId, (mine.get(r.catalogueItemId) ?? 0) + 1);
+  for (const r of redemptions) {
+    if (!r.rejectedAt) mine.set(r.catalogueItemId, (mine.get(r.catalogueItemId) ?? 0) + 1);
+  }
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -127,7 +130,12 @@ export default async function GiftExchangePage() {
           >
             <span>
               {r.catalogueItem.name}
-              {!r.catalogueItem.grantsPet &&
+              {r.rejectedAt ? (
+                <span className="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-700">
+                  Rejected · points refunded
+                </span>
+              ) : (
+                !r.catalogueItem.grantsPet &&
                 (r.deliveredAt ? (
                   <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
                     Delivered
@@ -136,9 +144,13 @@ export default async function GiftExchangePage() {
                   <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
                     Coming with next material delivery
                   </span>
-                ))}
+                ))
+              )}
+              {r.rejectedAt && r.rejectionReason && (
+                <span className="mt-0.5 block text-xs text-rose-700">Reason: {r.rejectionReason}</span>
+              )}
             </span>
-            <span className="text-xs text-gray-400">
+            <span className={`text-xs ${r.rejectedAt ? "text-gray-300 line-through" : "text-gray-400"}`}>
               -{r.cost} pts · {r.createdAt.toLocaleDateString("en-GB")}
             </span>
           </li>

@@ -39,7 +39,12 @@ export default async function AdminStudentsPage({
       }),
       prisma.checkIn.groupBy({ by: ["studentId"], _sum: { pointsAwarded: true } }),
       prisma.pointAdjustment.groupBy({ by: ["studentId"], _sum: { amount: true } }),
-      prisma.redemption.groupBy({ by: ["studentId"], _sum: { cost: true } }),
+      // Rejected exchanges were refunded, so they are not spending.
+      prisma.redemption.groupBy({
+        by: ["studentId"],
+        where: { rejectedAt: null },
+        _sum: { cost: true },
+      }),
     ]);
 
   // Mirrors getStudentBalance(), batched across students instead of per-row.
