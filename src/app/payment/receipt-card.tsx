@@ -1,5 +1,5 @@
 import { rm } from "@/lib/fees";
-import { type ReceiptData, receiptRows } from "@/lib/receipt";
+import { type ReceiptData, moneyLines, receiptRows } from "@/lib/receipt";
 
 export const RECEIPT_LOGO_SRC = "/brand/zhao-history-logo.png";
 
@@ -9,7 +9,6 @@ export const RECEIPT_LOGO_SRC = "/brand/zhao-history-logo.png";
  * client component) and the receipt page (a server one) can both use it.
  */
 export function ReceiptCard({ receipt, voided }: { receipt: ReceiptData; voided?: string | null }) {
-  const saving = receipt.normalSen - receipt.amountSen;
   return (
     <div className="overflow-hidden rounded-xl border border-stone-300 bg-white print:rounded-none print:border-0">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b-4 border-teal-700 px-6 py-4 print:px-0">
@@ -38,18 +37,17 @@ export function ReceiptCard({ receipt, voided }: { receipt: ReceiptData; voided?
           ))}
         </dl>
         <div className="border-t border-stone-200 pt-2 text-sm">
-          {saving > 0 && (
-            <>
-              <div className="flex justify-between py-0.5 text-gray-500">
-                <span>Normal price</span>
-                <span className="tabular-nums line-through">{rm(receipt.normalSen)}</span>
-              </div>
-              <div className="flex justify-between gap-4 py-0.5 text-teal-700">
-                <span>{receipt.priceNote ?? "Promotion"}</span>
-                <span className="tabular-nums">-{rm(saving)}</span>
-              </div>
-            </>
-          )}
+          {moneyLines(receipt).map((l) => (
+            <div
+              key={l.label}
+              className={`flex justify-between gap-4 py-0.5 ${
+                l.kind === "saving" ? "text-teal-700" : l.kind === "struck" ? "text-gray-500" : "text-gray-800"
+              }`}
+            >
+              <span>{l.label}</span>
+              <span className={`tabular-nums ${l.kind === "struck" ? "line-through" : ""}`}>{rm(l.sen)}</span>
+            </div>
+          ))}
           <div className="mt-2 flex items-baseline justify-between rounded-lg bg-teal-50 px-4 py-3 print:bg-white print:px-0">
             <span className="font-semibold text-teal-900">Amount paid</span>
             <span className="text-2xl font-bold tabular-nums text-teal-900">{rm(receipt.amountSen)}</span>

@@ -11,8 +11,10 @@ export type ReceiptData = {
   startMonth: string;
   months: number;
   normalSen: number;
-  amountSen: number;
+  amountSen: number; // everything paid, tuition plus any extra charge
   priceNote: string | null;
+  extraLabel: string | null;
+  extraSen: number;
   method: string;
   paidOn: string;
   note: string | null;
@@ -28,6 +30,26 @@ export function receiptRows(r: ReceiptData): [string, string][] {
     ["Paid by", isPaymentMethod(r.method) ? PAYMENT_METHODS[r.method] : r.method],
     ...(r.note ? ([["Note", r.note]] as [string, string][]) : []),
   ];
+}
+
+export type MoneyLine = { label: string; sen: number; kind: "struck" | "saving" | "plain" };
+
+/**
+ * The money above "Amount paid": the normal price and the promotion's saving
+ * when there is one, the tuition on its own when an extra charge follows it,
+ * and the extra charge. The same lines on screen, in print and in the email.
+ */
+export function moneyLines(r: ReceiptData): MoneyLine[] {
+  const tuition = r.amountSen - r.extraSen;
+  const lines: MoneyLine[] = [];
+  if (tuition < r.normalSen) {
+    lines.push({ label: "Tuition, normal price", sen: r.normalSen, kind: "struck" });
+    lines.push({ label: r.priceNote ?? "Promotion", sen: -(r.normalSen - tuition), kind: "saving" });
+  } else if (r.extraSen > 0) {
+    lines.push({ label: "Tuition fee", sen: tuition, kind: "plain" });
+  }
+  if (r.extraSen > 0) lines.push({ label: r.extraLabel ?? "Extra charge", sen: r.extraSen, kind: "plain" });
+  return lines;
 }
 
 export function receiptSubject(r: ReceiptData): string {
@@ -52,11 +74,13 @@ export function receiptEmailHtml(r: ReceiptData): string {
         `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;white-space:nowrap;vertical-align:top">${esc(k)}</td><td style="padding:4px 0;color:#111827">${esc(v)}</td></tr>`
     )
     .join("");
-  const saving =
-    r.amountSen < r.normalSen
-      ? `<tr><td style="padding:4px 0;color:#6b7280">Normal price</td><td style="padding:4px 0;text-align:right;color:#6b7280;text-decoration:line-through">${rm(r.normalSen)}</td></tr>
-         <tr><td style="padding:4px 0;color:#0f766e">${esc(r.priceNote ?? "Promotion")}</td><td style="padding:4px 0;text-align:right;color:#0f766e">-${rm(r.normalSen - r.amountSen)}</td></tr>`
-      : "";
+  const money = moneyLines(r)
+    .map((l) => {
+      const colour = l.kind === "saving" ? "#0f766e" : l.kind === "struck" ? "#6b7280" : "#111827";
+      const strike = l.kind === "struck" ? ";text-decoration:line-through" : "";
+      return `<tr><td style="padding:4px 0;color:${colour}">${esc(l.label)}</td><td style="padding:4px 0;text-align:right;color:${colour}${strike}">${rm(l.sen)}</td></tr>`;
+    })
+    .join("");
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f4;font-family:Arial,Helvetica,sans-serif;font-size:14px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e7e5e4;border-radius:12px">
 <tr><td style="padding:18px 24px 14px;border-bottom:4px solid #0f766e">
@@ -72,7 +96,7 @@ export function receiptEmailHtml(r: ReceiptData): string {
   </table>
   <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:16px">${rows}</table>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e7e5e4;padding-top:8px">
-    ${saving}
+    ${money}
     <tr><td style="padding:10px 0 0;font-size:16px;font-weight:bold;color:#115e59">Amount paid</td><td style="padding:10px 0 0;text-align:right;font-size:22px;font-weight:bold;color:#115e59">${rm(r.amountSen)}</td></tr>
   </table>
 </td></tr>
@@ -89,9 +113,7 @@ export function receiptEmailText(r: ReceiptData): string {
     ...receiptRows(r).map(([k, v]) => `${k}: ${v}`),
     "",
   ];
-  if (r.amountSen < r.normalSen) {
-    lines.push(`Normal price: ${rm(r.normalSen)}`, `${r.priceNote ?? "Promotion"}: -${rm(r.normalSen - r.amountSen)}`);
-  }
+  for (const l of moneyLines(r)) lines.push(`${l.label}: ${rm(l.sen)}`);
   lines.push(`Amount paid: ${rm(r.amountSen)}`, "", "Thank you. Please keep this receipt for your records.");
   return lines.join("\n");
 }

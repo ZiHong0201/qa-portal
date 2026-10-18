@@ -1,58 +1,64 @@
-import { FEE_PLANS } from "@/lib/fee-plans";
-import { rm } from "@/lib/fees";
+import { prisma } from "@/lib/prisma";
+import { BANDS } from "@/lib/fee-plans";
+import { loadExtraCharge } from "@/lib/fees.server";
+import { AddPriceRowForm, ExtraChargeForm, PriceRowForm } from "../price-forms";
 
-/** The price list the receipts are worked out from - src/lib/fee-plans.ts. */
-export default function PricesPage() {
+/** The price list receipts are worked out from, edited here. */
+export default async function PricesPage() {
+  const [rows, extra] = await Promise.all([
+    prisma.feePrice.findMany({ orderBy: [{ band: "asc" }, { subjects: "asc" }] }),
+    loadExtraCharge(),
+  ]);
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-4xl">
       <h1 className="mb-1 text-2xl font-bold text-stone-900">Prices</h1>
       <p className="mb-5 text-sm text-gray-600">
-        The price depends on the grade and how many subjects are taken. Paying for the promotion&apos;s months at once
-        gets the promotional price; longer periods repeat it, and any months left over are charged monthly.
+        The price depends on the grade group and how many subjects are taken. Paying for a promotion&apos;s months at
+        once gets the promotional price; longer periods repeat it, and any months left over are charged monthly. A
+        promotion that is not cheaper than paying monthly is never applied. Changing a price affects new receipts only -
+        receipts already made keep their amounts.
       </p>
       <div className="flex flex-col gap-4">
-        {FEE_PLANS.map((plan) => (
-          <section key={plan.label} className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-            <h2 className="bg-stone-100 px-4 py-2 font-semibold text-stone-900">{plan.label}</h2>
-            <table className="min-w-full text-sm">
-              <thead className="text-left text-xs text-stone-500">
-                <tr>
-                  <th className="px-4 py-2">Subjects</th>
-                  <th className="px-4 py-2 text-right">Monthly</th>
-                  <th className="px-4 py-2 text-right">Promotion</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {Object.entries(plan.monthly).map(([n, sen]) => {
-                  const promo = plan.promo[Number(n)];
-                  const saves = promo ? promo.months * sen - promo.priceSen : 0;
-                  return (
-                    <tr key={n}>
-                      <td className="px-4 py-2">
-                        {n} subject{n === "1" ? "" : "s"}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">{rm(sen)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {promo ? (
-                          <>
-                            {rm(promo.priceSen)} for {promo.months} months
-                            {saves <= 0 && (
-                              <span className="block text-xs text-amber-700">
-                                not cheaper than monthly ({rm(promo.months * sen)}), so not applied
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </section>
-        ))}
+        {BANDS.map((band) => {
+          const mine = rows.filter((r) => r.band === band.key);
+          const next = mine.length ? Math.max(...mine.map((r) => r.subjects)) + 1 : 1;
+          return (
+            <section key={band.key} className="rounded-xl border border-gray-200 bg-white">
+              <h2 className="rounded-t-xl bg-stone-100 px-4 py-2 font-semibold text-stone-900">
+                {band.label}
+                <span className="ml-2 text-xs font-normal text-gray-500">{band.grades.join(", ")}</span>
+              </h2>
+              <div className="flex flex-col gap-3 px-4 py-3">
+                {mine.length === 0 && <p className="text-sm text-gray-500">No prices yet.</p>}
+                {mine.map((r) => (
+                  // Keyed on the saved values, so a save elsewhere refreshes the boxes.
+                  <PriceRowForm
+                    key={`${r.subjects}-${r.updatedAt.getTime()}`}
+                    band={band.key}
+                    subjects={r.subjects}
+                    monthlySen={r.monthlySen}
+                    promoMonths={r.promoMonths}
+                    promoSen={r.promoSen}
+                  />
+                ))}
+                <div className="border-t border-dashed border-gray-200 pt-3">
+                  <p className="mb-1 text-xs font-medium text-gray-500">Add a price for more subjects</p>
+                  <AddPriceRowForm key={next} band={band.key} nextSubjects={next} />
+                </div>
+              </div>
+            </section>
+          );
+        })}
+
+        <section className="rounded-xl border border-gray-200 bg-white">
+          <h2 className="rounded-t-xl bg-stone-100 px-4 py-2 font-semibold text-stone-900">Extra charge</h2>
+          <div className="px-4 py-3">
+            <p className="mb-2 text-xs text-gray-500">
+              Added once to a receipt when its box is ticked, whatever the number of months.
+            </p>
+            <ExtraChargeForm key={`${extra.label}-${extra.amountSen}`} label={extra.label} amountSen={extra.amountSen} />
+          </div>
+        </section>
       </div>
     </div>
   );

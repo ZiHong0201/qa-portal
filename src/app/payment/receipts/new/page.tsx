@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { dayKey } from "@/lib/check-in";
-import { FEE_PLANS } from "@/lib/fee-plans";
+import { GRADES } from "@/lib/fee-plans";
 import { monthKey } from "@/lib/fees";
-import { listFeeSubjects } from "@/lib/fees.server";
+import { listFeeSubjects, loadExtraCharge, loadFeePlans } from "@/lib/fees.server";
 import { ReceiptBuilder } from "../../receipt-forms";
 
 /**
@@ -11,7 +11,7 @@ import { ReceiptBuilder } from "../../receipt-forms";
  * site's own Subjects page, so nothing here depends on the portal.
  */
 export default async function NewReceiptPage() {
-  const subjects = await listFeeSubjects();
+  const [subjects, plans, extra] = await Promise.all([listFeeSubjects(), loadFeePlans(), loadExtraCharge()]);
   return (
     <div className="max-w-2xl">
       <Link href="/payment" className="text-sm text-teal-700 hover:underline">
@@ -29,10 +29,12 @@ export default async function NewReceiptPage() {
           </p>
         ) : (
           <ReceiptBuilder
-            grades={FEE_PLANS.flatMap((p) => p.grades)}
+            plans={plans}
+            grades={GRADES}
             subjects={subjects.map((s) => s.name)}
             startMonth={monthKey()}
             today={dayKey()}
+            extra={extra}
           />
         )}
       </div>

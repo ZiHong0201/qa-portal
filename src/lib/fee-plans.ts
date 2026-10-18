@@ -1,63 +1,69 @@
-// YH Ideal tuition prices. Pure, so the payment form can show the amount as
-// the admin ticks, and the server works it out again from the same table
+// YH Ideal tuition prices. Pure, so the receipt form can show the amount as
+// the admin ticks, and the server works it out again from the same list
 // before anything is saved.
 //
-// The price depends on the grade and how many subjects are taken - not which
-// ones - and paying for several months at once can earn a promotional price.
-// Change the numbers here when the prices change; amounts are in sen.
+// The price depends on the grade group and how many subjects are taken - not
+// which ones - and paying for several months at once can earn a promotional
+// price. The amounts are in the FeePrice table, edited on the Prices page;
+// the grade groups are fixed here. Amounts are in sen.
 
 export type Promotion = { months: number; priceSen: number };
 
-export type FeePlan = {
-  label: string;
-  grades: string[];
+export type Band = { key: string; label: string; grades: string[] };
+
+export const BANDS: Band[] = [
+  { key: "G6", label: "Grade 6", grades: ["Grade 6"] },
+  { key: "F13", label: "Form 1 - Form 3", grades: ["Form 1", "Form 2", "Form 3"] },
+  { key: "F45", label: "Form 4 - Form 5", grades: ["Form 4", "Form 5"] },
+];
+
+export const GRADES = BANDS.flatMap((b) => b.grades);
+
+export type FeePlan = Band & {
   /** Monthly price by number of subjects. */
   monthly: Record<number, number>;
   /** Promotional price for paying `months` at once, by number of subjects. */
   promo: Record<number, Promotion>;
 };
 
-export const FEE_PLANS: FeePlan[] = [
-  {
-    label: "Grade 6",
-    grades: ["Grade 6"],
-    monthly: { 1: 6500 },
-    promo: { 1: { months: 6, priceSen: 39900 } },
-  },
-  {
-    label: "Form 1 - Form 3",
-    grades: ["Form 1", "Form 2", "Form 3"],
-    monthly: { 1: 7000, 2: 14000, 3: 20500, 4: 26800 },
-    promo: {
-      1: { months: 6, priceSen: 39900 },
-      2: { months: 3, priceSen: 39900 },
-      3: { months: 3, priceSen: 59900 },
-      4: { months: 3, priceSen: 78800 },
-    },
-  },
-  {
-    label: "Form 4 - Form 5",
-    grades: ["Form 4", "Form 5"],
-    monthly: { 1: 8000, 2: 15500, 3: 22000, 4: 28600, 5: 35500, 6: 41500 },
-    promo: {
-      1: { months: 6, priceSen: 45900 },
-      2: { months: 3, priceSen: 45900 },
-      3: { months: 3, priceSen: 64900 },
-      4: { months: 3, priceSen: 84900 },
-      5: { months: 3, priceSen: 105900 },
-      6: { months: 3, priceSen: 123900 },
-    },
-  },
-];
+export type PriceRow = {
+  band: string;
+  subjects: number;
+  monthlySen: number;
+  promoMonths: number | null;
+  promoSen: number | null;
+};
+
+/** The saved rows, shaped by grade group. */
+export function buildPlans(rows: PriceRow[]): FeePlan[] {
+  return BANDS.map((band) => {
+    const mine = rows.filter((r) => r.band === band.key);
+    return {
+      ...band,
+      monthly: Object.fromEntries(mine.map((r) => [r.subjects, r.monthlySen])),
+      promo: Object.fromEntries(
+        mine
+          .filter((r) => r.promoMonths && r.promoSen)
+          .map((r) => [r.subjects, { months: r.promoMonths!, priceSen: r.promoSen! }])
+      ),
+    };
+  });
+}
 
 export const MAX_MONTHS = 12;
 
-export function planFor(grade: string | null | undefined): FeePlan | null {
-  return FEE_PLANS.find((p) => grade && p.grades.includes(grade)) ?? null;
+export function planFor(plans: FeePlan[], grade: string | null | undefined): FeePlan | null {
+  return plans.find((p) => grade && p.grades.includes(grade)) ?? null;
 }
 
 export function maxSubjects(plan: FeePlan): number {
-  return Math.max(...Object.keys(plan.monthly).map(Number));
+  const counts = Object.keys(plan.monthly).map(Number);
+  return counts.length ? Math.max(...counts) : 0;
+}
+
+/** Whether a promotion actually saves money against paying monthly. */
+export function promoSaves(promo: Promotion, monthlySen: number): boolean {
+  return promo.priceSen < promo.months * monthlySen;
 }
 
 export type Quote = {
@@ -82,14 +88,25 @@ const ringgit = (sen: number) => `RM${(sen / 100).toFixed(sen % 100 ? 2 : 0)}`;
  * actually cheaper than paying monthly for the same months, so nobody is
  * charged more for taking it.
  */
-export function quote(grade: string | null | undefined, subjects: number, months: number): Quote | { error: string } {
-  const plan = planFor(grade);
-  if (!plan) return { error: `There is no fee set for ${grade ?? "a student with no grade"}.` };
+export function quote(
+  plans: FeePlan[],
+  grade: string | null | undefined,
+  subjects: number,
+  months: number
+): Quote | { error: string } {
+  const plan = planFor(plans, grade);
+  if (!plan) return { error: `There is no fee set for ${grade || "a student with no grade"}.` };
   if (subjects < 1) return { error: "Tick at least one subject." };
   const monthlySen = plan.monthly[subjects];
   if (monthlySen === undefined) {
     const max = maxSubjects(plan);
-    return { error: `${plan.label} has a price for up to ${max} subject${max === 1 ? "" : "s"}. Untick ${subjects - max}.` };
+    if (max === 0) return { error: `No prices are set for ${plan.label} yet.` };
+    return {
+      error:
+        subjects > max
+          ? `${plan.label} has a price for up to ${max} subject${max === 1 ? "" : "s"}. Untick ${subjects - max}.`
+          : `${plan.label} has no price for ${subjects} subjects. Add it on the Prices page.`,
+    };
   }
   if (!Number.isInteger(months) || months < 1 || months > MAX_MONTHS) {
     return { error: `Choose between 1 and ${MAX_MONTHS} months.` };
@@ -97,7 +114,7 @@ export function quote(grade: string | null | undefined, subjects: number, months
 
   const normalSen = monthlySen * months;
   const offer = plan.promo[subjects];
-  const worthIt = offer && offer.priceSen < offer.months * monthlySen;
+  const worthIt = !!offer && promoSaves(offer, monthlySen);
   const blocks = worthIt ? Math.floor(months / offer.months) : 0;
   if (!offer || !worthIt || blocks === 0) {
     return { monthlySen, normalSen, amountSen: normalSen, priceNote: null, promo: worthIt ? offer : null };

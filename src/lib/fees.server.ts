@@ -1,6 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { planFor, quote } from "@/lib/fee-plans";
+import { BANDS, type FeePlan, MAX_MONTHS, buildPlans, planFor, quote } from "@/lib/fee-plans";
 import { type PaymentMethod, isMonthKey, parseSubjects } from "@/lib/fees";
 import { RECEIPT_COPY_TO, sendMail } from "@/lib/mailer";
 import {
@@ -19,6 +19,82 @@ function isUniqueConflict(error: unknown): boolean {
   if (error.code === "P2002") return true;
   // libsql reports a unique conflict as P2039 rather than P2002.
   return error.code === "P2039" && /UNIQUE constraint failed/i.test(error.message);
+}
+
+// ---- prices -----------------------------------------------------------------
+
+export async function loadFeePlans(): Promise<FeePlan[]> {
+  const rows = await prisma.feePrice.findMany({ orderBy: [{ band: "asc" }, { subjects: "asc" }] });
+  return buildPlans(rows);
+}
+
+export type PriceInput = {
+  band: string;
+  subjects: number;
+  monthlySen: number | null;
+  promoMonths: number | null;
+  promoSen: number | null;
+};
+
+/**
+ * Sets one row of the price list - adding it if new. A promotion needs both
+ * its length and its price, or neither.
+ */
+export async function savePrice(input: PriceInput): Promise<Result> {
+  if (!BANDS.some((b) => b.key === input.band)) return { error: "Unknown grade group." };
+  if (!Number.isInteger(input.subjects) || input.subjects < 1 || input.subjects > 20) {
+    return { error: "Number of subjects must be between 1 and 20." };
+  }
+  if (input.monthlySen === null || input.monthlySen <= 0) return { error: "Enter the monthly price, such as 80." };
+  const hasMonths = input.promoMonths !== null;
+  const hasPrice = input.promoSen !== null;
+  if (hasMonths !== hasPrice) return { error: "A promotion needs both its months and its price - or leave both blank." };
+  if (hasMonths && (!Number.isInteger(input.promoMonths) || input.promoMonths! < 2 || input.promoMonths! > MAX_MONTHS)) {
+    return { error: `Promotion months must be between 2 and ${MAX_MONTHS}.` };
+  }
+  if (hasPrice && input.promoSen! <= 0) return { error: "Enter the promotional price, such as 459." };
+
+  const data = {
+    monthlySen: input.monthlySen,
+    promoMonths: input.promoMonths,
+    promoSen: input.promoSen,
+  };
+  await prisma.feePrice.upsert({
+    where: { band_subjects: { band: input.band, subjects: input.subjects } },
+    create: { band: input.band, subjects: input.subjects, ...data },
+    update: data,
+  });
+  return { success: "Saved." };
+}
+
+export async function deletePrice(band: string, subjects: number): Promise<Result> {
+  const { count } = await prisma.feePrice.deleteMany({ where: { band, subjects } });
+  return count ? { success: "Removed." } : { error: "That row is already gone." };
+}
+
+// ---- the extra charge -------------------------------------------------------
+
+export type ExtraCharge = { label: string; amountSen: number };
+
+const EXTRA_KEY = "material";
+
+/** The material cost and delivery fee - its current name and amount. */
+export async function loadExtraCharge(): Promise<ExtraCharge> {
+  const row = await prisma.feeExtra.findUnique({ where: { key: EXTRA_KEY } });
+  return row ?? { label: "Material cost & delivery fee", amountSen: 3000 };
+}
+
+export async function saveExtraCharge(label: string, amountSen: number | null): Promise<Result> {
+  const name = label.trim().replace(/\s+/g, " ");
+  if (!name) return { error: "Give the charge a name." };
+  if (name.length > 80) return { error: "Keep the name under 80 characters." };
+  if (amountSen === null || amountSen <= 0) return { error: "Enter the amount, such as 30." };
+  await prisma.feeExtra.upsert({
+    where: { key: EXTRA_KEY },
+    create: { key: EXTRA_KEY, label: name, amountSen },
+    update: { label: name, amountSen },
+  });
+  return { success: "Saved." };
 }
 
 // ---- subjects ---------------------------------------------------------------
@@ -84,6 +160,8 @@ export type ReceiptInput = {
   method: PaymentMethod;
   paidOn: string;
   note: string | null;
+  /** Whether the material cost and delivery fee is charged too. */
+  includeExtra: boolean;
 };
 
 /**
@@ -96,13 +174,14 @@ export async function priceReceipt(input: ReceiptInput): Promise<{ error: string
   const email = input.email.trim().toLowerCase();
   if (!name) return { error: "Enter the student's name." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address." };
-  if (!planFor(input.grade)) return { error: "Choose the student's grade." };
+  const [plans, extra] = await Promise.all([loadFeePlans(), loadExtraCharge()]);
+  if (!planFor(plans, input.grade)) return { error: "Choose the student's grade." };
   if (!isMonthKey(input.startMonth)) return { error: "Choose the first month this pays for." };
   const subjects = [...new Set(input.subjects)].sort();
   if (subjects.length && (await prisma.feeSubject.count({ where: { name: { in: subjects } } })) !== subjects.length) {
     return { error: "One of the subjects is no longer on the list. Untick it and tick again." };
   }
-  const price = quote(input.grade, subjects.length, input.months);
+  const price = quote(plans, input.grade, subjects.length, input.months);
   if ("error" in price) return { error: price.error };
   return {
     data: {
@@ -114,8 +193,10 @@ export async function priceReceipt(input: ReceiptInput): Promise<{ error: string
       startMonth: input.startMonth,
       months: input.months,
       normalSen: price.normalSen,
-      amountSen: price.amountSen,
+      amountSen: price.amountSen + (input.includeExtra ? extra.amountSen : 0),
       priceNote: price.priceNote,
+      extraLabel: input.includeExtra ? extra.label : null,
+      extraSen: input.includeExtra ? extra.amountSen : 0,
       method: input.method,
       paidOn: input.paidOn,
       note: input.note,
@@ -153,6 +234,8 @@ export async function createReceipt(
             normalSen: d.normalSen,
             amountSen: d.amountSen,
             priceNote: d.priceNote,
+            extraLabel: d.extraLabel,
+            extraSen: d.extraSen,
             method: d.method,
             paidOn: d.paidOn,
             note: d.note,

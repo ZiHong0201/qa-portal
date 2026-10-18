@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/permissions";
 import { dayKey } from "@/lib/check-in";
-import { isPaymentMethod } from "@/lib/fees";
+import { isPaymentMethod, parseRinggit } from "@/lib/fees";
 import type { ReceiptData } from "@/lib/receipt";
 import {
   type ReceiptInput,
@@ -12,6 +12,9 @@ import {
   createReceipt,
   addFeeSubject,
   deleteFeeSubject,
+  deletePrice,
+  saveExtraCharge,
+  savePrice,
   priceReceipt,
   sendReceipt,
   voidReceipt,
@@ -23,6 +26,48 @@ function refresh() {
 
 const text = (v: FormDataEntryValue | null) => (typeof v === "string" ? v : "");
 const subjectsOf = (formData: FormData) => formData.getAll("subjects").map(String);
+
+// ---- prices -----------------------------------------------------------------
+
+/** "" -> null; otherwise an amount in sen, or NaN when it is not one. */
+function amountOf(v: FormDataEntryValue | null): number | null {
+  const raw = text(v).trim();
+  if (raw === "") return null;
+  return parseRinggit(raw) ?? Number.NaN;
+}
+
+export async function savePriceRow(band: string, _prev: Result, formData: FormData): Promise<Result> {
+  await requireAdmin();
+  const monthlySen = amountOf(formData.get("monthly"));
+  const promoSen = amountOf(formData.get("promoPrice"));
+  if (Number.isNaN(monthlySen) || Number.isNaN(promoSen)) return { error: "Enter amounts such as 80 or 80.50." };
+  const months = text(formData.get("promoMonths")).trim();
+  const r = await savePrice({
+    band,
+    subjects: Number(formData.get("subjects")),
+    monthlySen,
+    promoMonths: months === "" ? null : Number(months),
+    promoSen,
+  });
+  refresh();
+  return r;
+}
+
+export async function saveExtra(_prev: Result, formData: FormData): Promise<Result> {
+  await requireAdmin();
+  const amount = amountOf(formData.get("amount"));
+  if (Number.isNaN(amount)) return { error: "Enter an amount such as 30." };
+  const r = await saveExtraCharge(text(formData.get("label")), amount);
+  refresh();
+  return r;
+}
+
+export async function removePriceRow(band: string, subjects: number): Promise<Result> {
+  await requireAdmin();
+  const r = await deletePrice(band, subjects);
+  refresh();
+  return r;
+}
 
 // ---- subjects ---------------------------------------------------------------
 
@@ -58,6 +103,7 @@ function receiptInput(formData: FormData): ReceiptInput | { error: string } {
     method,
     paidOn,
     note: text(formData.get("note")).trim().slice(0, 300) || null,
+    includeExtra: formData.get("includeExtra") === "on",
   };
 }
 

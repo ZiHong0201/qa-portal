@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { cancelReceipt, previewReceipt, resendReceipt, sendNewReceipt } from "@/lib/actions/fees";
-import { MAX_MONTHS, planFor, quote } from "@/lib/fee-plans";
+import { type FeePlan, MAX_MONTHS, planFor, quote } from "@/lib/fee-plans";
 import { PAYMENT_METHODS, periodLabel, rm } from "@/lib/fees";
-import type { Result } from "@/lib/fees.server";
+import type { ExtraCharge, Result } from "@/lib/fees.server";
 import type { ReceiptData } from "@/lib/receipt";
 import { GradeSelect, Message, SubjectTicks, button, input } from "./form-parts";
 import { ReceiptCard } from "./receipt-card";
@@ -15,15 +15,21 @@ import { ReceiptCard } from "./receipt-card";
  * itself to check - and only then Send, which saves it and emails it.
  */
 export function ReceiptBuilder({
+  plans,
   grades,
   subjects,
   startMonth,
   today,
+  extra,
 }: {
+  /** The saved price list, so the total shown is the one the server charges. */
+  plans: FeePlan[];
   grades: string[];
   subjects: string[];
   startMonth: string;
   today: string;
+  /** The material cost and delivery fee a tick adds, once per receipt. */
+  extra: ExtraCharge;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -34,14 +40,15 @@ export function ReceiptBuilder({
   const [method, setMethod] = useState("CASH");
   const [paidOn, setPaidOn] = useState(today);
   const [note, setNote] = useState("");
+  const [includeExtra, setIncludeExtra] = useState(false);
 
   const [preview, setPreview] = useState<ReceiptData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, startTransition] = useTransition();
 
-  const plan = planFor(grade);
+  const plan = planFor(plans, grade);
   const promoMonths = plan?.promo[chosen.length]?.months;
-  const price = grade ? quote(grade, chosen.length, months) : { error: "Choose the grade." };
+  const price = grade ? quote(plans, grade, chosen.length, months) : { error: "Choose the grade." };
 
   const fields = () => {
     const f = new FormData();
@@ -54,6 +61,7 @@ export function ReceiptBuilder({
     f.set("method", method);
     f.set("paidOn", paidOn);
     f.set("note", note);
+    if (includeExtra) f.set("includeExtra", "on");
     return f;
   };
 
@@ -141,7 +149,7 @@ export function ReceiptBuilder({
           Duration
           <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className={input}>
             {Array.from({ length: MAX_MONTHS }, (_, i) => i + 1).map((n) => {
-              const q = grade ? quote(grade, chosen.length, n) : null;
+              const q = grade ? quote(plans, grade, chosen.length, n) : null;
               const priced = q && !("error" in q) ? q : null;
               return (
                 <option key={n} value={n}>
@@ -167,6 +175,11 @@ export function ReceiptBuilder({
         )}
       </div>
 
+      <label className="flex items-center gap-2 self-start rounded-md border border-gray-300 bg-white px-3 py-2 text-sm has-checked:border-teal-500 has-checked:bg-teal-50">
+        <input type="checkbox" checked={includeExtra} onChange={(e) => setIncludeExtra(e.target.checked)} />
+        {extra.label} <span className="font-medium tabular-nums">+{rm(extra.amountSen)}</span>
+      </label>
+
       <div className="rounded-lg border border-teal-200 bg-teal-50/40 p-4">
         <p className="text-xs font-medium tracking-wide text-teal-900 uppercase">Total</p>
         {"error" in price ? (
@@ -174,7 +187,9 @@ export function ReceiptBuilder({
         ) : (
           <>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3">
-              <span className="text-3xl font-bold tabular-nums text-teal-800">{rm(price.amountSen)}</span>
+              <span className="text-3xl font-bold tabular-nums text-teal-800">
+                {rm(price.amountSen + (includeExtra ? extra.amountSen : 0))}
+              </span>
               {price.amountSen < price.normalSen && (
                 <span className="text-sm text-gray-600">
                   <span className="line-through">{rm(price.normalSen)}</span> · saves{" "}
@@ -185,6 +200,7 @@ export function ReceiptBuilder({
             <p className="mt-1 text-xs text-gray-600">
               {grade} · {chosen.length} subject{chosen.length === 1 ? "" : "s"} · {periodLabel(start, months)} ·{" "}
               {price.priceNote ?? `${months} x ${rm(price.monthlySen)} a month`}
+              {includeExtra && ` · + ${rm(extra.amountSen)} ${extra.label.toLowerCase()}`}
             </p>
           </>
         )}

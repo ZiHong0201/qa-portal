@@ -693,8 +693,13 @@ model FeeReceipt {
   // What it would have cost month by month, and what was charged after any
   // promotion - both kept so the receipt can show the saving.
   normalSen Int
-  amountSen Int
+  amountSen Int // everything paid: tuition plus any extra charge below
   priceNote String?
+
+  // A one-off charge ticked on the receipt - material cost and delivery -
+  // with the name and amount it had then, as FeeExtra may change later.
+  extraLabel String?
+  extraSen   Int     @default(0)
 
   method String // CASH | TRANSFER | OTHER
   paidOn String // "2026-10-18", the day the money was received
@@ -726,4 +731,30 @@ model FeeSubject {
   id        String   @id @default(cuid())
   name      String   @unique
   createdAt DateTime @default(now())
+}
+
+// The price list receipts are worked out from, edited on YH-ideal-payment's
+// Prices page. One row per grade group and number of subjects: the monthly
+// price, and optionally a promotional price for paying promoMonths at once.
+// The grade groups themselves are fixed in src/lib/fee-plans.ts. A receipt
+// keeps the amounts it was made with, so changing a price leaves old ones be.
+model FeePrice {
+  id          String   @id @default(cuid())
+  band        String // "G6" | "F13" | "F45" - see BANDS in src/lib/fee-plans.ts
+  subjects    Int
+  monthlySen  Int
+  promoMonths Int?
+  promoSen    Int?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([band, subjects])
+}
+
+// A one-off charge a receipt can include with a tick - the material cost and
+// delivery fee. Its name and amount are edited on the Prices page.
+model FeeExtra {
+  key       String   @id // "material"
+  label     String
+  amountSen Int
+  updatedAt DateTime @updatedAt
 }
