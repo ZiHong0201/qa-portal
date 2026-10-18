@@ -79,16 +79,35 @@ export const money = (sen: number) => rm(sen).replace("RM", "");
  * gave, and tax is the rate on SUBTOTAL LESS DISCOUNT.
  */
 export function receiptLayout(r: ReceiptData): ReceiptLayout {
-  const items: LineItem[] = r.extras.map((e) => ({
-    description: e.label.toUpperCase(),
-    detail: null,
-    qty: 1,
-    unitSen: e.amountSen,
-    totalSen: e.amountSen,
-  }));
   // A child's name goes on their line only when it says something the BILL
   // TO line does not - always for siblings, and when a parent pays.
   const named = r.students.length > 1 || r.students.some((c) => c.name !== r.name);
+
+  // Extra charges are ticked per child. The same charge for several children
+  // is one line, its QTY how many, with their names beneath. (Receipts from
+  // before charges were per child hold theirs on the receipt, once each.)
+  const charges = new Map<string, LineItem & { names: string[] }>();
+  const addCharge = (e: { label: string; amountSen: number }, who: string | null) => {
+    const k = `${e.label}|${e.amountSen}`;
+    const line = charges.get(k) ?? {
+      description: e.label.toUpperCase(),
+      detail: null,
+      qty: 0,
+      unitSen: e.amountSen,
+      totalSen: 0,
+      names: [],
+    };
+    line.qty += 1;
+    line.totalSen += e.amountSen;
+    if (who) line.names.push(who);
+    charges.set(k, line);
+  };
+  for (const e of r.extras) addCharge(e, null);
+  for (const c of r.students) for (const e of c.extras) addCharge(e, c.name);
+  const items: LineItem[] = [...charges.values()].map(({ names, ...line }) => ({
+    ...line,
+    detail: named && names.length ? names.join(", ") : null,
+  }));
   for (const c of r.students) {
     items.push({
       description: `CLASS SUBSCRIPTION FEE${named ? ` - ${c.name.toUpperCase()}` : ""} (${periodShort(c.startMonth, c.months)})`,

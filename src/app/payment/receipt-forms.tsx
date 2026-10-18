@@ -10,13 +10,22 @@ import { GradeSelect, Message, SubjectTicks, button, input } from "./form-parts"
 import { ReceiptCard } from "./receipt-card";
 
 /** One child on the form. `key` only keeps React's list steady as children come and go. */
-type ChildDraft = { key: number; name: string; grade: string; subjects: string[]; months: number; startMonth: string };
+type ChildDraft = {
+  key: number;
+  name: string;
+  grade: string;
+  subjects: string[];
+  months: number;
+  startMonth: string;
+  extraIds: string[];
+};
 
 const MAX_CHILDREN = 10;
 
 /**
  * One child's part of the receipt: who they are, what they take, for how long,
- * and what that comes to - each child priced on their own.
+ * any extra charges for them, and what that comes to - each child priced on
+ * their own.
  */
 function ChildCard({
   index,
@@ -27,6 +36,7 @@ function ChildCard({
   plans,
   grades,
   subjects,
+  extras,
 }: {
   index: number;
   count: number;
@@ -36,11 +46,13 @@ function ChildCard({
   plans: FeePlan[];
   grades: string[];
   subjects: string[];
+  extras: ExtraCharge[];
 }) {
   const set = (patch: Partial<ChildDraft>) => onChange({ ...child, ...patch });
   const plan = planFor(plans, child.grade);
   const promoMonths = plan?.promo[child.subjects.length]?.months;
   const price = child.grade ? quote(plans, child.grade, child.subjects.length, child.months) : null;
+  const extraSen = extras.filter((e) => child.extraIds.includes(e.id)).reduce((t, e) => t + e.amountSen, 0);
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-stone-50/60 p-4">
@@ -106,6 +118,33 @@ function ChildCard({
         )}
       </div>
 
+      {extras.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium">Extra charges</span>
+          <div className="flex flex-wrap gap-2">
+            {extras.map((e) => (
+              <label
+                key={e.id}
+                className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm has-checked:border-teal-500 has-checked:bg-teal-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={child.extraIds.includes(e.id)}
+                  onChange={(ev) =>
+                    set({
+                      extraIds: ev.target.checked
+                        ? [...child.extraIds, e.id]
+                        : child.extraIds.filter((x) => x !== e.id),
+                    })
+                  }
+                />
+                {e.label} <span className="font-medium tabular-nums">+{rm(e.amountSen)}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       <p className="text-sm">
         {!price ? (
           <span className="text-gray-500">Choose the grade to see the fee.</span>
@@ -113,12 +152,13 @@ function ChildCard({
           <span className="text-red-700">{price.error}</span>
         ) : (
           <>
-            <span className="font-semibold tabular-nums text-teal-800">{rm(price.amountSen)}</span>
+            <span className="font-semibold tabular-nums text-teal-800">{rm(price.amountSen + extraSen)}</span>
             <span className="text-gray-600">
               {" "}
               · {periodLabel(child.startMonth, child.months)} ·{" "}
               {price.priceNote ?? `${child.months} x ${rm(price.monthlySen)} a month`}
               {price.amountSen < price.normalSen && ` (saves ${rm(price.normalSen - price.amountSen)})`}
+              {extraSen > 0 && ` · + ${rm(extraSen)} extra charges`}
             </span>
           </>
         )}
@@ -160,6 +200,7 @@ export function ReceiptBuilder({
     subjects: [],
     months: from?.months ?? 1,
     startMonth: from?.startMonth ?? startMonth,
+    extraIds: [],
   });
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -167,7 +208,6 @@ export function ReceiptBuilder({
   const [method, setMethod] = useState("CASH");
   const [paidOn, setPaidOn] = useState(today);
   const [note, setNote] = useState("");
-  const [ticked, setTicked] = useState<string[]>([]);
   const [discount, setDiscount] = useState("");
   const [discountNote, setDiscountNote] = useState("");
   const [taxRate, setTaxRate] = useState((defaultTaxRateBp / 100).toFixed(2).replace(/\.00$/, ""));
@@ -181,7 +221,10 @@ export function ReceiptBuilder({
   const prices = children.map((c) => (c.grade ? quote(plans, c.grade, c.subjects.length, c.months) : null));
   const childProblem = prices.some((p) => !p || "error" in p);
   const tuitionSen = prices.reduce((t, p) => t + (p && !("error" in p) ? p.amountSen : 0), 0);
-  const extraSen = extras.filter((e) => ticked.includes(e.id)).reduce((t, e) => t + e.amountSen, 0);
+  const extraSen = children.reduce(
+    (t, c) => t + extras.filter((e) => c.extraIds.includes(e.id)).reduce((u, e) => u + e.amountSen, 0),
+    0
+  );
   const discountSen = discount.trim() ? parseRinggit(discount) : 0;
   const taxBp = taxRate.trim() ? parsePercent(taxRate) : 0;
   const beforeDiscount = tuitionSen + extraSen;
@@ -211,13 +254,13 @@ export function ReceiptBuilder({
           subjects: c.subjects,
           startMonth: c.startMonth,
           months: c.months,
+          extraIds: c.extraIds,
         }))
       )
     );
     f.set("method", method);
     f.set("paidOn", paidOn);
     f.set("note", note);
-    ticked.forEach((id) => f.append("extraIds", id));
     f.set("discount", discount);
     f.set("discountNote", discountNote);
     f.set("taxRate", taxRate);
@@ -305,6 +348,7 @@ export function ReceiptBuilder({
           plans={plans}
           grades={grades}
           subjects={subjects}
+          extras={extras}
         />
       ))}
       {children.length < MAX_CHILDREN && (
@@ -318,27 +362,6 @@ export function ReceiptBuilder({
         >
           + Add another child
         </button>
-      )}
-
-      {extras.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium">Extra charges (once for the receipt)</span>
-          <div className="flex flex-wrap gap-2">
-            {extras.map((e) => (
-              <label
-                key={e.id}
-                className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm has-checked:border-teal-500 has-checked:bg-teal-50"
-              >
-                <input
-                  type="checkbox"
-                  checked={ticked.includes(e.id)}
-                  onChange={(ev) => setTicked(ev.target.checked ? [...ticked, e.id] : ticked.filter((x) => x !== e.id))}
-                />
-                {e.label} <span className="font-medium tabular-nums">+{rm(e.amountSen)}</span>
-              </label>
-            ))}
-          </div>
-        </div>
       )}
 
       <div className="flex flex-wrap items-end gap-3">
@@ -389,7 +412,7 @@ export function ReceiptBuilder({
           <>
             <p className="mt-1 text-3xl font-bold tabular-nums text-teal-800">{rm(totalSen)}</p>
             <p className="mt-1 text-xs text-gray-600">
-              {children.length} child{children.length === 1 ? "" : "ren"}: {rm(tuitionSen)}
+              {children.length} child{children.length === 1 ? "" : "ren"}: {rm(tuitionSen)} tuition
               {extraSen > 0 && ` · + ${rm(extraSen)} extra charges`}
               {(discountSen ?? 0) > 0 && ` · - ${rm(discountSen!)} discount`}
               {taxSen > 0 && ` · + ${rm(taxSen)} tax at ${percent(taxBp!)}`}

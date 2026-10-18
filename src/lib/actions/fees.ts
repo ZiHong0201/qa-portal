@@ -137,7 +137,6 @@ function receiptInput(formData: FormData): ReceiptInput | { error: string } {
     method,
     paidOn,
     note: text(formData.get("note")).trim().slice(0, 300) || null,
-    extraIds: formData.getAll("extraIds").map(String),
     taxRateBp: parsePercent(text(formData.get("taxRate")) || "0") ?? -1,
     extraDiscountSen: parseRinggit(text(formData.get("discount")) || "0") ?? -1,
     discountNote: text(formData.get("discountNote")).trim().slice(0, 100) || null,

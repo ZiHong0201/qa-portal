@@ -55,8 +55,9 @@ export default async function PricesPage() {
           <h2 className="rounded-t-xl bg-stone-100 px-4 py-2 font-semibold text-stone-900">Extra charges</h2>
           <div className="flex flex-col gap-3 px-4 py-3">
             <p className="text-xs text-gray-500">
-              Each is a box to tick on a new receipt, added once whatever the number of months, and printed as its own
-              line. Removing one leaves receipts already made as they were.
+              Each is a box to tick for each child on a new receipt - once per child, whatever the number of months.
+              The same charge for several children prints as one line, QTY the number of children. Removing one
+              leaves receipts already made as they were.
             </p>
             {extras.length === 0 && <p className="text-sm text-gray-500">No extra charges.</p>}
             {extras.map((e) => (

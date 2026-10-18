@@ -179,6 +179,8 @@ export type StudentInput = {
   subjects: string[];
   startMonth: string;
   months: number;
+  /** The extra charges ticked for this child, by id. */
+  extraIds: string[];
 };
 
 export const MAX_STUDENTS_PER_RECEIPT = 10;
@@ -191,8 +193,6 @@ export type ReceiptInput = {
   method: PaymentMethod;
   paidOn: string;
   note: string | null;
-  /** The extra charges ticked, by id - priced from the list here, not the browser. */
-  extraIds: string[];
   /** The tax rate for this receipt, in basis points (600 = 6.00%). */
   taxRateBp: number;
   /** A discount on top of any promotion, in sen, and why. */
@@ -204,8 +204,9 @@ export type ReceiptInput = {
  * Checks a receipt and prices it from the price table - never from an amount
  * sent by the browser. Shared by the preview and by the save, so what the
  * admin checked is what gets saved. Each child is priced on their own - their
- * grade, how many subjects, how many months - and the extra charges, the
- * additional discount and tax apply once, to the receipt as a whole.
+ * grade, how many subjects, how many months, and the extra charges ticked for
+ * them; the additional discount and tax apply once, to the receipt as a whole.
+ * Every amount comes from the saved lists here, not from the browser.
  */
 export async function priceReceipt(input: ReceiptInput): Promise<{ error: string } | { data: ReceiptData }> {
   const name = input.name.trim();
@@ -233,6 +234,11 @@ export async function priceReceipt(input: ReceiptInput): Promise<{ error: string
     }
     const price = quote(plans, c.grade, subjects.length, Number(c.months));
     if ("error" in price) return { error: `${label}: ${price.error}` };
+    const ticked = [...new Set((c.extraIds ?? []).map(String))];
+    const extras = charges.filter((x) => ticked.includes(x.id)).map((x) => ({ label: x.label, amountSen: x.amountSen }));
+    if (extras.length !== ticked.length) {
+      return { error: `${label}: one of the extra charges is no longer on the list. Untick it.` };
+    }
     students.push({
       name: childName,
       grade: c.grade,
@@ -242,16 +248,14 @@ export async function priceReceipt(input: ReceiptInput): Promise<{ error: string
       normalSen: price.normalSen,
       tuitionSen: price.amountSen,
       priceNote: price.priceNote,
+      extras,
     });
   }
 
-  const ticked = [...new Set(input.extraIds)];
-  const extras = charges.filter((c) => ticked.includes(c.id)).map((c) => ({ label: c.label, amountSen: c.amountSen }));
-  if (extras.length !== ticked.length) return { error: "One of the extra charges is no longer on the list. Untick it." };
   if (!Number.isInteger(input.taxRateBp) || input.taxRateBp < 0 || input.taxRateBp > MAX_TAX_BP) {
     return { error: "Enter a tax rate from 0 to 100." };
   }
-  const extraSen = extras.reduce((t, e) => t + e.amountSen, 0);
+  const extraSen = students.reduce((t, c) => t + c.extras.reduce((u, e) => u + e.amountSen, 0), 0);
   const tuitionSen = students.reduce((t, c) => t + c.tuitionSen, 0);
   const beforeDiscount = tuitionSen + extraSen;
   if (!Number.isInteger(input.extraDiscountSen) || input.extraDiscountSen < 0) {
@@ -270,7 +274,7 @@ export async function priceReceipt(input: ReceiptInput): Promise<{ error: string
       students,
       normalSen: students.reduce((t, c) => t + c.normalSen, 0),
       amountSen: beforeDiscount - input.extraDiscountSen + taxSen,
-      extras,
+      extras: [], // now held per child, in students
       extraSen,
       taxRateBp: input.taxRateBp,
       taxSen,

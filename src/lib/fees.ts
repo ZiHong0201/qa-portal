@@ -129,13 +129,18 @@ export type StudentLine = {
   normalSen: number; // every month at the monthly price
   tuitionSen: number; // what was charged, after any promotion
   priceNote: string | null;
+  extras: Charge[]; // the extra charges ticked for this child
 };
 
-/** A receipt's children, stored as JSON. */
+/** A receipt's children, stored as JSON. Receipts from before extras were per child have none. */
 export function parseStudents(json: string): StudentLine[] {
   try {
     const v = JSON.parse(json);
-    return Array.isArray(v) ? v.filter((c) => c && typeof c.name === "string" && Number.isInteger(c.months)) : [];
+    return Array.isArray(v)
+      ? v
+          .filter((c) => c && typeof c.name === "string" && Number.isInteger(c.months))
+          .map((c) => ({ ...c, extras: Array.isArray(c.extras) ? c.extras : [] }))
+      : [];
   } catch {
     return [];
   }
