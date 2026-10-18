@@ -10,52 +10,32 @@ import {
   type ReceiptInput,
   type Result,
   createReceipt,
-  createStudentAccount,
-  deleteStudentAccount,
+  addFeeSubject,
+  deleteFeeSubject,
   priceReceipt,
   sendReceipt,
-  setGrade,
   voidReceipt,
 } from "@/lib/fees.server";
 
-// Fee pages and the portal's student pages read the same students, so any
-// change here refreshes both.
 function refresh() {
   revalidatePath("/payment", "layout");
-  revalidatePath("/admin/students", "layout");
-  revalidatePath("/dashboard", "layout");
 }
 
 const text = (v: FormDataEntryValue | null) => (typeof v === "string" ? v : "");
 const subjectsOf = (formData: FormData) => formData.getAll("subjects").map(String);
 
-// ---- student accounts -------------------------------------------------------
+// ---- subjects ---------------------------------------------------------------
 
-export async function addStudent(_prev: Result, formData: FormData): Promise<Result> {
+export async function addSubject(_prev: Result, formData: FormData): Promise<Result> {
   await requireAdmin();
-  const r = await createStudentAccount({
-    name: text(formData.get("name")),
-    email: text(formData.get("email")),
-    password: text(formData.get("password")),
-    grade: text(formData.get("grade")),
-    subjects: subjectsOf(formData),
-  });
-  if (r.error) return r;
+  const r = await addFeeSubject(text(formData.get("name")));
   refresh();
-  redirect(`/payment/students/${r.studentId}?created=1`);
+  return r;
 }
 
-export async function removeStudent(studentId: string): Promise<Result> {
+export async function removeSubject(id: string): Promise<Result> {
   await requireAdmin();
-  const r = await deleteStudentAccount(studentId);
-  if (r.error) return r;
-  refresh();
-  redirect("/payment/students?deleted=1");
-}
-
-export async function saveGrade(studentId: string, _prev: Result, formData: FormData): Promise<Result> {
-  await requireAdmin();
-  const r = await setGrade(studentId, text(formData.get("grade")));
+  const r = await deleteFeeSubject(id);
   refresh();
   return r;
 }

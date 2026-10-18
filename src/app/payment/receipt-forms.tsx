@@ -9,8 +9,6 @@ import type { ReceiptData } from "@/lib/receipt";
 import { GradeSelect, Message, SubjectTicks, button, input } from "./form-parts";
 import { ReceiptCard } from "./receipt-card";
 
-export type ReceiptDraft = { name: string; email: string; grade: string; subjects: string[] };
-
 /**
  * Making a receipt, in the order the admin works: who and what (name, email,
  * grade, subjects, how many months), the total as they tick, then the receipt
@@ -21,18 +19,16 @@ export function ReceiptBuilder({
   subjects,
   startMonth,
   today,
-  initial,
 }: {
   grades: string[];
   subjects: string[];
   startMonth: string;
   today: string;
-  initial: ReceiptDraft;
 }) {
-  const [name, setName] = useState(initial.name);
-  const [email, setEmail] = useState(initial.email);
-  const [grade, setGrade] = useState(initial.grade);
-  const [chosen, setChosen] = useState(initial.subjects);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [grade, setGrade] = useState("");
+  const [chosen, setChosen] = useState<string[]>([]);
   const [months, setMonths] = useState(1);
   const [start, setStart] = useState(startMonth);
   const [method, setMethod] = useState("CASH");

@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { planFor, quote } from "@/lib/fee-plans";
@@ -22,76 +21,29 @@ function isUniqueConflict(error: unknown): boolean {
   return error.code === "P2039" && /UNIQUE constraint failed/i.test(error.message);
 }
 
-/** Grade and subjects checked against master data - both are admin-managed, not fixed lists. */
-async function checkGradeAndSubjects(grade: string, subjects: string[]): Promise<string | null> {
-  const [gradeRow, subjectCount] = await Promise.all([
-    prisma.grade.findUnique({ where: { name: grade } }),
-    prisma.subject.count({ where: { name: { in: subjects } } }),
-  ]);
-  if (!gradeRow) return "Choose a valid grade.";
-  if (subjectCount !== new Set(subjects).size) return "Choose valid subjects.";
-  return null;
+// ---- subjects ---------------------------------------------------------------
+
+export async function listFeeSubjects(): Promise<{ id: string; name: string }[]> {
+  return prisma.feeSubject.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
 }
 
-// ---- student accounts -------------------------------------------------------
-
-export async function createStudentAccount(input: {
-  name: string;
-  email: string;
-  password: string;
-  grade: string;
-  subjects: string[];
-}): Promise<Result & { studentId?: string }> {
-  const name = input.name.trim();
-  const email = input.email.trim().toLowerCase();
-  if (!name) return { error: "Enter the student's name." };
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email - it is what they log in with." };
-  if (input.password.length < 8) return { error: "The password needs at least 8 characters." };
-  const invalid = await checkGradeAndSubjects(input.grade, input.subjects);
-  if (invalid) return { error: invalid };
-  if (await prisma.user.findUnique({ where: { email } })) {
-    return { error: "An account with that email already exists." };
+export async function addFeeSubject(name: string): Promise<Result> {
+  const trimmed = name.trim().replace(/\s+/g, " ");
+  if (!trimmed) return { error: "Enter the subject's name." };
+  if (trimmed.length > 60) return { error: "Keep the name under 60 characters." };
+  try {
+    await prisma.feeSubject.create({ data: { name: trimmed } });
+  } catch (e) {
+    if (isUniqueConflict(e)) return { error: `${trimmed} is already on the list.` };
+    throw e;
   }
-
-  const student = await prisma.user.create({
-    data: {
-      name,
-      email,
-      passwordHash: await bcrypt.hash(input.password, 10),
-      role: "STUDENT",
-      grade: input.grade,
-      subjects: { create: [...new Set(input.subjects)].map((subject) => ({ subject })) },
-    },
-  });
-  return { success: "Student account created.", studentId: student.id };
+  return { success: `${trimmed} added.` };
 }
 
-/**
- * Removes the account and everything it did on the portal. Fee payments are
- * kept - they hold the student's name themselves, so receipts still read
- * properly afterwards.
- */
-export async function deleteStudentAccount(studentId: string): Promise<Result> {
-  const student = await prisma.user.findFirst({ where: { id: studentId, role: "STUDENT" } });
-  if (!student) return { error: "Student not found." };
-  await prisma.$transaction([
-    prisma.submission.deleteMany({ where: { studentId } }),
-    prisma.redemption.deleteMany({ where: { studentId } }),
-    prisma.pointAdjustment.deleteMany({ where: { studentId } }),
-    prisma.studentSubject.deleteMany({ where: { studentId } }),
-    prisma.user.delete({ where: { id: studentId } }),
-  ]);
-  return { success: `${student.name}'s account was deleted.` };
-}
-
-/**
- * The grade alone. A student's subjects on the portal are set on the portal;
- * the subjects on a receipt are ticked on the receipt - the two are separate.
- */
-export async function setGrade(studentId: string, grade: string): Promise<Result> {
-  if (!(await prisma.grade.findUnique({ where: { name: grade } }))) return { error: "Choose a valid grade." };
-  const { count } = await prisma.user.updateMany({ where: { id: studentId, role: "STUDENT" }, data: { grade } });
-  return count ? { success: "Saved." } : { error: "Student not found." };
+/** Receipts keep the subject names they were made with, so old ones are untouched. */
+export async function deleteFeeSubject(id: string): Promise<Result> {
+  const { count } = await prisma.feeSubject.deleteMany({ where: { id } });
+  return count ? { success: "Subject removed." } : { error: "That subject is already gone." };
 }
 
 // ---- receipts ---------------------------------------------------------------
@@ -147,8 +99,8 @@ export async function priceReceipt(input: ReceiptInput): Promise<{ error: string
   if (!planFor(input.grade)) return { error: "Choose the student's grade." };
   if (!isMonthKey(input.startMonth)) return { error: "Choose the first month this pays for." };
   const subjects = [...new Set(input.subjects)].sort();
-  if (subjects.length && (await prisma.subject.count({ where: { name: { in: subjects } } })) !== subjects.length) {
-    return { error: "Choose valid subjects." };
+  if (subjects.length && (await prisma.feeSubject.count({ where: { name: { in: subjects } } })) !== subjects.length) {
+    return { error: "One of the subjects is no longer on the list. Untick it and tick again." };
   }
   const price = quote(input.grade, subjects.length, input.months);
   if ("error" in price) return { error: price.error };

@@ -13,14 +13,15 @@ export const metadata: Metadata = {
 const NAV = [
   { href: "/payment", label: "Receipts" },
   { href: "/payment/receipts/new", label: "New receipt" },
-  { href: "/payment/students", label: "Students" },
+  { href: "/payment/subjects", label: "Subjects" },
   { href: "/payment/prices", label: "Prices" },
 ];
 
 /**
- * YH-ideal-payment: tuition fees, kept apart from the exercise portal but
- * running on it, so its students are the portal's students. Admin only - the
- * proxy turns everyone else away before this renders; this is the backstop.
+ * YH-ideal-payment: tuition fee receipts. It runs on the same app and database
+ * as the exercise portal but shares nothing with it - receipts are for a typed
+ * name and email, and its subjects are its own. Admin only - the proxy turns
+ * everyone else away before this renders; this is the backstop.
  */
 export default async function PaymentLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();

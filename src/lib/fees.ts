@@ -6,10 +6,8 @@ export const PAYMENT_SITE_NAME = "YH Ideal Payment";
 
 // The payment site is a second Vercel project built from this same code, so
 // its address is "<project name>.vercel.app" - yh-ideal-payment, or with a
-// suffix Vercel adds when the name is taken. PAYMENT_SITE_ORIGIN, set on the
-// portal's project, says where it ended up. Each site keeps its own login, as
+// suffix Vercel adds when the name is taken. Each site keeps its own login, as
 // browsers keep sign-ins per address.
-export const PAYMENT_ORIGIN = process.env.PAYMENT_SITE_ORIGIN || "https://yh-ideal-payment.vercel.app";
 export const PORTAL_ORIGIN = process.env.PORTAL_ORIGIN || "https://qa-portal-beta.vercel.app";
 
 export function isPaymentHost(host: string | null | undefined): boolean {
@@ -19,12 +17,11 @@ export function isPaymentHost(host: string | null | undefined): boolean {
   return !!host && /^yh-ideal-payment[.-]/.test(host.split(":")[0]);
 }
 
-// Links between the two sites. On the live deployment they cross to the other
-// address; anywhere else (a dev machine, a preview build) both sites are the
-// one host, so the path alone is right. Server-side only: VERCEL_ENV and the
-// origins above are not sent to the browser.
+// The payment site's link back to the portal. On the live deployment it crosses
+// to the portal's address; anywhere else (a dev machine, a preview build) both
+// are the one host, so the path alone is right. Server-side only: VERCEL_ENV is
+// not sent to the browser.
 const live = () => process.env.VERCEL_ENV === "production";
-export const paymentHref = (path: string) => (live() ? `${PAYMENT_ORIGIN}${path}` : path);
 export const portalHref = (path: string) => (live() ? `${PORTAL_ORIGIN}${path}` : path);
 
 export const PAYMENT_METHODS = {

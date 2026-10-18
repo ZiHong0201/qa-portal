@@ -8,8 +8,6 @@ import { ClearAnswersButton } from "./clear-answers-button";
 import { SuspensionPanel } from "./suspension-panel";
 import { auth } from "@/auth";
 import { isAdmin } from "@/lib/permissions";
-import { paymentHref, periodLabel, rm } from "@/lib/fees";
-import { getReceipts } from "@/lib/fees.server";
 
 export default async function AdminStudentDetailPage({
   params,
@@ -63,10 +61,6 @@ export default async function AdminStudentDetailPage({
       take: 20,
     }),
   ]);
-
-  // Fees are the admin's alone; a teacher's view of the student leaves them out.
-  // Receipts stand apart from accounts, so the email is what ties them here.
-  const receipts = isAdmin(session) ? await getReceipts({ email: student.email, voidedAt: null }, 1) : null;
 
   const setIds = Array.from(new Set(submissions.map((s) => s.question.questionSet.id)));
   const setTotals = await prisma.questionSet.findMany({
@@ -154,8 +148,6 @@ export default async function AdminStudentDetailPage({
             : null
         }
       />
-
-      {receipts && <TuitionFees studentId={student.id} latest={receipts[0] ?? null} />}
 
       <div className="mb-6 grid grid-cols-5 gap-3">
         <StatCard label="Earned" value={balance.earned} />
@@ -352,37 +344,6 @@ function StatCard({
     >
       <p className="text-xs text-gray-500">{label}</p>
       <p className="text-xl font-bold">{value}</p>
-    </div>
-  );
-}
-
-/**
- * Fees live on YH-ideal-payment: this says what was last paid, by receipts
- * sent to the student's email, and leads across to their page there.
- */
-function TuitionFees({
-  studentId,
-  latest,
-}: {
-  studentId: string;
-  latest: Awaited<ReturnType<typeof getReceipts>>[number] | null;
-}) {
-  return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-teal-200 bg-teal-50/60 px-4 py-3">
-      <div>
-        <p className="text-sm font-medium text-teal-900">Tuition fees</p>
-        <p className="text-sm text-gray-700">
-          {latest
-            ? `Last receipt ${latest.receiptNo}: ${rm(latest.amountSen)} for ${periodLabel(latest.startMonth, latest.months)}`
-            : "No receipts sent to this student's email yet."}
-        </p>
-      </div>
-      <a
-        href={paymentHref(`/payment/students/${studentId}`)}
-        className="rounded-md bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700"
-      >
-        Open in YH Ideal Payment &#8599;
-      </a>
     </div>
   );
 }

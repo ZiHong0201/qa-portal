@@ -717,3 +717,13 @@ model FeeReceipt {
   @@index([createdAt])
   @@index([email])
 }
+
+// The subjects a receipt can be ticked for, kept by YH-ideal-payment itself -
+// apart from the portal's Subject list, which decides which question sets a
+// student sees. A receipt stores the names it was made with, so deleting a
+// subject here leaves old receipts as they were.
+model FeeSubject {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
