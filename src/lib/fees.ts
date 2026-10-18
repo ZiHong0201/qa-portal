@@ -4,22 +4,27 @@ import { dayKey } from "@/lib/check-in";
 
 export const PAYMENT_SITE_NAME = "YH Ideal Payment";
 
-// The address the payment site is served at (see src/proxy.ts), and the
-// portal's own. Each has its own login, as browsers keep sign-ins per address.
-export const PAYMENT_HOST = "yh-ideal-payment.vercel.app";
-export const PORTAL_ORIGIN = "https://qa-portal-beta.vercel.app";
+// The payment site is a second Vercel project built from this same code, so
+// its address is "<project name>.vercel.app" - yh-ideal-payment, or with a
+// suffix Vercel adds when the name is taken. PAYMENT_SITE_ORIGIN, set on the
+// portal's project, says where it ended up. Each site keeps its own login, as
+// browsers keep sign-ins per address.
+export const PAYMENT_ORIGIN = process.env.PAYMENT_SITE_ORIGIN || "https://yh-ideal-payment.vercel.app";
+export const PORTAL_ORIGIN = process.env.PORTAL_ORIGIN || "https://qa-portal-beta.vercel.app";
 
 export function isPaymentHost(host: string | null | undefined): boolean {
-  // "yh-ideal-payment.localhost:3000" reaches it on a dev machine.
-  return !!host && host.split(":")[0].startsWith("yh-ideal-payment.");
+  // "yh-ideal-payment.vercel.app", "yh-ideal-payment-abc123.vercel.app" (a
+  // suffixed name or a preview build), and "yh-ideal-payment.localhost:3000"
+  // on a dev machine. The portal's addresses all start "qa-portal".
+  return !!host && /^yh-ideal-payment[.-]/.test(host.split(":")[0]);
 }
 
 // Links between the two sites. On the live deployment they cross to the other
 // address; anywhere else (a dev machine, a preview build) both sites are the
-// one host, so the path alone is right. Server-side only: VERCEL_ENV is not
-// sent to the browser.
+// one host, so the path alone is right. Server-side only: VERCEL_ENV and the
+// origins above are not sent to the browser.
 const live = () => process.env.VERCEL_ENV === "production";
-export const paymentHref = (path: string) => (live() ? `https://${PAYMENT_HOST}${path}` : path);
+export const paymentHref = (path: string) => (live() ? `${PAYMENT_ORIGIN}${path}` : path);
 export const portalHref = (path: string) => (live() ? `${PORTAL_ORIGIN}${path}` : path);
 
 export const PAYMENT_METHODS = {
