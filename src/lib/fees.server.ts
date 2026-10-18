@@ -210,11 +210,10 @@ export async function createReceipt(
   if ("error" in priced) return priced;
   const d = priced.data;
 
-  // One running sequence of plain numbers, as on the centre's own receipts,
-  // counting up from RECEIPT_NUMBER_BEFORE_FIRST. The early test receipts were
-  // numbered "YH-00001" and so on, and are left out of the count. Two admins
-  // saving at the same moment could pick the same number; the unique index
-  // refuses the second, which takes the next.
+  // One running sequence of four-digit numbers - 0001, 0002 and so on -
+  // counting up from RECEIPT_NUMBER_BEFORE_FIRST. Two admins saving at the
+  // same moment could pick the same number; the unique index refuses the
+  // second, which takes the next.
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const row = await prisma.$transaction(async (tx) => {
@@ -235,7 +234,7 @@ export async function createReceipt(
             method: d.method,
             paidOn: d.paidOn,
             note: d.note,
-            receiptNo: String(n),
+            receiptNo: formatReceiptNo(n),
             createdById: adminId,
           },
         });
@@ -252,6 +251,11 @@ export async function createReceipt(
 
 /** The last number given; receipts are numbered from the one after this. */
 export const RECEIPT_NUMBER_BEFORE_FIRST = 0;
+
+/** 5 -> "0005". Past 9999 it simply grows a digit. */
+export function formatReceiptNo(n: number): string {
+  return String(n).padStart(4, "0");
+}
 
 async function lastReceiptNumber(tx: Prisma.TransactionClient): Promise<number> {
   const rows = await tx.$queryRaw<{ n: number | bigint | null }[]>`
