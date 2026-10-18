@@ -696,10 +696,21 @@ model FeeReceipt {
   amountSen Int // everything paid: tuition plus any extra charge below
   priceNote String?
 
-  // A one-off charge ticked on the receipt - material cost and delivery -
-  // with the name and amount it had then, as FeeExtra may change later.
-  extraLabel String?
-  extraSen   Int     @default(0)
+  // One-off charges ticked on the receipt - the material fee and so on - as
+  // JSON [{ label, amountSen }], with the names and amounts they had then, as
+  // FeeExtra may change later. extraSen is their total.
+  extras   String @default("[]")
+  extraSen Int    @default(0)
+
+  // A discount the admin gives on top of any promotion, with its reason.
+  // Shown with the promotion's saving as the template's DISCOUNT.
+  extraDiscountSen Int     @default(0)
+  discountNote     String?
+
+  // Tax, as on the centre's template: a rate on SUBTOTAL LESS DISCOUNT.
+  // taxRateBp is in basis points (600 = 6.00%); taxSen is the tax charged.
+  taxRateBp Int @default(0)
+  taxSen    Int @default(0)
 
   method String // CASH | TRANSFER | OTHER
   paidOn String // "2026-10-18", the day the money was received
@@ -750,11 +761,19 @@ model FeePrice {
   @@unique([band, subjects])
 }
 
-// A one-off charge a receipt can include with a tick - the material cost and
-// delivery fee. Its name and amount are edited on the Prices page.
+// The one-off charges a receipt can include with a tick - the material fee
+// and any others the admin adds. Edited on the Prices page.
 model FeeExtra {
-  key       String   @id // "material"
+  key       String   @id // "material" for the first; new ones get a cuid
   label     String
   amountSen Int
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Settings for YH-ideal-payment, one value per key. "taxRateBp" is the tax
+// rate a new receipt starts with, in basis points (600 = 6.00%).
+model FeeSetting {
+  key   String @id
+  value String
 }

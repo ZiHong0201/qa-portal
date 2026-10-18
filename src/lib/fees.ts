@@ -105,6 +105,20 @@ export function covers(p: { startMonth: string; months: number }, month: string)
   return p.startMonth <= month && month <= endMonth(p.startMonth, p.months);
 }
 
+export type Charge = { label: string; amountSen: number };
+
+/** A receipt's extra charges, stored as JSON. */
+export function parseCharges(json: string): Charge[] {
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v)
+      ? v.filter((c) => c && typeof c.label === "string" && Number.isInteger(c.amountSen))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 export function parseSubjects(json: string): string[] {
   try {
     const v = JSON.parse(json);

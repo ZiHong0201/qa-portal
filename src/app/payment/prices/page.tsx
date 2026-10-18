@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { BANDS } from "@/lib/fee-plans";
-import { loadExtraCharge } from "@/lib/fees.server";
-import { AddPriceRowForm, ExtraChargeForm, PriceRowForm } from "../price-forms";
+import { listExtraCharges, loadTaxRateBp } from "@/lib/fees.server";
+import { AddExtraChargeForm, AddPriceRowForm, ExtraChargeRow, PriceRowForm, TaxRateForm } from "../price-forms";
 
 /** The price list receipts are worked out from, edited here. */
 export default async function PricesPage() {
-  const [rows, extra] = await Promise.all([
+  const [rows, extras, taxRateBp] = await Promise.all([
     prisma.feePrice.findMany({ orderBy: [{ band: "asc" }, { subjects: "asc" }] }),
-    loadExtraCharge(),
+    listExtraCharges(),
+    loadTaxRateBp(),
   ]);
   return (
     <div className="max-w-4xl">
@@ -51,12 +52,31 @@ export default async function PricesPage() {
         })}
 
         <section className="rounded-xl border border-gray-200 bg-white">
-          <h2 className="rounded-t-xl bg-stone-100 px-4 py-2 font-semibold text-stone-900">Extra charge</h2>
+          <h2 className="rounded-t-xl bg-stone-100 px-4 py-2 font-semibold text-stone-900">Extra charges</h2>
+          <div className="flex flex-col gap-3 px-4 py-3">
+            <p className="text-xs text-gray-500">
+              Each is a box to tick on a new receipt, added once whatever the number of months, and printed as its own
+              line. Removing one leaves receipts already made as they were.
+            </p>
+            {extras.length === 0 && <p className="text-sm text-gray-500">No extra charges.</p>}
+            {extras.map((e) => (
+              <ExtraChargeRow key={`${e.id}-${e.label}-${e.amountSen}`} id={e.id} label={e.label} amountSen={e.amountSen} />
+            ))}
+            <div className="border-t border-dashed border-gray-200 pt-3">
+              <p className="mb-1 text-xs font-medium text-gray-500">Add a charge</p>
+              <AddExtraChargeForm />
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-gray-200 bg-white">
+          <h2 className="rounded-t-xl bg-stone-100 px-4 py-2 font-semibold text-stone-900">Tax rate</h2>
           <div className="px-4 py-3">
             <p className="mb-2 text-xs text-gray-500">
-              Added once to a receipt when its box is ticked, whatever the number of months.
+              The rate a new receipt starts with - it can be changed on each receipt. Tax is worked out on SUBTOTAL LESS
+              DISCOUNT, as on the receipt template.
             </p>
-            <ExtraChargeForm key={`${extra.label}-${extra.amountSen}`} label={extra.label} amountSen={extra.amountSen} />
+            <TaxRateForm key={taxRateBp} rateBp={taxRateBp} />
           </div>
         </section>
       </div>

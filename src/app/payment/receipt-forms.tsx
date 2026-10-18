@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { cancelReceipt, previewReceipt, resendReceipt, sendNewReceipt } from "@/lib/actions/fees";
-import { type FeePlan, MAX_MONTHS, planFor, quote } from "@/lib/fee-plans";
-import { PAYMENT_METHODS, periodLabel, rm } from "@/lib/fees";
+import { type FeePlan, MAX_MONTHS, parsePercent, percent, planFor, quote, taxOn } from "@/lib/fee-plans";
+import { PAYMENT_METHODS, parseRinggit, periodLabel, rm } from "@/lib/fees";
 import type { ExtraCharge, Result } from "@/lib/fees.server";
 import type { ReceiptData } from "@/lib/receipt";
 import { GradeSelect, Message, SubjectTicks, button, input } from "./form-parts";
@@ -20,7 +20,8 @@ export function ReceiptBuilder({
   subjects,
   startMonth,
   today,
-  extra,
+  extras,
+  defaultTaxRateBp,
 }: {
   /** The saved price list, so the total shown is the one the server charges. */
   plans: FeePlan[];
@@ -28,8 +29,10 @@ export function ReceiptBuilder({
   subjects: string[];
   startMonth: string;
   today: string;
-  /** The material cost and delivery fee a tick adds, once per receipt. */
-  extra: ExtraCharge;
+  /** The one-off charges a tick adds - the material fee and so on. */
+  extras: ExtraCharge[];
+  /** The tax rate a receipt starts with, from the Prices page. */
+  defaultTaxRateBp: number;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -40,7 +43,10 @@ export function ReceiptBuilder({
   const [method, setMethod] = useState("CASH");
   const [paidOn, setPaidOn] = useState(today);
   const [note, setNote] = useState("");
-  const [includeExtra, setIncludeExtra] = useState(false);
+  const [ticked, setTicked] = useState<string[]>([]);
+  const [discount, setDiscount] = useState("");
+  const [discountNote, setDiscountNote] = useState("");
+  const [taxRate, setTaxRate] = useState((defaultTaxRateBp / 100).toFixed(2).replace(/\.00$/, ""));
 
   const [preview, setPreview] = useState<ReceiptData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +55,24 @@ export function ReceiptBuilder({
   const plan = planFor(plans, grade);
   const promoMonths = plan?.promo[chosen.length]?.months;
   const price = grade ? quote(plans, grade, chosen.length, months) : { error: "Choose the grade." };
+
+  // The rest of the total, worked out as the server will: extra charges, then
+  // the additional discount, then tax on what is left.
+  const extraSen = extras.filter((e) => ticked.includes(e.id)).reduce((t, e) => t + e.amountSen, 0);
+  const discountSen = discount.trim() ? parseRinggit(discount) : 0;
+  const taxBp = taxRate.trim() ? parsePercent(taxRate) : 0;
+  const beforeDiscount = "error" in price ? 0 : price.amountSen + extraSen;
+  const problem =
+    discountSen === null || discountSen < 0
+      ? "Enter the discount as an amount, such as 20."
+      : discountSen > beforeDiscount && !("error" in price)
+        ? "The discount is more than the amount being charged."
+        : taxBp === null || taxBp > 10000
+          ? "Enter a tax rate from 0 to 100, such as 6."
+          : null;
+  const lessDiscount = beforeDiscount - (discountSen ?? 0);
+  const taxSen = taxOn(lessDiscount, taxBp ?? 0);
+  const totalSen = lessDiscount + taxSen;
 
   const fields = () => {
     const f = new FormData();
@@ -61,7 +85,10 @@ export function ReceiptBuilder({
     f.set("method", method);
     f.set("paidOn", paidOn);
     f.set("note", note);
-    if (includeExtra) f.set("includeExtra", "on");
+    ticked.forEach((id) => f.append("extraIds", id));
+    f.set("discount", discount);
+    f.set("discountNote", discountNote);
+    f.set("taxRate", taxRate);
     return f;
   };
 
@@ -175,24 +202,80 @@ export function ReceiptBuilder({
         )}
       </div>
 
-      <label className="flex items-center gap-2 self-start rounded-md border border-gray-300 bg-white px-3 py-2 text-sm has-checked:border-teal-500 has-checked:bg-teal-50">
-        <input type="checkbox" checked={includeExtra} onChange={(e) => setIncludeExtra(e.target.checked)} />
-        {extra.label} <span className="font-medium tabular-nums">+{rm(extra.amountSen)}</span>
-      </label>
+      {extras.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium">Extra charges</span>
+          <div className="flex flex-wrap gap-2">
+            {extras.map((e) => (
+              <label
+                key={e.id}
+                className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm has-checked:border-teal-500 has-checked:bg-teal-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={ticked.includes(e.id)}
+                  onChange={(ev) => setTicked(ev.target.checked ? [...ticked, e.id] : ticked.filter((x) => x !== e.id))}
+                />
+                {e.label} <span className="font-medium tabular-nums">+{rm(e.amountSen)}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Additional discount
+          <span className="flex items-center gap-1">
+            <span className="text-sm font-normal text-gray-500">RM</span>
+            <input
+              value={discount}
+              onChange={(e) => setDiscount(e.target.value)}
+              inputMode="decimal"
+              placeholder="0"
+              className={`${input} w-24`}
+            />
+          </span>
+        </label>
+        {discount.trim() && (
+          <label className="flex min-w-48 flex-1 flex-col gap-1 text-sm font-medium">
+            Reason (shown on the receipt)
+            <input
+              value={discountNote}
+              onChange={(e) => setDiscountNote(e.target.value)}
+              maxLength={100}
+              placeholder="e.g. sibling discount"
+              className={input}
+            />
+          </label>
+        )}
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Tax rate
+          <span className="flex items-center gap-1">
+            <input
+              value={taxRate}
+              onChange={(e) => setTaxRate(e.target.value)}
+              inputMode="decimal"
+              className={`${input} w-20`}
+            />
+            <span className="text-sm font-normal text-gray-500">%</span>
+          </span>
+        </label>
+      </div>
 
       <div className="rounded-lg border border-teal-200 bg-teal-50/40 p-4">
         <p className="text-xs font-medium tracking-wide text-teal-900 uppercase">Total</p>
         {"error" in price ? (
           <p className="mt-1 text-sm text-red-700">{price.error}</p>
+        ) : problem ? (
+          <p className="mt-1 text-sm text-red-700">{problem}</p>
         ) : (
           <>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3">
-              <span className="text-3xl font-bold tabular-nums text-teal-800">
-                {rm(price.amountSen + (includeExtra ? extra.amountSen : 0))}
-              </span>
+              <span className="text-3xl font-bold tabular-nums text-teal-800">{rm(totalSen)}</span>
               {price.amountSen < price.normalSen && (
                 <span className="text-sm text-gray-600">
-                  <span className="line-through">{rm(price.normalSen)}</span> · saves{" "}
+                  tuition <span className="line-through">{rm(price.normalSen)}</span> · promotion saves{" "}
                   {rm(price.normalSen - price.amountSen)}
                 </span>
               )}
@@ -200,7 +283,9 @@ export function ReceiptBuilder({
             <p className="mt-1 text-xs text-gray-600">
               {grade} · {chosen.length} subject{chosen.length === 1 ? "" : "s"} · {periodLabel(start, months)} ·{" "}
               {price.priceNote ?? `${months} x ${rm(price.monthlySen)} a month`}
-              {includeExtra && ` · + ${rm(extra.amountSen)} ${extra.label.toLowerCase()}`}
+              {extraSen > 0 && ` · + ${rm(extraSen)} extra charges`}
+              {(discountSen ?? 0) > 0 && ` · - ${rm(discountSen!)} discount`}
+              {taxSen > 0 && ` · + ${rm(taxSen)} tax at ${percent(taxBp!)}`}
             </p>
           </>
         )}
@@ -239,7 +324,7 @@ export function ReceiptBuilder({
       </div>
 
       {error && <p className="text-sm text-red-700">{error}</p>}
-      <button disabled={busy || "error" in price} className={`${button} self-start px-5 py-2`}>
+      <button disabled={busy || "error" in price || !!problem} className={`${button} self-start px-5 py-2`}>
         {busy ? "Preparing..." : "Preview receipt"}
       </button>
     </form>

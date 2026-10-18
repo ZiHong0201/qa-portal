@@ -52,6 +52,27 @@ export function buildPlans(rows: PriceRow[]): FeePlan[] {
 
 export const MAX_MONTHS = 12;
 
+/** Tax rates are held in basis points: 600 = 6.00%. Up to 100%. */
+export const MAX_TAX_BP = 10000;
+
+/** Tax on an amount at a rate in basis points, to the nearest sen. */
+export function taxOn(baseSen: number, bp: number): number {
+  return Math.round((baseSen * bp) / 10000);
+}
+
+/** 600 -> "6.00%". */
+export function percent(bp: number): string {
+  return `${(bp / 100).toFixed(2)}%`;
+}
+
+/** "6", "8.5", "6%" -> basis points; null if it is not a rate. */
+export function parsePercent(input: string): number | null {
+  const cleaned = input.replace("%", "").trim();
+  if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return null;
+  const [whole, frac = ""] = cleaned.split(".");
+  return Number(whole) * 100 + Number(frac.padEnd(2, "0"));
+}
+
 export function planFor(plans: FeePlan[], grade: string | null | undefined): FeePlan | null {
   return plans.find((p) => grade && p.grades.includes(grade)) ?? null;
 }

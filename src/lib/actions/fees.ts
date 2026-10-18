@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/permissions";
 import { dayKey } from "@/lib/check-in";
 import { isPaymentMethod, parseRinggit } from "@/lib/fees";
+import { parsePercent } from "@/lib/fee-plans";
 import type { ReceiptData } from "@/lib/receipt";
 import {
   type ReceiptInput,
@@ -13,7 +14,10 @@ import {
   addFeeSubject,
   deleteFeeSubject,
   deletePrice,
+  addExtraCharge,
+  deleteExtraCharge,
   saveExtraCharge,
+  saveTaxRateBp,
   savePrice,
   priceReceipt,
   sendReceipt,
@@ -53,11 +57,34 @@ export async function savePriceRow(band: string, _prev: Result, formData: FormDa
   return r;
 }
 
-export async function saveExtra(_prev: Result, formData: FormData): Promise<Result> {
+export async function saveExtra(id: string, _prev: Result, formData: FormData): Promise<Result> {
   await requireAdmin();
   const amount = amountOf(formData.get("amount"));
   if (Number.isNaN(amount)) return { error: "Enter an amount such as 30." };
-  const r = await saveExtraCharge(text(formData.get("label")), amount);
+  const r = await saveExtraCharge(id, text(formData.get("label")), amount);
+  refresh();
+  return r;
+}
+
+export async function addExtra(_prev: Result, formData: FormData): Promise<Result> {
+  await requireAdmin();
+  const amount = amountOf(formData.get("amount"));
+  if (Number.isNaN(amount)) return { error: "Enter an amount such as 30." };
+  const r = await addExtraCharge(text(formData.get("label")), amount);
+  refresh();
+  return r;
+}
+
+export async function removeExtra(id: string): Promise<Result> {
+  await requireAdmin();
+  const r = await deleteExtraCharge(id);
+  refresh();
+  return r;
+}
+
+export async function saveTaxRate(_prev: Result, formData: FormData): Promise<Result> {
+  await requireAdmin();
+  const r = await saveTaxRateBp(parsePercent(text(formData.get("rate"))));
   refresh();
   return r;
 }
@@ -103,7 +130,10 @@ function receiptInput(formData: FormData): ReceiptInput | { error: string } {
     method,
     paidOn,
     note: text(formData.get("note")).trim().slice(0, 300) || null,
-    includeExtra: formData.get("includeExtra") === "on",
+    extraIds: formData.getAll("extraIds").map(String),
+    taxRateBp: parsePercent(text(formData.get("taxRate")) || "0") ?? -1,
+    extraDiscountSen: parseRinggit(text(formData.get("discount")) || "0") ?? -1,
+    discountNote: text(formData.get("discountNote")).trim().slice(0, 100) || null,
   };
 }
 

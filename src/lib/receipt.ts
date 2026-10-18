@@ -3,7 +3,8 @@
 // a DESCRIPTION / QTY / UNIT PRICE / TOTAL table, the totals column ending in
 // "Paid", the payment instructions and the non-refundable note. The screen,
 // print and email versions all read from receiptLayout(), so they agree.
-import { endMonth, rm } from "@/lib/fees";
+import { type Charge, endMonth, rm } from "@/lib/fees";
+import { percent } from "@/lib/fee-plans";
 
 export const COMPANY = {
   name: "YH IDEAL ACADEMY SDN. BHD.",
@@ -24,10 +25,14 @@ export type ReceiptData = {
   startMonth: string;
   months: number;
   normalSen: number;
-  amountSen: number; // everything paid, tuition plus any extra charge
+  amountSen: number; // everything paid: tuition, extra charges and tax
   priceNote: string | null;
-  extraLabel: string | null;
+  extras: Charge[];
   extraSen: number;
+  taxRateBp: number;
+  taxSen: number;
+  extraDiscountSen: number;
+  discountNote: string | null;
   method: string;
   paidOn: string;
   note: string | null;
@@ -43,6 +48,8 @@ export type ReceiptLayout = {
   subtotalSen: number;
   discountSen: number;
   lessDiscountSen: number;
+  taxRate: string;
+  taxSen: number;
   paidSen: number;
 };
 
@@ -67,32 +74,35 @@ export function receiptDate(day: string): string {
 export const money = (sen: number) => rm(sen).replace("RM", "");
 
 /**
- * The receipt's lines. Tuition is one line, a month's fee times the months;
- * a promotion's saving is the DISCOUNT, so SUBTOTAL LESS DISCOUNT is what was
- * charged. The material fee, when ticked, is its own line first, as in the
- * template.
+ * The receipt's lines. Each extra charge ticked - the material fee and so on
+ * - is a line of its own first, as in the template; then tuition, a month's
+ * fee times the months. The DISCOUNT is a promotion's saving plus any
+ * additional discount the admin gave, and tax is the rate on SUBTOTAL LESS
+ * DISCOUNT.
  */
 export function receiptLayout(r: ReceiptData): ReceiptLayout {
-  const tuitionSen = r.amountSen - r.extraSen;
-  const items: LineItem[] = [];
-  if (r.extraSen > 0) {
-    items.push({
-      description: (r.extraLabel ?? "Material fee").toUpperCase(),
-      detail: null,
-      qty: 1,
-      unitSen: r.extraSen,
-      totalSen: r.extraSen,
-    });
-  }
+  // Tuition after any promotion: what was paid, less tax and the extra
+  // charges, with the additional discount added back.
+  const tuitionSen = r.amountSen - r.taxSen - r.extraSen + r.extraDiscountSen;
+  const extraDiscount = r.extraDiscountSen
+    ? `discount ${money(r.extraDiscountSen)}${r.discountNote ? ` (${r.discountNote})` : ""}`
+    : null;
+  const items: LineItem[] = r.extras.map((e) => ({
+    description: e.label.toUpperCase(),
+    detail: null,
+    qty: 1,
+    unitSen: e.amountSen,
+    totalSen: e.amountSen,
+  }));
   items.push({
     description: `CLASS SUBSCRIPTION FEE (${periodShort(r.startMonth, r.months)})`,
-    detail: [`${r.grade} · ${r.subjects.join(", ")}`, r.priceNote].filter(Boolean).join(" · "),
+    detail: [`${r.grade} · ${r.subjects.join(", ")}`, r.priceNote, extraDiscount].filter(Boolean).join(" · "),
     qty: r.months,
     unitSen: Math.round(r.normalSen / r.months),
     totalSen: r.normalSen,
   });
   const subtotalSen = items.reduce((t, i) => t + i.totalSen, 0);
-  const discountSen = r.normalSen - tuitionSen;
+  const discountSen = r.normalSen - tuitionSen + r.extraDiscountSen;
   return {
     date: receiptDate(r.paidOn),
     receiptNo: r.receiptNo ?? "",
@@ -101,6 +111,8 @@ export function receiptLayout(r: ReceiptData): ReceiptLayout {
     subtotalSen,
     discountSen,
     lessDiscountSen: subtotalSen - discountSen,
+    taxRate: percent(r.taxRateBp),
+    taxSen: r.taxSen,
     paidSen: r.amountSen,
   };
 }
@@ -171,8 +183,8 @@ export function receiptEmailHtml(r: ReceiptData): string {
         ${total("SUBTOTAL", money(L.subtotalSen))}
         ${total("DISCOUNT", L.discountSen ? money(L.discountSen) : "")}
         ${total("SUBTOTAL LESS DISCOUNT", money(L.lessDiscountSen))}
-        ${total("TAX RATE", "0.00%")}
-        ${total("TOTAL TAX", "0.00")}
+        ${total("TAX RATE", L.taxRate)}
+        ${total("TOTAL TAX", money(L.taxSen))}
         ${total("SHIPPING/HANDLING", "0.00")}
         <tr><td style="padding:10px;text-align:right;font-weight:bold;font-size:14px">Paid</td><td style="padding:10px 8px;text-align:right;font-weight:bold;font-size:14px;border-top:2px solid #111;border-bottom:2px solid #111">MYR ${money(L.paidSen)}</td></tr>
       </table>
@@ -203,8 +215,8 @@ export function receiptEmailText(r: ReceiptData): string {
     `SUBTOTAL: ${money(L.subtotalSen)}`,
     `DISCOUNT: ${L.discountSen ? money(L.discountSen) : "-"}`,
     `SUBTOTAL LESS DISCOUNT: ${money(L.lessDiscountSen)}`,
-    "TAX RATE: 0.00%",
-    "TOTAL TAX: 0.00",
+    `TAX RATE: ${L.taxRate}`,
+    `TOTAL TAX: ${money(L.taxSen)}`,
     "SHIPPING/HANDLING: 0.00",
     `Paid: MYR ${money(L.paidSen)}`,
     "",

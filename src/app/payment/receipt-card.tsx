@@ -12,8 +12,8 @@ export function ReceiptCard({ receipt, voided }: { receipt: ReceiptData; voided?
     ["SUBTOTAL", money(L.subtotalSen)],
     ["DISCOUNT", L.discountSen ? money(L.discountSen) : ""],
     ["SUBTOTAL LESS DISCOUNT", money(L.lessDiscountSen)],
-    ["TAX RATE", "0.00%"],
-    ["TOTAL TAX", "0.00"],
+    ["TAX RATE", L.taxRate],
+    ["TOTAL TAX", money(L.taxSen)],
     ["SHIPPING/HANDLING", "0.00"],
   ];
   return (

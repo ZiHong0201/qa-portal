@@ -1,7 +1,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { BANDS, type FeePlan, MAX_MONTHS, buildPlans, planFor, quote } from "@/lib/fee-plans";
-import { type PaymentMethod, isMonthKey, parseSubjects } from "@/lib/fees";
+import { BANDS, type FeePlan, MAX_MONTHS, MAX_TAX_BP, buildPlans, planFor, quote, taxOn } from "@/lib/fee-plans";
+import { type PaymentMethod, isMonthKey, parseCharges, parseSubjects } from "@/lib/fees";
 import { RECEIPT_COPY_TO, sendMail } from "@/lib/mailer";
 import { type ReceiptData, receiptEmailHtml, receiptEmailText, receiptSubject } from "@/lib/receipt";
 
@@ -65,28 +65,57 @@ export async function deletePrice(band: string, subjects: number): Promise<Resul
   return count ? { success: "Removed." } : { error: "That row is already gone." };
 }
 
-// ---- the extra charge -------------------------------------------------------
+// ---- extra charges and tax --------------------------------------------------
 
-export type ExtraCharge = { label: string; amountSen: number };
+export type ExtraCharge = { id: string; label: string; amountSen: number };
 
-const EXTRA_KEY = "material";
-
-/** The material cost and delivery fee - its current name and amount. */
-export async function loadExtraCharge(): Promise<ExtraCharge> {
-  const row = await prisma.feeExtra.findUnique({ where: { key: EXTRA_KEY } });
-  return row ?? { label: "Material cost & delivery fee", amountSen: 3000 };
+/** The one-off charges a receipt can tick, oldest first - the material fee leads. */
+export async function listExtraCharges(): Promise<ExtraCharge[]> {
+  const rows = await prisma.feeExtra.findMany({ orderBy: [{ createdAt: "asc" }, { key: "asc" }] });
+  return rows.map((r) => ({ id: r.key, label: r.label, amountSen: r.amountSen }));
 }
 
-export async function saveExtraCharge(label: string, amountSen: number | null): Promise<Result> {
+function checkCharge(label: string, amountSen: number | null): { name: string } | { error: string } {
   const name = label.trim().replace(/\s+/g, " ");
   if (!name) return { error: "Give the charge a name." };
   if (name.length > 80) return { error: "Keep the name under 80 characters." };
   if (amountSen === null || amountSen <= 0) return { error: "Enter the amount, such as 30." };
-  await prisma.feeExtra.upsert({
-    where: { key: EXTRA_KEY },
-    create: { key: EXTRA_KEY, label: name, amountSen },
-    update: { label: name, amountSen },
-  });
+  return { name };
+}
+
+export async function saveExtraCharge(id: string, label: string, amountSen: number | null): Promise<Result> {
+  const checked = checkCharge(label, amountSen);
+  if ("error" in checked) return checked;
+  const { count } = await prisma.feeExtra.updateMany({ where: { key: id }, data: { label: checked.name, amountSen: amountSen! } });
+  return count ? { success: "Saved." } : { error: "That charge is gone." };
+}
+
+export async function addExtraCharge(label: string, amountSen: number | null): Promise<Result> {
+  const checked = checkCharge(label, amountSen);
+  if ("error" in checked) return checked;
+  await prisma.feeExtra.create({ data: { key: crypto.randomUUID(), label: checked.name, amountSen: amountSen! } });
+  return { success: `${checked.name} added.` };
+}
+
+/** Receipts keep the charges they were made with, so old ones are untouched. */
+export async function deleteExtraCharge(id: string): Promise<Result> {
+  const { count } = await prisma.feeExtra.deleteMany({ where: { key: id } });
+  return count ? { success: "Removed." } : { error: "That charge is already gone." };
+}
+
+const TAX_KEY = "taxRateBp";
+
+/** The tax rate a new receipt starts with, in basis points (600 = 6.00%). */
+export async function loadTaxRateBp(): Promise<number> {
+  const row = await prisma.feeSetting.findUnique({ where: { key: TAX_KEY } });
+  return row ? Number(row.value) || 0 : 0;
+}
+
+export async function saveTaxRateBp(bp: number | null): Promise<Result> {
+  if (bp === null || !Number.isInteger(bp) || bp < 0 || bp > MAX_TAX_BP) {
+    return { error: "Enter a rate from 0 to 100, such as 6 or 8.5." };
+  }
+  await prisma.feeSetting.upsert({ where: { key: TAX_KEY }, create: { key: TAX_KEY, value: String(bp) }, update: { value: String(bp) } });
   return { success: "Saved." };
 }
 
@@ -130,7 +159,7 @@ export type ReceiptView = ReceiptData & {
 type ReceiptRow = Awaited<ReturnType<typeof prisma.feeReceipt.findFirstOrThrow>>;
 
 function toView(r: ReceiptRow): ReceiptView {
-  return { ...r, subjects: parseSubjects(r.subjects) };
+  return { ...r, subjects: parseSubjects(r.subjects), extras: parseCharges(r.extras) };
 }
 
 export async function getReceipts(where: Prisma.FeeReceiptWhereInput, take?: number): Promise<ReceiptView[]> {
@@ -153,8 +182,13 @@ export type ReceiptInput = {
   method: PaymentMethod;
   paidOn: string;
   note: string | null;
-  /** Whether the material cost and delivery fee is charged too. */
-  includeExtra: boolean;
+  /** The extra charges ticked, by id - priced from the list here, not the browser. */
+  extraIds: string[];
+  /** The tax rate for this receipt, in basis points (600 = 6.00%). */
+  taxRateBp: number;
+  /** A discount on top of any promotion, in sen, and why. */
+  extraDiscountSen: number;
+  discountNote: string | null;
 };
 
 /**
@@ -167,7 +201,7 @@ export async function priceReceipt(input: ReceiptInput): Promise<{ error: string
   const email = input.email.trim().toLowerCase();
   if (!name) return { error: "Enter the student's name." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address." };
-  const [plans, extra] = await Promise.all([loadFeePlans(), loadExtraCharge()]);
+  const [plans, charges] = await Promise.all([loadFeePlans(), listExtraCharges()]);
   if (!planFor(plans, input.grade)) return { error: "Choose the student's grade." };
   if (!isMonthKey(input.startMonth)) return { error: "Choose the first month this pays for." };
   const subjects = [...new Set(input.subjects)].sort();
@@ -176,6 +210,22 @@ export async function priceReceipt(input: ReceiptInput): Promise<{ error: string
   }
   const price = quote(plans, input.grade, subjects.length, input.months);
   if ("error" in price) return { error: price.error };
+  const ticked = [...new Set(input.extraIds)];
+  const extras = charges.filter((c) => ticked.includes(c.id)).map((c) => ({ label: c.label, amountSen: c.amountSen }));
+  if (extras.length !== ticked.length) return { error: "One of the extra charges is no longer on the list. Untick it." };
+  if (!Number.isInteger(input.taxRateBp) || input.taxRateBp < 0 || input.taxRateBp > MAX_TAX_BP) {
+    return { error: "Enter a tax rate from 0 to 100." };
+  }
+  const extraSen = extras.reduce((t, e) => t + e.amountSen, 0);
+  const beforeDiscount = price.amountSen + extraSen;
+  if (!Number.isInteger(input.extraDiscountSen) || input.extraDiscountSen < 0) {
+    return { error: "Enter the additional discount as an amount, such as 20." };
+  }
+  if (input.extraDiscountSen > beforeDiscount) {
+    return { error: `The discount is more than the RM${(beforeDiscount / 100).toFixed(2)} being charged.` };
+  }
+  // Tax on SUBTOTAL LESS DISCOUNT, as on the centre's template.
+  const taxSen = taxOn(beforeDiscount - input.extraDiscountSen, input.taxRateBp);
   return {
     data: {
       receiptNo: null,
@@ -186,10 +236,14 @@ export async function priceReceipt(input: ReceiptInput): Promise<{ error: string
       startMonth: input.startMonth,
       months: input.months,
       normalSen: price.normalSen,
-      amountSen: price.amountSen + (input.includeExtra ? extra.amountSen : 0),
+      amountSen: beforeDiscount - input.extraDiscountSen + taxSen,
       priceNote: price.priceNote,
-      extraLabel: input.includeExtra ? extra.label : null,
-      extraSen: input.includeExtra ? extra.amountSen : 0,
+      extras,
+      extraSen,
+      taxRateBp: input.taxRateBp,
+      taxSen,
+      extraDiscountSen: input.extraDiscountSen,
+      discountNote: input.extraDiscountSen ? input.discountNote : null,
       method: input.method,
       paidOn: input.paidOn,
       note: input.note,
@@ -229,8 +283,12 @@ export async function createReceipt(
             normalSen: d.normalSen,
             amountSen: d.amountSen,
             priceNote: d.priceNote,
-            extraLabel: d.extraLabel,
+            extras: JSON.stringify(d.extras),
             extraSen: d.extraSen,
+            taxRateBp: d.taxRateBp,
+            taxSen: d.taxSen,
+            extraDiscountSen: d.extraDiscountSen,
+            discountNote: d.discountNote,
             method: d.method,
             paidOn: d.paidOn,
             note: d.note,

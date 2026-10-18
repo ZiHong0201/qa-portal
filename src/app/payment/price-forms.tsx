@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { removePriceRow, saveExtra, savePriceRow } from "@/lib/actions/fees";
+import { addExtra, removeExtra, removePriceRow, saveExtra, savePriceRow, saveTaxRate } from "@/lib/actions/fees";
 import { MAX_MONTHS, promoSaves } from "@/lib/fee-plans";
 import { parseRinggit, rm, senToInput } from "@/lib/fees";
 import type { Result } from "@/lib/fees.server";
@@ -186,19 +186,25 @@ export function AddPriceRowForm({ band, nextSubjects }: { band: string; nextSubj
   );
 }
 
-/** The material cost and delivery fee: its name on the receipt, and amount. */
-export function ExtraChargeForm({ label, amountSen }: { label: string; amountSen: number }) {
-  const [state, action, pending] = useActionState(saveExtra, {});
-  const [name, setName] = useState(label);
-  const [amount, setAmount] = useState(senToInput(amountSen));
-  const changed = name !== label || amount !== senToInput(amountSen);
+function ChargeFields({
+  name,
+  setName,
+  amount,
+  setAmount,
+}: {
+  name: string;
+  setName: (v: string) => void;
+  amount: string;
+  setAmount: (v: string) => void;
+}) {
   return (
-    <form action={action} className="flex flex-wrap items-center gap-2">
+    <>
       <input
         name="label"
         value={name}
         onChange={(e) => setName(e.target.value)}
         maxLength={80}
+        placeholder="e.g. Registration fee"
         aria-label="Name of the charge"
         className={`${input} w-72 max-w-full`}
       />
@@ -213,7 +219,82 @@ export function ExtraChargeForm({ label, amountSen }: { label: string; amountSen
           className={`${input} w-24`}
         />
       </label>
+    </>
+  );
+}
+
+/** One extra charge: its name as printed on the receipt, and its amount. */
+export function ExtraChargeRow({ id, label, amountSen }: { id: string; label: string; amountSen: number }) {
+  const [state, action, pending] = useActionState(saveExtra.bind(null, id), {});
+  const [name, setName] = useState(label);
+  const [amount, setAmount] = useState(senToInput(amountSen));
+  const [busy, start] = useTransition();
+  const [removeState, setRemoveState] = useState<Result>({});
+  const changed = name !== label || amount !== senToInput(amountSen);
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <ChargeFields {...{ name, setName, amount, setAmount }} />
       <button disabled={pending || !changed} className={button}>
+        Save
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => {
+          if (!confirm(`Remove "${label}"? Receipts already made keep it.`)) return;
+          start(async () => setRemoveState(await removeExtra(id)));
+        }}
+        className="text-sm text-red-600 hover:underline disabled:opacity-40"
+      >
+        Remove
+      </button>
+      <Message state={state} />
+      {removeState.error && <Message state={removeState} />}
+    </form>
+  );
+}
+
+export function AddExtraChargeForm() {
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [state, action, pending] = useActionState(async (prev: Result, formData: FormData) => {
+    const r = await addExtra(prev, formData);
+    if (!r.error) {
+      setName("");
+      setAmount("");
+    }
+    return r;
+  }, {});
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <ChargeFields {...{ name, setName, amount, setAmount }} />
+      <button disabled={pending || !name.trim() || !amount.trim()} className={button}>
+        Add charge
+      </button>
+      <Message state={state} />
+    </form>
+  );
+}
+
+/** The tax rate a new receipt starts with; each receipt can still change it. */
+export function TaxRateForm({ rateBp }: { rateBp: number }) {
+  const initial = (rateBp / 100).toFixed(2).replace(/\.00$/, "");
+  const [state, action, pending] = useActionState(saveTaxRate, {});
+  const [rate, setRate] = useState(initial);
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <label className="flex items-center gap-1 text-sm">
+        <input
+          name="rate"
+          value={rate}
+          onChange={(e) => setRate(e.target.value)}
+          inputMode="decimal"
+          aria-label="Tax rate"
+          className={`${input} w-20`}
+        />
+        <span className="text-gray-500">%</span>
+      </label>
+      <button disabled={pending || rate === initial} className={button}>
         Save
       </button>
       <Message state={state} />
