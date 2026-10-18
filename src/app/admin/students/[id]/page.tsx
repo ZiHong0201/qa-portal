@@ -8,8 +8,8 @@ import { ClearAnswersButton } from "./clear-answers-button";
 import { SuspensionPanel } from "./suspension-panel";
 import { auth } from "@/auth";
 import { isAdmin } from "@/lib/permissions";
-import { STATUS_LABEL, STATUS_STYLE, monthLabel, paymentHref, rm } from "@/lib/fees";
-import { getBills } from "@/lib/fees.server";
+import { paymentHref, periodLabel, rm } from "@/lib/fees";
+import { getReceipts } from "@/lib/fees.server";
 
 export default async function AdminStudentDetailPage({
   params,
@@ -65,7 +65,8 @@ export default async function AdminStudentDetailPage({
   ]);
 
   // Fees are the admin's alone; a teacher's view of the student leaves them out.
-  const bills = isAdmin(session) ? await getBills({ studentId: id }) : null;
+  // Receipts stand apart from accounts, so the email is what ties them here.
+  const receipts = isAdmin(session) ? await getReceipts({ email: student.email, voidedAt: null }, 1) : null;
 
   const setIds = Array.from(new Set(submissions.map((s) => s.question.questionSet.id)));
   const setTotals = await prisma.questionSet.findMany({
@@ -154,7 +155,7 @@ export default async function AdminStudentDetailPage({
         }
       />
 
-      {bills && <TuitionFees studentId={student.id} bills={bills} />}
+      {receipts && <TuitionFees studentId={student.id} latest={receipts[0] ?? null} />}
 
       <div className="mb-6 grid grid-cols-5 gap-3">
         <StatCard label="Earned" value={balance.earned} />
@@ -355,33 +356,25 @@ function StatCard({
   );
 }
 
-/** What the student owes on YH-ideal-payment, with the way across to it. */
+/**
+ * Subjects and fees now live on YH-ideal-payment: this says what was last
+ * paid and leads across to where both are changed.
+ */
 function TuitionFees({
   studentId,
-  bills,
+  latest,
 }: {
   studentId: string;
-  bills: Awaited<ReturnType<typeof getBills>>;
+  latest: Awaited<ReturnType<typeof getReceipts>>[number] | null;
 }) {
-  const owing = bills.reduce((t, b) => t + Math.max(0, b.balanceSen), 0);
-  const latest = bills[0];
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-teal-200 bg-teal-50/60 px-4 py-3">
       <div>
-        <p className="text-sm font-medium text-teal-900">Tuition fees</p>
+        <p className="text-sm font-medium text-teal-900">Subjects and tuition fees</p>
         <p className="text-sm text-gray-700">
-          {bills.length === 0 ? (
-            "No bills yet."
-          ) : (
-            <>
-              {owing ? <span className="font-semibold text-rose-700">{rm(owing)} owing</span> : "Nothing owing"}
-              {" · "}
-              {monthLabel(latest.month)}:{" "}
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[latest.status]}`}>
-                {STATUS_LABEL[latest.status]}
-              </span>
-            </>
-          )}
+          {latest
+            ? `Last receipt ${latest.receiptNo}: ${rm(latest.amountSen)} for ${periodLabel(latest.startMonth, latest.months)}`
+            : "No receipts sent to this student's email yet."}
         </p>
       </div>
       <a

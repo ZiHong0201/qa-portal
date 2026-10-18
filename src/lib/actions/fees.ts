@@ -1,137 +1,114 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/permissions";
-import { prisma } from "@/lib/prisma";
 import { dayKey } from "@/lib/check-in";
-import { isMonthKey, isPaymentMethod, parseRinggit } from "@/lib/fees";
+import { isPaymentMethod } from "@/lib/fees";
+import type { ReceiptData } from "@/lib/receipt";
 import {
+  type ReceiptInput,
   type Result,
-  adjustBill,
-  createBill,
-  createBillsForMonth,
-  deleteBill,
-  recordPayment,
-  voidPayment,
+  createReceipt,
+  createStudentAccount,
+  deleteStudentAccount,
+  priceReceipt,
+  sendReceipt,
+  setGradeAndSubjects,
+  voidReceipt,
 } from "@/lib/fees.server";
 
-// Every fee page reads from the same few tables, so any change refreshes the
-// lot - and the portal's student page, which shows what is owed.
+// Fee pages and the portal's student pages read the same students, so any
+// change here refreshes both.
 function refresh() {
   revalidatePath("/payment", "layout");
-  revalidatePath("/admin/students/[id]", "page");
+  revalidatePath("/admin/students", "layout");
+  revalidatePath("/dashboard", "layout");
 }
 
-const noteOf = (v: FormDataEntryValue | null) => {
-  const s = typeof v === "string" ? v.trim() : "";
-  return s ? s.slice(0, 300) : null;
-};
+const text = (v: FormDataEntryValue | null) => (typeof v === "string" ? v : "");
+const subjectsOf = (formData: FormData) => formData.getAll("subjects").map(String);
 
-// ---- fee settings -----------------------------------------------------------
+// ---- student accounts -------------------------------------------------------
 
-/** A subject's usual monthly fee. Blank clears it, taking the subject off future bills. */
-export async function setSubjectFee(subject: string, _prev: Result, formData: FormData): Promise<Result> {
+export async function addStudent(_prev: Result, formData: FormData): Promise<Result> {
   await requireAdmin();
-  const raw = String(formData.get("fee") ?? "").trim();
-  const sen = raw === "" ? null : parseRinggit(raw);
-  if (raw !== "" && (sen === null || sen < 0)) return { error: "Enter an amount such as 80 or 80.50." };
-  const { count } = await prisma.subject.updateMany({ where: { name: subject }, data: { monthlyFeeSen: sen } });
-  if (!count) return { error: "Subject not found." };
-  refresh();
-  return { success: sen === null ? "Fee cleared." : "Saved." };
-}
-
-/** One student's own rate for a subject. Blank goes back to the usual fee. */
-export async function setStudentFeeRate(
-  studentId: string,
-  subject: string,
-  _prev: Result,
-  formData: FormData
-): Promise<Result> {
-  await requireAdmin();
-  const raw = String(formData.get("fee") ?? "").trim();
-  if (raw === "") {
-    await prisma.studentFeeRate.deleteMany({ where: { studentId, subject } });
-    refresh();
-    return { success: "Back to the usual fee." };
-  }
-  const sen = parseRinggit(raw);
-  if (sen === null || sen < 0) return { error: "Enter an amount such as 80 or 80.50." };
-  const note = noteOf(formData.get("note"));
-  await prisma.studentFeeRate.upsert({
-    where: { studentId_subject: { studentId, subject } },
-    create: { studentId, subject, monthlyFeeSen: sen, note },
-    update: { monthlyFeeSen: sen, note },
+  const r = await createStudentAccount({
+    name: text(formData.get("name")),
+    email: text(formData.get("email")),
+    password: text(formData.get("password")),
+    grade: text(formData.get("grade")),
+    subjects: subjectsOf(formData),
   });
+  if (r.error) return r;
   refresh();
-  return { success: "Saved. It applies from the next bill made." };
+  redirect(`/payment/students/${r.studentId}?created=1`);
 }
 
-// ---- bills ------------------------------------------------------------------
-
-export async function createMonthBills(month: string): Promise<Result> {
-  const session = await requireAdmin();
-  if (!isMonthKey(month)) return { error: "Pick a month." };
-  const r = await createBillsForMonth(month, session.user.id);
-  refresh();
-  const parts = [`${r.created} bill${r.created === 1 ? "" : "s"} created`];
-  if (r.existing) parts.push(`${r.existing} already had one`);
-  if (r.noFee) parts.push(`${r.noFee} skipped - no subject with a fee`);
-  return { success: `${parts.join(", ")}.` };
-}
-
-export async function createStudentBill(studentId: string, month: string): Promise<Result> {
-  const session = await requireAdmin();
-  if (!isMonthKey(month)) return { error: "Pick a month." };
-  const r = await createBill(studentId, month, session.user.id);
-  refresh();
-  return r;
-}
-
-export async function adjustStudentBill(billId: string, _prev: Result, formData: FormData): Promise<Result> {
+export async function removeStudent(studentId: string): Promise<Result> {
   await requireAdmin();
-  const raw = String(formData.get("adjustment") ?? "").trim();
-  const sen = raw === "" ? 0 : parseRinggit(raw);
-  if (sen === null) return { error: "Enter an amount such as -20 for a discount, or 15 for an extra." };
-  const r = await adjustBill(billId, sen, noteOf(formData.get("note")));
+  const r = await deleteStudentAccount(studentId);
+  if (r.error) return r;
   refresh();
-  return r;
+  redirect("/payment/students?deleted=1");
 }
 
-export async function removeBill(billId: string): Promise<Result> {
+export async function saveGradeAndSubjects(studentId: string, _prev: Result, formData: FormData): Promise<Result> {
   await requireAdmin();
-  const r = await deleteBill(billId);
+  const r = await setGradeAndSubjects(studentId, text(formData.get("grade")), subjectsOf(formData));
   refresh();
   return r;
 }
 
-// ---- payments ---------------------------------------------------------------
+// ---- receipts ---------------------------------------------------------------
 
-export async function addPayment(billId: string, _prev: Result, formData: FormData): Promise<Result> {
-  const session = await requireAdmin();
-  const amountSen = parseRinggit(String(formData.get("amount") ?? ""));
-  if (amountSen === null) return { error: "Enter the amount received, such as 150 or 150.00." };
+function receiptInput(formData: FormData): ReceiptInput | { error: string } {
   const method = formData.get("method");
   if (!isPaymentMethod(method)) return { error: "Choose how it was paid." };
-  const paidOn = String(formData.get("paidOn") ?? "");
+  const paidOn = text(formData.get("paidOn"));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) return { error: "Enter the date it was paid." };
   if (paidOn > dayKey()) return { error: "The payment date cannot be in the future." };
-
-  const r = await recordPayment({
-    billId,
-    amountSen,
+  return {
+    name: text(formData.get("name")),
+    email: text(formData.get("email")),
+    grade: text(formData.get("grade")),
+    subjects: subjectsOf(formData),
+    startMonth: text(formData.get("startMonth")),
+    months: Number(formData.get("months")),
     method,
     paidOn,
-    note: noteOf(formData.get("note")),
-    adminId: session.user.id,
-  });
+    note: text(formData.get("note")).trim().slice(0, 300) || null,
+  };
+}
+
+/** The receipt as it will be sent, priced on the server, for the admin to check. */
+export async function previewReceipt(formData: FormData): Promise<{ error: string } | { data: ReceiptData }> {
+  await requireAdmin();
+  const input = receiptInput(formData);
+  if ("error" in input) return input;
+  return priceReceipt(input);
+}
+
+export async function sendNewReceipt(formData: FormData): Promise<{ error: string }> {
+  const session = await requireAdmin();
+  const input = receiptInput(formData);
+  if ("error" in input) return input;
+  const r = await createReceipt(input, session.user.id);
+  if ("error" in r) return r;
+  refresh();
+  redirect(`/payment/receipts/${r.receiptId}?${r.sent ? "sent" : "unsent"}=1`);
+}
+
+export async function resendReceipt(id: string): Promise<Result> {
+  await requireAdmin();
+  const r = await sendReceipt(id);
   refresh();
   return r;
 }
 
-export async function cancelPayment(paymentId: string, reason: string): Promise<Result> {
+export async function cancelReceipt(id: string, reason: string): Promise<Result> {
   const session = await requireAdmin();
-  const r = await voidPayment(paymentId, reason, session.user.id);
+  const r = await voidReceipt(id, reason, session.user.id);
   refresh();
   return r;
 }

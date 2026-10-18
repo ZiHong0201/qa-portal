@@ -1,18 +1,12 @@
+import bcrypt from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import {
-  type BillLine,
-  type BillStatus,
-  type PaymentMethod,
-  billStatus,
-  billTotal,
-  parseLines,
-} from "@/lib/fees";
+import { planFor, quote } from "@/lib/fee-plans";
+import { type PaymentMethod, isMonthKey, parseSubjects } from "@/lib/fees";
+import { RECEIPT_COPY_TO, sendMail } from "@/lib/mailer";
+import { type ReceiptData, receiptEmailHtml, receiptEmailText, receiptSubject } from "@/lib/receipt";
 
 export type Result = { error?: string; success?: string };
-
-/** A refusal raised inside a transaction, so it rolls back and is reported. */
-class FeeRefused extends Error {}
 
 function isUniqueConflict(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
@@ -21,258 +15,251 @@ function isUniqueConflict(error: unknown): boolean {
   return error.code === "P2039" && /UNIQUE constraint failed/i.test(error.message);
 }
 
-// ---- what a student owes each month -----------------------------------------
-
-/**
- * One line per enrolled subject that has a fee: the student's own rate where
- * one is set, the subject's usual fee otherwise. A subject with neither is
- * left off rather than billed at zero.
- */
-export async function monthlyLinesFor(studentIds: string[]): Promise<Map<string, BillLine[]>> {
-  const [enrolments, subjects, rates] = await Promise.all([
-    prisma.studentSubject.findMany({
-      where: { studentId: { in: studentIds } },
-      select: { studentId: true, subject: true },
-      orderBy: { subject: "asc" },
-    }),
-    prisma.subject.findMany({ select: { name: true, monthlyFeeSen: true } }),
-    prisma.studentFeeRate.findMany({ where: { studentId: { in: studentIds } } }),
+/** Grade and subjects checked against master data - both are admin-managed, not fixed lists. */
+async function checkGradeAndSubjects(grade: string, subjects: string[]): Promise<string | null> {
+  const [gradeRow, subjectCount] = await Promise.all([
+    prisma.grade.findUnique({ where: { name: grade } }),
+    prisma.subject.count({ where: { name: { in: subjects } } }),
   ]);
-  const usual = new Map(subjects.map((s) => [s.name, s.monthlyFeeSen]));
-  const own = new Map(rates.map((r) => [`${r.studentId}|${r.subject}`, r.monthlyFeeSen]));
+  if (!gradeRow) return "Choose a valid grade.";
+  if (subjectCount !== new Set(subjects).size) return "Choose valid subjects.";
+  return null;
+}
 
-  const lines = new Map<string, BillLine[]>(studentIds.map((id) => [id, []]));
-  for (const e of enrolments) {
-    const amountSen = own.get(`${e.studentId}|${e.subject}`) ?? usual.get(e.subject) ?? null;
-    if (amountSen !== null) lines.get(e.studentId)!.push({ subject: e.subject, amountSen });
+// ---- student accounts -------------------------------------------------------
+
+export async function createStudentAccount(input: {
+  name: string;
+  email: string;
+  password: string;
+  grade: string;
+  subjects: string[];
+}): Promise<Result & { studentId?: string }> {
+  const name = input.name.trim();
+  const email = input.email.trim().toLowerCase();
+  if (!name) return { error: "Enter the student's name." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email - it is what they log in with." };
+  if (input.password.length < 8) return { error: "The password needs at least 8 characters." };
+  const invalid = await checkGradeAndSubjects(input.grade, input.subjects);
+  if (invalid) return { error: invalid };
+  if (await prisma.user.findUnique({ where: { email } })) {
+    return { error: "An account with that email already exists." };
   }
-  return lines;
+
+  const student = await prisma.user.create({
+    data: {
+      name,
+      email,
+      passwordHash: await bcrypt.hash(input.password, 10),
+      role: "STUDENT",
+      grade: input.grade,
+      subjects: { create: [...new Set(input.subjects)].map((subject) => ({ subject })) },
+    },
+  });
+  return { success: "Student account created.", studentId: student.id };
 }
 
 /**
- * A bill for every student who has none for the month yet. A student whose
- * subjects carry no fee gets no bill, and is counted so the admin can see why.
+ * Removes the account and everything it did on the portal. Fee payments are
+ * kept - they hold the student's name themselves, so receipts still read
+ * properly afterwards.
  */
-export async function createBillsForMonth(
-  month: string,
-  adminId: string
-): Promise<{ created: number; noFee: number; existing: number }> {
-  const [students, billed] = await Promise.all([
-    prisma.user.findMany({
-      where: { role: "STUDENT" },
-      select: { id: true, name: true, grade: true },
-    }),
-    prisma.feeBill.findMany({ where: { month }, select: { studentId: true } }),
+export async function deleteStudentAccount(studentId: string): Promise<Result> {
+  const student = await prisma.user.findFirst({ where: { id: studentId, role: "STUDENT" } });
+  if (!student) return { error: "Student not found." };
+  await prisma.$transaction([
+    prisma.submission.deleteMany({ where: { studentId } }),
+    prisma.redemption.deleteMany({ where: { studentId } }),
+    prisma.pointAdjustment.deleteMany({ where: { studentId } }),
+    prisma.studentSubject.deleteMany({ where: { studentId } }),
+    prisma.user.delete({ where: { id: studentId } }),
   ]);
-  const already = new Set(billed.map((b) => b.studentId));
-  const todo = students.filter((s) => !already.has(s.id));
-  const lines = await monthlyLinesFor(todo.map((s) => s.id));
-
-  const data = todo
-    .filter((s) => lines.get(s.id)!.length > 0)
-    .map((s) => ({
-      studentId: s.id,
-      studentName: s.name,
-      grade: s.grade,
-      month,
-      lines: JSON.stringify(lines.get(s.id)),
-      createdById: adminId,
-    }));
-  if (data.length) await prisma.feeBill.createMany({ data });
-
-  return { created: data.length, noFee: todo.length - data.length, existing: already.size };
+  return { success: `${student.name}'s account was deleted.` };
 }
 
-/** One student's bill for one month, made on its own - a student who joined mid-month. */
-export async function createBill(studentId: string, month: string, adminId: string): Promise<Result> {
+/**
+ * Grade and subjects together, as they decide both the price and which
+ * question sets the student sees on the portal. Subjects are changed by
+ * difference rather than delete-and-recreate, so untouched ones keep their rows.
+ */
+export async function setGradeAndSubjects(studentId: string, grade: string, subjects: string[]): Promise<Result> {
+  const invalid = await checkGradeAndSubjects(grade, subjects);
+  if (invalid) return { error: invalid };
   const student = await prisma.user.findFirst({
     where: { id: studentId, role: "STUDENT" },
-    select: { name: true, grade: true },
+    select: { subjects: { select: { subject: true } } },
   });
   if (!student) return { error: "Student not found." };
-  const lines = (await monthlyLinesFor([studentId])).get(studentId)!;
-  if (lines.length === 0) {
-    return { error: "None of this student's subjects has a fee yet. Set fees first." };
-  }
-  try {
-    await prisma.feeBill.create({
-      data: {
-        studentId,
-        studentName: student.name,
-        grade: student.grade,
-        month,
-        lines: JSON.stringify(lines),
-        createdById: adminId,
-      },
-    });
-  } catch (e) {
-    if (isUniqueConflict(e)) return { error: "This student already has a bill for that month." };
-    throw e;
-  }
-  return { success: "Bill created." };
+  await prisma.$transaction(enrolmentWrites(studentId, grade, student.subjects.map((s) => s.subject), subjects));
+  return { success: "Saved." };
 }
 
-// ---- reading bills ----------------------------------------------------------
+function enrolmentWrites(studentId: string, grade: string, current: string[], wanted: string[]) {
+  const keep = new Set(wanted);
+  const have = new Set(current);
+  return [
+    prisma.user.update({ where: { id: studentId }, data: { grade } }),
+    prisma.studentSubject.deleteMany({ where: { studentId, subject: { notIn: [...keep] } } }),
+    prisma.studentSubject.createMany({
+      data: [...keep].filter((s) => !have.has(s)).map((subject) => ({ studentId, subject })),
+    }),
+  ];
+}
 
-export type BillView = {
+// ---- receipts ---------------------------------------------------------------
+
+export type ReceiptView = ReceiptData & {
   id: string;
-  studentId: string;
-  studentName: string;
-  grade: string | null;
-  month: string;
-  lines: BillLine[];
-  adjustmentSen: number;
-  note: string | null;
-  totalSen: number;
-  paidSen: number;
-  balanceSen: number;
-  status: BillStatus;
-  payments: {
-    id: string;
-    amountSen: number;
-    method: string;
-    paidOn: string;
-    receiptNo: string;
-    note: string | null;
-    voidedAt: Date | null;
-    voidReason: string | null;
-  }[];
+  receiptNo: string;
+  createdAt: Date;
+  sentAt: Date | null;
+  sendError: string | null;
+  voidedAt: Date | null;
+  voidReason: string | null;
 };
 
-export async function getBills(where: Prisma.FeeBillWhereInput): Promise<BillView[]> {
-  const bills = await prisma.feeBill.findMany({
-    where,
-    orderBy: [{ month: "desc" }, { studentName: "asc" }],
-    include: { payments: { orderBy: { createdAt: "asc" } } },
-  });
-  return bills.map((b) => {
-    const totalSen = billTotal(b);
-    // A voided payment stays on the record but no longer counts.
-    const paidSen = b.payments.filter((p) => !p.voidedAt).reduce((s, p) => s + p.amountSen, 0);
-    return {
-      id: b.id,
-      studentId: b.studentId,
-      studentName: b.studentName,
-      grade: b.grade,
-      month: b.month,
-      lines: parseLines(b.lines),
-      adjustmentSen: b.adjustmentSen,
-      note: b.note,
-      totalSen,
-      paidSen,
-      balanceSen: totalSen - paidSen,
-      status: billStatus(totalSen, paidSen),
-      payments: b.payments.map((p) => ({
-        id: p.id,
-        amountSen: p.amountSen,
-        method: p.method,
-        paidOn: p.paidOn,
-        receiptNo: p.receiptNo,
-        note: p.note,
-        voidedAt: p.voidedAt,
-        voidReason: p.voidReason,
-      })),
-    };
-  });
+type ReceiptRow = Awaited<ReturnType<typeof prisma.feeReceipt.findFirstOrThrow>>;
+
+function toView(r: ReceiptRow): ReceiptView {
+  return { ...r, subjects: parseSubjects(r.subjects) };
 }
 
-/** What each student still owes across every bill, for the student lists. */
-export async function outstandingByStudent(): Promise<Map<string, number>> {
-  const bills = await getBills({});
-  const owed = new Map<string, number>();
-  for (const b of bills) {
-    if (b.balanceSen > 0) owed.set(b.studentId, (owed.get(b.studentId) ?? 0) + b.balanceSen);
-  }
-  return owed;
+export async function getReceipts(where: Prisma.FeeReceiptWhereInput, take?: number): Promise<ReceiptView[]> {
+  const rows = await prisma.feeReceipt.findMany({ where, orderBy: { createdAt: "desc" }, take });
+  return rows.map(toView);
 }
 
-// ---- changing bills ---------------------------------------------------------
-
-export async function adjustBill(billId: string, adjustmentSen: number, note: string | null): Promise<Result> {
-  const bill = await prisma.feeBill.findUnique({
-    where: { id: billId },
-    include: { payments: { where: { voidedAt: null }, select: { amountSen: true } } },
-  });
-  if (!bill) return { error: "Bill not found." };
-  const total = billTotal({ lines: bill.lines, adjustmentSen });
-  if (total < 0) return { error: "The adjustment would make the bill less than zero." };
-  const paid = bill.payments.reduce((s, p) => s + p.amountSen, 0);
-  if (total < paid) {
-    return { error: "More than that has already been paid. Void a payment first if it was wrong." };
-  }
-  await prisma.feeBill.update({ where: { id: billId }, data: { adjustmentSen, note } });
-  return { success: "Bill updated." };
+export async function getReceipt(id: string): Promise<ReceiptView | null> {
+  const row = await prisma.feeReceipt.findUnique({ where: { id } });
+  return row && toView(row);
 }
 
-/** Only a bill nobody has paid anything towards - not even a voided payment. */
-export async function deleteBill(billId: string): Promise<Result> {
-  const count = await prisma.feePayment.count({ where: { billId } });
-  if (count > 0) {
-    return { error: "This bill has payments recorded against it, so it is kept. Adjust it instead." };
-  }
-  await prisma.feeBill.deleteMany({ where: { id: billId } });
-  return { success: "Bill deleted." };
-}
-
-// ---- payments ---------------------------------------------------------------
-
-export async function recordPayment(input: {
-  billId: string;
-  amountSen: number;
+export type ReceiptInput = {
+  name: string;
+  email: string;
+  grade: string;
+  subjects: string[];
+  startMonth: string;
+  months: number;
   method: PaymentMethod;
   paidOn: string;
   note: string | null;
-  adminId: string;
-}): Promise<Result & { paymentId?: string }> {
-  if (input.amountSen <= 0) return { error: "Enter an amount above zero." };
+};
 
-  // The receipt number is the next in one running sequence. Two admins saving
-  // at the same moment could pick the same one; the unique index refuses the
-  // second, which then simply takes the number after.
+/**
+ * Checks a receipt and prices it from the price table - never from an amount
+ * sent by the browser. Shared by the preview and by the save, so what the
+ * admin checked is what gets saved.
+ */
+export async function priceReceipt(input: ReceiptInput): Promise<{ error: string } | { data: ReceiptData }> {
+  const name = input.name.trim();
+  const email = input.email.trim().toLowerCase();
+  if (!name) return { error: "Enter the student's name." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address." };
+  if (!planFor(input.grade)) return { error: "Choose the student's grade." };
+  if (!isMonthKey(input.startMonth)) return { error: "Choose the first month this pays for." };
+  const subjects = [...new Set(input.subjects)].sort();
+  if (subjects.length && (await prisma.subject.count({ where: { name: { in: subjects } } })) !== subjects.length) {
+    return { error: "Choose valid subjects." };
+  }
+  const price = quote(input.grade, subjects.length, input.months);
+  if ("error" in price) return { error: price.error };
+  return {
+    data: {
+      receiptNo: null,
+      name,
+      email,
+      grade: input.grade,
+      subjects,
+      startMonth: input.startMonth,
+      months: input.months,
+      normalSen: price.normalSen,
+      amountSen: price.amountSen,
+      priceNote: price.priceNote,
+      method: input.method,
+      paidOn: input.paidOn,
+      note: input.note,
+    },
+  };
+}
+
+/**
+ * Saves the receipt under the next number, then emails it. Saved first, so an
+ * email that fails leaves a receipt to send again rather than a payment with
+ * no record.
+ */
+export async function createReceipt(
+  input: ReceiptInput,
+  adminId: string
+): Promise<{ error: string } | { receiptId: string; sent: boolean }> {
+  const priced = await priceReceipt(input);
+  if ("error" in priced) return priced;
+  const d = priced.data;
+
+  // One running sequence. Two admins saving at the same moment could pick the
+  // same number; the unique index refuses the second, which takes the next.
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const payment = await prisma.$transaction(async (tx) => {
-        const bill = await tx.feeBill.findUnique({
-          where: { id: input.billId },
-          include: { payments: { where: { voidedAt: null }, select: { amountSen: true } } },
-        });
-        if (!bill) throw new FeeRefused("Bill not found.");
-        const balance = billTotal(bill) - bill.payments.reduce((s, p) => s + p.amountSen, 0);
-        if (balance <= 0) throw new FeeRefused("This bill is already fully paid.");
-        if (input.amountSen > balance) {
-          throw new FeeRefused(`That is more than the RM${(balance / 100).toFixed(2)} still owed on this bill.`);
-        }
-        const n = (await tx.feePayment.count()) + 1 + attempt;
-        return tx.feePayment.create({
+      const row = await prisma.$transaction(async (tx) => {
+        const n = (await tx.feeReceipt.count()) + 1 + attempt;
+        return tx.feeReceipt.create({
           data: {
-            billId: bill.id,
-            studentId: bill.studentId,
-            amountSen: input.amountSen,
-            method: input.method,
-            paidOn: input.paidOn,
+            name: d.name,
+            email: d.email,
+            grade: d.grade,
+            subjects: JSON.stringify(d.subjects),
+            startMonth: d.startMonth,
+            months: d.months,
+            normalSen: d.normalSen,
+            amountSen: d.amountSen,
+            priceNote: d.priceNote,
+            method: d.method,
+            paidOn: d.paidOn,
+            note: d.note,
             receiptNo: `YH-${String(n).padStart(5, "0")}`,
-            note: input.note,
-            recordedById: input.adminId,
+            createdById: adminId,
           },
         });
       });
-      return { success: `Payment recorded - receipt ${payment.receiptNo}.`, paymentId: payment.id };
+      const sent = await sendReceipt(row.id);
+      return { receiptId: row.id, sent: !sent.error };
     } catch (e) {
-      if (e instanceof FeeRefused) return { error: e.message };
       if (isUniqueConflict(e) && attempt < 2) continue;
       throw e;
     }
   }
-  return { error: "Could not save the payment. Try again." };
+  return { error: "Could not save the receipt. Try again." };
 }
 
-export async function voidPayment(paymentId: string, reason: string, adminId: string): Promise<Result> {
+/** Emails a saved receipt to its address, with a blind copy to the centre. */
+export async function sendReceipt(id: string): Promise<Result> {
+  const receipt = await getReceipt(id);
+  if (!receipt) return { error: "Receipt not found." };
+  if (receipt.voidedAt) return { error: "This receipt is void, so it is not sent." };
+  try {
+    await sendMail({
+      to: receipt.email,
+      bcc: RECEIPT_COPY_TO,
+      subject: receiptSubject(receipt),
+      html: receiptEmailHtml(receipt),
+      text: receiptEmailText(receipt),
+    });
+  } catch (e) {
+    const message = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+    await prisma.feeReceipt.update({ where: { id }, data: { sendError: message } });
+    return { error: `The receipt is saved, but the email did not go: ${message}` };
+  }
+  await prisma.feeReceipt.update({ where: { id }, data: { sentAt: new Date(), sendError: null } });
+  return { success: `Sent to ${receipt.email}, with a copy to ${RECEIPT_COPY_TO}.` };
+}
+
+export async function voidReceipt(id: string, reason: string, adminId: string): Promise<Result> {
   const trimmed = reason.trim();
-  if (!trimmed) return { error: "Give a reason for voiding the payment." };
+  if (!trimmed) return { error: "Give a reason for voiding the receipt." };
   if (trimmed.length > 300) return { error: "Keep the reason under 300 characters." };
-  const { count } = await prisma.feePayment.updateMany({
-    where: { id: paymentId, voidedAt: null },
+  const { count } = await prisma.feeReceipt.updateMany({
+    where: { id, voidedAt: null },
     data: { voidedAt: new Date(), voidReason: trimmed, voidedById: adminId },
   });
-  return count ? { success: "Payment voided." } : { error: "That payment is already voided." };
+  return count ? { success: "Receipt voided." } : { error: "That receipt is already void." };
 }

@@ -49,10 +49,6 @@ model Subject {
   name      String   @unique
   createdAt DateTime @default(now())
 
-  // The monthly tuition fee for this subject, in sen (RM1 = 100), as set on
-  // YH-ideal-payment. Null until set; a subject without a fee is left off
-  // the bill.
-  monthlyFeeSen Int?
 }
 
 model User {
@@ -673,72 +669,51 @@ model LiveAnswer {
 }
 
 // ---------------------------------------------------------------------------
-// YH-ideal-payment: tuition fees. Served at its own address by src/proxy.ts,
-// admin only. Money is held in sen (RM1 = 100) so sums are exact.
+// YH-ideal-payment: tuition fee receipts. Served at its own address by
+// src/proxy.ts, admin only. Money is held in sen (RM1 = 100) so sums are exact.
 //
-// Student ids here are plain columns, not relations, with the name kept
-// alongside - like AnswerReset. A fee record has to outlive the account: a
-// student who leaves, or is deleted, must not take the receipts with them.
+// A receipt stands on its own - a name and an email typed by the admin, not a
+// portal account - and is emailed to that address once the admin has checked
+// it. The price depends on the grade and how many subjects are taken, with a
+// promotional price for paying several months at once: src/lib/fee-plans.ts.
 // ---------------------------------------------------------------------------
 
-// A student's own fee for one subject, where it differs from the subject's
-// usual fee - a sibling discount, say. Kept apart from StudentSubject because
-// saving a student's details deletes and recreates those rows.
-model StudentFeeRate {
-  id            String   @id @default(cuid())
-  studentId     String
-  subject       String
-  monthlyFeeSen Int
-  note          String?
-  updatedAt     DateTime @updatedAt
+model FeeReceipt {
+  id        String @id @default(cuid())
+  receiptNo String @unique
 
-  @@unique([studentId, subject])
-}
+  name     String
+  email    String
+  grade    String
+  subjects String // JSON array of subject names, as ticked
 
-// What one student owes for one month, one line per subject, snapshotted when
-// the bill is made - a fee changed later does not rewrite past bills.
-model FeeBill {
-  id          String @id @default(cuid())
-  studentId   String
-  studentName String
-  grade       String?
-  month       String // "2026-10", Malaysia time
+  startMonth String // "2026-10", the first month paid for
+  months     Int
 
-  lines         String // JSON: [{ subject, amountSen }]
-  // Added to the lines' total, usually negative: a discount or a correction.
-  adjustmentSen Int     @default(0)
-  note          String?
+  // What it would have cost month by month, and what was charged after any
+  // promotion - both kept so the receipt can show the saving.
+  normalSen Int
+  amountSen Int
+  priceNote String?
+
+  method String // CASH | TRANSFER | OTHER
+  paidOn String // "2026-10-18", the day the money was received
+  note   String?
 
   createdAt   DateTime @default(now())
   createdById String
 
-  payments FeePayment[]
+  // The email: when it went, and why it did not if it failed. A receipt is
+  // saved before it is sent, so a failed email can simply be sent again.
+  sentAt    DateTime?
+  sendError String?
 
-  @@unique([studentId, month])
-  @@index([month])
-}
-
-model FeePayment {
-  id        String  @id @default(cuid())
-  bill      FeeBill @relation(fields: [billId], references: [id], onDelete: Restrict)
-  billId    String
-  studentId String
-
-  amountSen Int
-  method    String // CASH | TRANSFER | OTHER
-  paidOn    String // "2026-10-18", the day the money was received
-  receiptNo String  @unique
-  note      String?
-
-  createdAt    DateTime @default(now())
-  recordedById String
-
-  // A payment entered by mistake is voided, never deleted: the receipt
-  // number stays used and the record shows who voided it and why.
+  // A receipt made by mistake is voided, never deleted: its number stays used
+  // and the record shows who voided it and why.
   voidedAt   DateTime?
   voidReason String?
   voidedById String?
 
-  @@index([billId])
-  @@index([studentId])
+  @@index([createdAt])
+  @@index([email])
 }

@@ -91,38 +91,28 @@ export function monthLabel(month: string): string {
   });
 }
 
-// ---- bills ------------------------------------------------------------------
+// ---- periods ----------------------------------------------------------------
 
-export type BillLine = { subject: string; amountSen: number };
+/** The last month a payment covers: 3 months from "2026-11" ends "2027-01". */
+export function endMonth(startMonth: string, months: number): string {
+  return shiftMonth(startMonth, months - 1);
+}
 
-export function parseLines(json: string): BillLine[] {
+/** "October 2026", or "October 2026 - December 2026" for a run. */
+export function periodLabel(startMonth: string, months: number): string {
+  return months === 1 ? monthLabel(startMonth) : `${monthLabel(startMonth)} - ${monthLabel(endMonth(startMonth, months))}`;
+}
+
+/** Whether a payment's run of months includes `month`. Month keys sort as strings. */
+export function covers(p: { startMonth: string; months: number }, month: string): boolean {
+  return p.startMonth <= month && month <= endMonth(p.startMonth, p.months);
+}
+
+export function parseSubjects(json: string): string[] {
   try {
     const v = JSON.parse(json);
-    return Array.isArray(v) ? v : [];
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
   } catch {
     return [];
   }
 }
-
-export function billTotal(bill: { lines: string; adjustmentSen: number }): number {
-  return parseLines(bill.lines).reduce((sum, l) => sum + l.amountSen, 0) + bill.adjustmentSen;
-}
-
-export type BillStatus = "PAID" | "PARTIAL" | "UNPAID";
-
-export function billStatus(totalSen: number, paidSen: number): BillStatus {
-  if (paidSen >= totalSen) return "PAID";
-  return paidSen > 0 ? "PARTIAL" : "UNPAID";
-}
-
-export const STATUS_LABEL: Record<BillStatus, string> = {
-  PAID: "Paid",
-  PARTIAL: "Part paid",
-  UNPAID: "Unpaid",
-};
-
-export const STATUS_STYLE: Record<BillStatus, string> = {
-  PAID: "bg-emerald-100 text-emerald-800",
-  PARTIAL: "bg-amber-100 text-amber-800",
-  UNPAID: "bg-rose-100 text-rose-700",
-};

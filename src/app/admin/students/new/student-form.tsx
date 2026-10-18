@@ -96,19 +96,11 @@ export function StudentForm({
         </div>
         <div className="flex-1">
           <span className="mb-1 block text-sm font-medium">Subjects</span>
-          <div className="flex flex-col gap-1 rounded-md border border-gray-300 px-3 py-2">
-            {subjects.map((s) => (
-              <label key={s} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="subjects"
-                  value={s}
-                  defaultChecked={initial?.subjects.includes(s)}
-                />
-                {s}
-              </label>
-            ))}
-          </div>
+          {/* Subjects decide the fee, so they are set on YH-ideal-payment. */}
+          <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+            {initial?.subjects.length ? `${initial.subjects.join(", ")}. ` : ""}
+            Subjects are set in YH Ideal Payment.
+          </p>
         </div>
       </div>
       <button

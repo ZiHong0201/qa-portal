@@ -7,13 +7,14 @@ import { PAYMENT_SITE_NAME, portalHref } from "@/lib/fees";
 
 export const metadata: Metadata = {
   title: PAYMENT_SITE_NAME,
-  description: "Tuition fee records",
+  description: "Tuition fee receipts",
 };
 
 const NAV = [
-  { href: "/payment", label: "Monthly bills" },
+  { href: "/payment", label: "Receipts" },
+  { href: "/payment/receipts/new", label: "New receipt" },
   { href: "/payment/students", label: "Students" },
-  { href: "/payment/fees", label: "Fees" },
+  { href: "/payment/prices", label: "Prices" },
 ];
 
 /**
