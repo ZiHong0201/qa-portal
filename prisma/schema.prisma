@@ -243,6 +243,8 @@ model Redemption {
   rejectedById    String?
 
   @@index([deliveredAt])
+  // Every page a student opens sums their exchanges for the balance.
+  @@index([studentId])
 }
 
 // A manual admin credit/deduction to a student's points balance, outside of
@@ -258,6 +260,9 @@ model PointAdjustment {
 
   createdBy   User   @relation("PointAdjustmentCreator", fields: [createdById], references: [id])
   createdById String
+
+  // Summed for the balance on every page a student opens.
+  @@index([studentId])
 }
 
 model QuestionSet {
@@ -378,6 +383,10 @@ model Submission {
 
   // a student may only answer a given question once
   @@unique([questionId, studentId])
+  // The unique index above starts with questionId, so it cannot find one
+  // student's answers; without this, the balance shown on every student page
+  // read the whole Submission table. Turso bills each row read.
+  @@index([studentId])
 }
 
 // ---------------------------------------------------------------------------
