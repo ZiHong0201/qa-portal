@@ -8,6 +8,13 @@ import { CatWink } from "@/components/cat-wink";
 import { SetCompleteCelebration } from "@/components/set-complete-celebration";
 import { useQuestionHint } from "@/components/question-hint-context";
 import type { SubmitAnswerState } from "@/lib/actions/submissions";
+import { setQuestionLanguage } from "@/lib/actions/language";
+import {
+  LANGUAGE_LABELS,
+  pickBody,
+  pickChoice,
+  type QuestionLanguage,
+} from "@/lib/bilingual";
 
 export type FlashcardChoice = { id: string; text: string };
 
@@ -116,8 +123,52 @@ const STATUS_TEXT_COLOR: Record<string, string> = {
   REJECTED: "text-rose-700",
 };
 
-export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] }) {
+/**
+ * BM / English / Both, for a set written in both. Switching is instant - the
+ * card is re-read from the bilingual text already on the page - and the
+ * choice is saved to the account in the background for next time.
+ */
+function LanguageSwitch({
+  value,
+  onChange,
+}: {
+  value: QuestionLanguage;
+  onChange: (lang: QuestionLanguage) => void;
+}) {
+  return (
+    <div role="group" aria-label="Question language" className="inline-flex rounded-full bg-sky-50 p-0.5 text-xs">
+      {(["ms", "en", "both"] as const).map((lang) => (
+        <button
+          key={lang}
+          type="button"
+          aria-pressed={value === lang}
+          onClick={() => onChange(lang)}
+          className={`rounded-full px-2.5 py-0.5 font-semibold ${
+            value === lang ? "bg-sky-600 text-white" : "text-sky-700 hover:bg-sky-100"
+          }`}
+        >
+          {LANGUAGE_LABELS[lang]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function FlashcardDeck({
+  questions,
+  bilingual = false,
+  initialLanguage = "both",
+}: {
+  questions: FlashcardQuestion[];
+  bilingual?: boolean;
+  initialLanguage?: QuestionLanguage;
+}) {
   const [cards, setCards] = useState(questions);
+  const [language, setLanguage] = useState<QuestionLanguage>(bilingual ? initialLanguage : "both");
+  const chooseLanguage = (lang: QuestionLanguage) => {
+    setLanguage(lang);
+    void setQuestionLanguage(lang);
+  };
   const [index, setIndex] = useState(() => {
     const firstUnanswered = questions.findIndex((q) => !q.submission);
     return firstUnanswered === -1 ? 0 : firstUnanswered;
@@ -138,6 +189,14 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
   const safeIndex = Math.min(index, total - 1);
   const q = cards[safeIndex];
   const submission = q.submission;
+  // The card as read in the chosen language. Ids are untouched, so answering
+  // in English submits exactly what answering in BM would.
+  const view = {
+    body: pickBody(q.body, language),
+    choices: q.choices.map((c) => ({ ...c, text: pickChoice(c.text, language) })),
+    correctAnswerText: q.correctAnswerText && pickChoice(q.correctAnswerText, language),
+    explanation: q.explanation && pickBody(q.explanation, language),
+  };
 
   const { setHint } = useQuestionHint();
   useEffect(() => {
@@ -233,13 +292,14 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
           leaving ? "opacity-0" : "animate-card-enter opacity-100"
         }`}
       >
-        <div className="mb-3 flex items-center justify-between">
-          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
             Card {safeIndex + 1} of {total} · {q.points} marks
           </span>
+          {bilingual && <LanguageSwitch value={language} onChange={chooseLanguage} />}
         </div>
 
-        <p className="mb-3 whitespace-pre-wrap font-medium text-gray-900">{q.body}</p>
+        <p className="mb-3 whitespace-pre-wrap font-medium text-gray-900">{view.body}</p>
         {q.diagramUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -263,9 +323,9 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
               <div className="mt-2 border-t border-sky-200 pt-2 text-sm text-sky-900/80">
                 <p>
                   <span className="font-medium text-sky-950">Correct answer:</span>{" "}
-                  {q.correctAnswerText ?? "—"}
+                  {view.correctAnswerText ?? "—"}
                 </p>
-                {q.explanation && <p className="mt-1">{q.explanation}</p>}
+                {view.explanation && <p className="mt-1">{view.explanation}</p>}
                 {!isCorrect(submission.status) && safeIndex < total - 1 && (
                   <p className="mt-2 text-xs font-medium text-sky-600">
                     Take your time reading this — press Next when you&apos;re ready.
@@ -278,7 +338,7 @@ export function FlashcardDeck({ questions }: { questions: FlashcardQuestion[] })
           <AnswerForm
             questionId={q.id}
             type={q.type}
-            choices={q.choices}
+            choices={view.choices}
             onSubmitted={(result) => handleSubmitted(q.id, result)}
             onPendingChange={setSubmitting}
           />

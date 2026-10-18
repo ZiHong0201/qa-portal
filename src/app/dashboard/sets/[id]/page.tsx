@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { isQuestionLanguage } from "@/lib/bilingual";
 import { FlashcardDeck, type FlashcardQuestion } from "./flashcard-deck";
 
 export default async function StudentSetPage({
@@ -15,7 +16,7 @@ export default async function StudentSetPage({
 
   const student = await prisma.user.findUnique({
     where: { id: userId },
-    select: { grade: true, subjects: { select: { subject: true } } },
+    select: { grade: true, questionLanguage: true, subjects: { select: { subject: true } } },
   });
   const subjectNames = student?.subjects.map((s) => s.subject) ?? [];
 
@@ -98,7 +99,13 @@ export default async function StudentSetPage({
       )}
 
       {cards.length > 0 ? (
-        <FlashcardDeck questions={cards} />
+        <FlashcardDeck
+          questions={cards}
+          bilingual={set.bilingual}
+          initialLanguage={
+            isQuestionLanguage(student.questionLanguage) ? student.questionLanguage : "both"
+          }
+        />
       ) : (
         <p className="text-sky-700/70">No questions in this set yet.</p>
       )}

@@ -48,6 +48,7 @@ export async function createQuestionSet(
     subject: formData.get("subject"),
     simulationUrl: formData.get("simulationUrl") || undefined,
   });
+  const bilingual = formData.get("bilingual") === "on";
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
@@ -61,6 +62,7 @@ export async function createQuestionSet(
       description: parsed.data.description || null,
       subject: parsed.data.subject,
       simulationUrl: parsed.data.simulationUrl || null,
+      bilingual,
       createdById: session.user.id,
       grades: { create: parsed.data.grades.map((grade) => ({ grade })) },
     },
@@ -84,6 +86,7 @@ export async function updateQuestionSet(
     subject: formData.get("subject"),
     simulationUrl: formData.get("simulationUrl") || undefined,
   });
+  const bilingual = formData.get("bilingual") === "on";
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
@@ -99,6 +102,7 @@ export async function updateQuestionSet(
         description: parsed.data.description || null,
         subject: parsed.data.subject,
         simulationUrl: parsed.data.simulationUrl || null,
+        bilingual,
       },
     }),
     prisma.questionSetGrade.deleteMany({ where: { questionSetId: setId } }),

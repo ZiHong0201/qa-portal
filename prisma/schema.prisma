@@ -74,6 +74,11 @@ model User {
   suspensionReason String?
   suspendedById    String?
 
+  // Which language a student reads bilingual question sets in: "ms", "en",
+  // or null for both side by side, as printed. Chosen on the set page and
+  // kept on the account so it follows them to another device.
+  questionLanguage String?
+
   createdQuestionSets QuestionSet[] @relation("QuestionSetCreator")
   createdQuestions    Question[]    @relation("QuestionCreator")
   submissions         Submission[]  @relation("SubmissionStudent")
@@ -280,6 +285,10 @@ model QuestionSet {
 
   questions Question[]
   grades    QuestionSetGrade[] // a set can be shared across multiple grades
+
+  // Written Malay first, then English (see src/lib/bilingual.ts). Students
+  // can then read it in either language, or both.
+  bilingual Boolean @default(false)
 }
 
 // A grade (by name, matching Grade master data) a question set is visible

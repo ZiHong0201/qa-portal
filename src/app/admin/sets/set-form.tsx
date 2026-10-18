@@ -18,6 +18,7 @@ export function SetForm({
     grades: string[];
     subject: string;
     simulationUrl: string | null;
+    bilingual: boolean;
   };
   grades: string[];
   subjects: string[];
@@ -128,6 +129,22 @@ export function SetForm({
           this topic. Must be an https:// link.
         </p>
       </div>
+      <label className="flex gap-2 rounded-md border border-gray-300 px-3 py-2">
+        <input
+          type="checkbox"
+          name="bilingual"
+          defaultChecked={initial?.bilingual ?? false}
+          className="mt-1"
+        />
+        <span>
+          <span className="block text-sm font-medium">Bilingual (BM / English)</span>
+          <span className="block text-xs text-gray-600">
+            Questions are written Malay first, then English: each paragraph as a Malay line
+            followed by its English line, each option as &ldquo;Malay / English&rdquo;. Students
+            get a switch to read the set in BM, English or both.
+          </span>
+        </span>
+      </label>
       <button
         type="submit"
         disabled={pending}

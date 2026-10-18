@@ -34,6 +34,7 @@ export default async function EditQuestionSetPage({
           grades: set.grades.map((g) => g.grade),
           subject: set.subject,
           simulationUrl: set.simulationUrl,
+          bilingual: set.bilingual,
         }}
       />
     </div>
