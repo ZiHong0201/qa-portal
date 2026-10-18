@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { quote } from "@/lib/fee-plans";
-import { rm } from "@/lib/fees";
 
 export default async function PaymentStudentsPage({
   searchParams,
@@ -36,7 +34,7 @@ export default async function PaymentStudentsPage({
         <div>
           <h1 className="text-2xl font-bold text-stone-900">Students</h1>
           <p className="text-sm text-gray-600">
-            Exercise portal accounts. The subjects ticked here are the ones each student sees on the portal.
+            Exercise portal accounts. Their portal subjects are changed on the portal; a receipt has its own.
           </p>
         </div>
         <Link
@@ -76,14 +74,12 @@ export default async function PaymentStudentsPage({
             <tr>
               <th className="px-3 py-2">Student</th>
               <th className="px-3 py-2">Grade</th>
-              <th className="px-3 py-2">Subjects</th>
-              <th className="px-3 py-2 text-right">Monthly fee</th>
+              <th className="px-3 py-2">Portal subjects</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((s) => {
               const subjects = s.subjects.map((x) => x.subject);
-              const price = quote(s.grade, subjects.length, 1);
               return (
                 <tr key={s.id} className="hover:bg-stone-50">
                   <td className="px-3 py-2">
@@ -97,23 +93,12 @@ export default async function PaymentStudentsPage({
                   </td>
                   <td className="px-3 py-2 text-gray-600">{s.grade ?? "—"}</td>
                   <td className="px-3 py-2 text-gray-600">{subjects.join(", ") || "—"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {subjects.length === 0 ? (
-                      <span className="text-gray-400">—</span>
-                    ) : "error" in price ? (
-                      <span className="text-xs text-amber-700" title={price.error}>
-                        too many subjects
-                      </span>
-                    ) : (
-                      rm(price.monthlySen)
-                    )}
-                  </td>
                 </tr>
               );
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-4 text-gray-500">
+                <td colSpan={3} className="px-3 py-4 text-gray-500">
                   No students match.
                 </td>
               </tr>

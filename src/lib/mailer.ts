@@ -45,7 +45,16 @@ export function setTransportForTests(t: Transporter | null) {
   transport = t;
 }
 
-export async function sendMail(mail: { to: string; bcc?: string; subject: string; html: string; text: string }) {
+export type MailAttachment = { filename: string; content: Buffer; cid?: string };
+
+export async function sendMail(mail: {
+  to: string;
+  bcc?: string;
+  subject: string;
+  html: string;
+  text: string;
+  attachments?: MailAttachment[];
+}) {
   if (!transport && !mailConfigured()) {
     throw new Error("Email is not set up yet: GMAIL_USER and GMAIL_APP_PASSWORD are missing on the server.");
   }

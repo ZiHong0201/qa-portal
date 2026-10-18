@@ -4,7 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { planFor, quote } from "@/lib/fee-plans";
 import { type PaymentMethod, isMonthKey, parseSubjects } from "@/lib/fees";
 import { RECEIPT_COPY_TO, sendMail } from "@/lib/mailer";
-import { type ReceiptData, receiptEmailHtml, receiptEmailText, receiptSubject } from "@/lib/receipt";
+import {
+  RECEIPT_LOGO_CID,
+  type ReceiptData,
+  receiptEmailHtml,
+  receiptEmailText,
+  receiptSubject,
+} from "@/lib/receipt";
+import { RECEIPT_LOGO_PNG_BASE64 } from "@/lib/receipt-logo";
 
 export type Result = { error?: string; success?: string };
 
@@ -78,32 +85,13 @@ export async function deleteStudentAccount(studentId: string): Promise<Result> {
 }
 
 /**
- * Grade and subjects together, as they decide both the price and which
- * question sets the student sees on the portal. Subjects are changed by
- * difference rather than delete-and-recreate, so untouched ones keep their rows.
+ * The grade alone. A student's subjects on the portal are set on the portal;
+ * the subjects on a receipt are ticked on the receipt - the two are separate.
  */
-export async function setGradeAndSubjects(studentId: string, grade: string, subjects: string[]): Promise<Result> {
-  const invalid = await checkGradeAndSubjects(grade, subjects);
-  if (invalid) return { error: invalid };
-  const student = await prisma.user.findFirst({
-    where: { id: studentId, role: "STUDENT" },
-    select: { subjects: { select: { subject: true } } },
-  });
-  if (!student) return { error: "Student not found." };
-  await prisma.$transaction(enrolmentWrites(studentId, grade, student.subjects.map((s) => s.subject), subjects));
-  return { success: "Saved." };
-}
-
-function enrolmentWrites(studentId: string, grade: string, current: string[], wanted: string[]) {
-  const keep = new Set(wanted);
-  const have = new Set(current);
-  return [
-    prisma.user.update({ where: { id: studentId }, data: { grade } }),
-    prisma.studentSubject.deleteMany({ where: { studentId, subject: { notIn: [...keep] } } }),
-    prisma.studentSubject.createMany({
-      data: [...keep].filter((s) => !have.has(s)).map((subject) => ({ studentId, subject })),
-    }),
-  ];
+export async function setGrade(studentId: string, grade: string): Promise<Result> {
+  if (!(await prisma.grade.findUnique({ where: { name: grade } }))) return { error: "Choose a valid grade." };
+  const { count } = await prisma.user.updateMany({ where: { id: studentId, role: "STUDENT" }, data: { grade } });
+  return count ? { success: "Saved." } : { error: "Student not found." };
 }
 
 // ---- receipts ---------------------------------------------------------------
@@ -243,6 +231,11 @@ export async function sendReceipt(id: string): Promise<Result> {
       subject: receiptSubject(receipt),
       html: receiptEmailHtml(receipt),
       text: receiptEmailText(receipt),
+      // Inside the message rather than linked, so it shows even where a mail
+      // app holds back pictures from the web.
+      attachments: [
+        { filename: "logo.png", content: Buffer.from(RECEIPT_LOGO_PNG_BASE64, "base64"), cid: RECEIPT_LOGO_CID },
+      ],
     });
   } catch (e) {
     const message = (e instanceof Error ? e.message : String(e)).slice(0, 500);

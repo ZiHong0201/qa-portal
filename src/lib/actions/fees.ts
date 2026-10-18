@@ -14,7 +14,7 @@ import {
   deleteStudentAccount,
   priceReceipt,
   sendReceipt,
-  setGradeAndSubjects,
+  setGrade,
   voidReceipt,
 } from "@/lib/fees.server";
 
@@ -53,9 +53,9 @@ export async function removeStudent(studentId: string): Promise<Result> {
   redirect("/payment/students?deleted=1");
 }
 
-export async function saveGradeAndSubjects(studentId: string, _prev: Result, formData: FormData): Promise<Result> {
+export async function saveGrade(studentId: string, _prev: Result, formData: FormData): Promise<Result> {
   await requireAdmin();
-  const r = await setGradeAndSubjects(studentId, text(formData.get("grade")), subjectsOf(formData));
+  const r = await setGrade(studentId, text(formData.get("grade")));
   refresh();
   return r;
 }

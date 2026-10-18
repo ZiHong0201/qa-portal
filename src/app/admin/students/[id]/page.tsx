@@ -357,8 +357,8 @@ function StatCard({
 }
 
 /**
- * Subjects and fees now live on YH-ideal-payment: this says what was last
- * paid and leads across to where both are changed.
+ * Fees live on YH-ideal-payment: this says what was last paid, by receipts
+ * sent to the student's email, and leads across to their page there.
  */
 function TuitionFees({
   studentId,
@@ -370,7 +370,7 @@ function TuitionFees({
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-teal-200 bg-teal-50/60 px-4 py-3">
       <div>
-        <p className="text-sm font-medium text-teal-900">Subjects and tuition fees</p>
+        <p className="text-sm font-medium text-teal-900">Tuition fees</p>
         <p className="text-sm text-gray-700">
           {latest
             ? `Last receipt ${latest.receiptNo}: ${rm(latest.amountSen)} for ${periodLabel(latest.startMonth, latest.months)}`

@@ -1,7 +1,5 @@
 "use client";
 
-import { quote } from "@/lib/fee-plans";
-import { rm } from "@/lib/fees";
 import type { Result } from "@/lib/fees.server";
 
 export const input = "rounded-md border border-gray-300 px-2.5 py-1.5 text-sm";
@@ -63,16 +61,5 @@ export function GradeSelect({
         </option>
       ))}
     </select>
-  );
-}
-
-/** The monthly price for the ticks so far - a guide while choosing. */
-export function MonthlyHint({ grade, count }: { grade: string; count: number }) {
-  if (!grade || count === 0) return null;
-  const q = quote(grade, count, 1);
-  return (
-    <p className={`text-xs ${"error" in q ? "text-red-700" : "text-gray-500"}`}>
-      {"error" in q ? q.error : `${count} subject${count === 1 ? "" : "s"}: ${rm(q.monthlySen)} a month`}
-    </p>
   );
 }

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { periodLabel, portalHref, rm } from "@/lib/fees";
 import { getReceipts } from "@/lib/fees.server";
-import { DeleteStudentButton, GradeSubjectsForm } from "../../student-forms";
+import { DeleteStudentButton, GradeForm } from "../../student-forms";
 
 export default async function PaymentStudentPage({
   params,
@@ -27,19 +27,19 @@ export default async function PaymentStudentPage({
   });
   if (!student) notFound();
 
-  const [grades, subjects, receipts] = await Promise.all([
+  const [grades, receipts] = await Promise.all([
     prisma.grade.findMany({ orderBy: { order: "asc" }, select: { name: true } }),
-    prisma.subject.findMany({ orderBy: { name: "asc" }, select: { name: true } }),
     // Receipts stand apart from accounts; the email is what ties them to a student.
     getReceipts({ email: student.email }, 20),
   ]);
   const enrolled = student.subjects.map((s) => s.subject);
-  const receiptLink = `/payment/receipts/new?${new URLSearchParams([
-    ["name", student.name],
-    ["email", student.email],
-    ["grade", student.grade ?? ""],
-    ...enrolled.map((s) => ["subjects", s]),
-  ])}`;
+  // Name, email and grade carry over; the subjects paid for are ticked on the
+  // receipt itself, apart from what the student studies on the portal.
+  const receiptLink = `/payment/receipts/new?${new URLSearchParams({
+    name: student.name,
+    email: student.email,
+    grade: student.grade ?? "",
+  })}`;
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -74,18 +74,22 @@ export default async function PaymentStudentPage({
         )}
       </div>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-4">
-        <h2 className="mb-1 font-semibold text-stone-900">Grade and subjects</h2>
-        <p className="mb-3 text-xs text-gray-500">
-          These decide which question sets {student.name} sees on the exercise portal, and the fee.
-        </p>
-        <GradeSubjectsForm
-          studentId={student.id}
-          grades={grades.map((g) => g.name)}
-          subjects={subjects.map((s) => s.name)}
-          grade={student.grade ?? ""}
-          enrolled={enrolled}
-        />
+      <section className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4">
+        <div>
+          <h2 className="mb-2 font-semibold text-stone-900">Grade</h2>
+          <GradeForm studentId={student.id} grades={grades.map((g) => g.name)} grade={student.grade ?? ""} />
+        </div>
+        <div>
+          <h2 className="mb-1 font-semibold text-stone-900">Subjects on the exercise portal</h2>
+          <p className="text-sm text-gray-700">{enrolled.join(", ") || "None yet."}</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Changed on the{" "}
+            <a href={portalHref(`/admin/students/${student.id}/edit`)} className="text-teal-700 hover:underline">
+              exercise portal
+            </a>
+            . Separate from the subjects ticked on a receipt.
+          </p>
+        </div>
       </section>
 
       <section>

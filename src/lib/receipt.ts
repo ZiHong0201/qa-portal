@@ -34,6 +34,9 @@ export function receiptSubject(r: ReceiptData): string {
   return `${PAYMENT_SITE_NAME} receipt ${r.receiptNo ?? ""} - ${periodLabel(r.startMonth, r.months)}`.replace("  ", " ");
 }
 
+/** The logo is attached to the email under this id and shown from it. */
+export const RECEIPT_LOGO_CID = "logo@yh-ideal-payment";
+
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -56,9 +59,11 @@ export function receiptEmailHtml(r: ReceiptData): string {
       : "";
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f4;font-family:Arial,Helvetica,sans-serif;font-size:14px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e7e5e4;border-radius:12px">
-<tr><td style="padding:20px 24px;background:#115e59;border-radius:12px 12px 0 0;color:#ffffff">
-  <div style="font-size:20px;font-weight:bold">${esc(PAYMENT_SITE_NAME)}</div>
-  <div style="font-size:13px;opacity:.85">Official receipt</div>
+<tr><td style="padding:18px 24px 14px;border-bottom:4px solid #0f766e">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td><img src="cid:${RECEIPT_LOGO_CID}" alt="赵老师历史讲堂" width="208" height="73" style="display:block;border:0"></td>
+    <td style="text-align:right;vertical-align:middle;color:#115e59;font-size:13px;font-weight:bold;letter-spacing:1px">OFFICIAL RECEIPT</td>
+  </tr></table>
 </td></tr>
 <tr><td style="padding:20px 24px">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px">
@@ -77,7 +82,7 @@ export function receiptEmailHtml(r: ReceiptData): string {
 
 export function receiptEmailText(r: ReceiptData): string {
   const lines = [
-    `${PAYMENT_SITE_NAME} - Official receipt`,
+    `赵老师历史讲堂 - Official receipt (${PAYMENT_SITE_NAME})`,
     `Receipt no.: ${r.receiptNo ?? ""}`,
     `Date paid: ${r.paidOn}`,
     "",

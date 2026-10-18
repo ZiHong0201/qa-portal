@@ -1,17 +1,20 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { addStudent, removeStudent, saveGradeAndSubjects } from "@/lib/actions/fees";
+import { addStudent, removeStudent, saveGrade } from "@/lib/actions/fees";
 import type { Result } from "@/lib/fees.server";
-import { GradeSelect, Message, MonthlyHint, SubjectTicks, button, input } from "./form-parts";
+import { GradeSelect, Message, button, input } from "./form-parts";
 
-export function NewStudentForm({ grades, subjects }: { grades: string[]; subjects: string[] }) {
+/**
+ * A new exercise portal account. No subjects here: which question sets a
+ * student sees is chosen on the portal, apart from what any receipt is for.
+ */
+export function NewStudentForm({ grades }: { grades: string[] }) {
   const [state, action, pending] = useActionState(addStudent, {});
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [grade, setGrade] = useState("");
-  const [chosen, setChosen] = useState<string[]>([]);
   return (
     <form action={action} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1 text-sm font-medium">
@@ -50,11 +53,6 @@ export function NewStudentForm({ grades, subjects }: { grades: string[]; subject
           <GradeSelect grades={grades} value={grade} onChange={setGrade} />
         </div>
       </div>
-      <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">Subjects</span>
-        <SubjectTicks subjects={subjects} chosen={chosen} onChange={setChosen} />
-        <MonthlyHint grade={grade} count={chosen.length} />
-      </div>
       <Message state={state} />
       <button disabled={pending} className={`${button} self-start`}>
         {pending ? "Creating..." : "Create student"}
@@ -63,36 +61,24 @@ export function NewStudentForm({ grades, subjects }: { grades: string[]; subject
   );
 }
 
-export function GradeSubjectsForm({
+export function GradeForm({
   studentId,
   grades,
-  subjects,
   grade: initialGrade,
-  enrolled,
 }: {
   studentId: string;
   grades: string[];
-  subjects: string[];
   grade: string;
-  enrolled: string[];
 }) {
-  const [state, action, pending] = useActionState(saveGradeAndSubjects.bind(null, studentId), {});
+  const [state, action, pending] = useActionState(saveGrade.bind(null, studentId), {});
   const [grade, setGrade] = useState(initialGrade);
-  const [chosen, setChosen] = useState(enrolled);
   return (
-    <form action={action} className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <span className="w-16 text-sm text-gray-600">Grade</span>
-        <GradeSelect grades={grades} value={grade} onChange={setGrade} />
-      </div>
-      <SubjectTicks subjects={subjects} chosen={chosen} onChange={setChosen} />
-      <MonthlyHint grade={grade} count={chosen.length} />
-      <div className="flex flex-wrap items-center gap-3">
-        <button disabled={pending} className={button}>
-          Save grade and subjects
-        </button>
-        <Message state={state} />
-      </div>
+    <form action={action} className="flex flex-wrap items-center gap-3">
+      <GradeSelect grades={grades} value={grade} onChange={setGrade} />
+      <button disabled={pending || grade === initialGrade} className={button}>
+        Save grade
+      </button>
+      <Message state={state} />
     </form>
   );
 }

@@ -1,5 +1,7 @@
-import { PAYMENT_SITE_NAME, rm } from "@/lib/fees";
+import { rm } from "@/lib/fees";
 import { type ReceiptData, receiptRows } from "@/lib/receipt";
+
+export const RECEIPT_LOGO_SRC = "/brand/zhao-history-logo.png";
 
 /**
  * The receipt as shown on screen and printed - the same fields, in the same
@@ -10,9 +12,10 @@ export function ReceiptCard({ receipt, voided }: { receipt: ReceiptData; voided?
   const saving = receipt.normalSen - receipt.amountSen;
   return (
     <div className="overflow-hidden rounded-xl border border-stone-300 bg-white print:rounded-none print:border-0">
-      <div className="bg-teal-800 px-6 py-4 text-white print:bg-white print:px-0 print:text-teal-900">
-        <p className="text-xl font-bold">{PAYMENT_SITE_NAME}</p>
-        <p className="text-sm opacity-85">Official receipt</p>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b-4 border-teal-700 px-6 py-4 print:px-0">
+        {/* eslint-disable-next-line @next/next/no-img-element -- a fixed logo, printed as is */}
+        <img src={RECEIPT_LOGO_SRC} alt="赵老师历史讲堂" width={208} height={73} className="h-auto w-52" />
+        <p className="text-sm font-semibold tracking-wide text-teal-800 uppercase">Official receipt</p>
       </div>
       <div className="px-6 py-5 print:px-0">
         {voided && (

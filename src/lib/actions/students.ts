@@ -14,8 +14,7 @@ const createStudentSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   grade: z.string().trim().min(1, "Select a grade."),
-  // Subjects are set on YH-ideal-payment now; the portal form no longer sends them.
-  subjects: z.array(z.string().trim().min(1)),
+  subjects: z.array(z.string().trim().min(1)).min(1, "Select at least one subject."),
 });
 
 export async function createStudent(
@@ -69,8 +68,7 @@ const updateStudentSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email"),
   password: z.union([z.string().min(8, "Password must be at least 8 characters"), z.literal("")]),
   grade: z.string().trim().min(1, "Select a grade."),
-  // Subjects are set on YH-ideal-payment now; the portal form no longer sends them.
-  subjects: z.array(z.string().trim().min(1)),
+  subjects: z.array(z.string().trim().min(1)).min(1, "Select at least one subject."),
 });
 
 export async function updateStudent(
@@ -105,11 +103,16 @@ export async function updateStudent(
 
   const passwordHash = password ? await bcrypt.hash(password, 10) : undefined;
 
-  // Subjects are left as they are: they are changed on YH-ideal-payment.
-  await prisma.user.updateMany({
-    where: { id: studentId, role: "STUDENT" },
-    data: { name, email, grade, ...(passwordHash ? { passwordHash } : {}) },
-  });
+  await prisma.$transaction([
+    prisma.user.updateMany({
+      where: { id: studentId, role: "STUDENT" },
+      data: { name, email, grade, ...(passwordHash ? { passwordHash } : {}) },
+    }),
+    prisma.studentSubject.deleteMany({ where: { studentId } }),
+    prisma.studentSubject.createMany({
+      data: subjects.map((subject) => ({ studentId, subject })),
+    }),
+  ]);
 
   revalidatePath("/admin/students");
   redirect(`/admin/students/${studentId}`);
@@ -145,6 +148,30 @@ export async function updateStudentGrade(studentId: string, formData: FormData) 
     where: { id: studentId, role: "STUDENT" },
     data: { grade },
   });
+
+  revalidatePath("/admin/students");
+}
+
+export async function updateStudentSubjects(studentId: string, formData: FormData) {
+  await requireStaff();
+
+  const subjects = [...new Set(formData.getAll("subjects").filter((s): s is string => typeof s === "string"))];
+  const validCount = subjects.length
+    ? await prisma.subject.count({ where: { name: { in: subjects } } })
+    : 0;
+  if (subjects.length && validCount !== subjects.length) {
+    throw new Error("Invalid subject.");
+  }
+
+  const student = await prisma.user.findFirst({ where: { id: studentId, role: "STUDENT" } });
+  if (!student) return;
+
+  await prisma.$transaction([
+    prisma.studentSubject.deleteMany({ where: { studentId } }),
+    prisma.studentSubject.createMany({
+      data: subjects.map((subject) => ({ studentId, subject })),
+    }),
+  ]);
 
   revalidatePath("/admin/students");
 }

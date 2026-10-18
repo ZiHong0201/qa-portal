@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { GradeEditor } from "./grade-editor";
+import { SubjectEditor } from "./subject-editor";
 import { getGradeNames } from "@/lib/grades";
 import { getSubjectNames } from "@/lib/subjects";
 import type { Prisma } from "@/generated/prisma/client";
@@ -173,10 +174,11 @@ export default async function AdminStudentsPage({
                   <GradeEditor studentId={s.id} grade={s.grade} grades={grades} />
                 </td>
                 <td className="px-4 py-2">
-                  {/* Changed on YH-ideal-payment, which also sets the fee. */}
-                  <span className="text-sm text-gray-700">
-                    {s.subjects.map((x) => x.subject).join(", ") || "—"}
-                  </span>
+                  <SubjectEditor
+                    studentId={s.id}
+                    studentSubjects={s.subjects.map((x) => x.subject)}
+                    subjects={subjects}
+                  />
                 </td>
                 <td className="px-4 py-2">{balanceByStudent.get(s.id) ?? 0} pts</td>
                 <td className="px-4 py-2 whitespace-nowrap">
