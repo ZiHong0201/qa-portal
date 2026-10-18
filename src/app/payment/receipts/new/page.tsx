@@ -13,7 +13,7 @@ import { ReceiptBuilder } from "../../receipt-forms";
 export default async function NewReceiptPage() {
   const [subjects, plans, extra] = await Promise.all([listFeeSubjects(), loadFeePlans(), loadExtraCharge()]);
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-3xl">
       <Link href="/payment" className="text-sm text-teal-700 hover:underline">
         &larr; Receipts
       </Link>

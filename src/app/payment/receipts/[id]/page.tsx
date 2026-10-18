@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PAYMENT_METHODS, isPaymentMethod } from "@/lib/fees";
 import { getReceipt } from "@/lib/fees.server";
 import { RECEIPT_COPY_TO, mailSettingsCheck } from "@/lib/mailer";
 import { ReceiptCard } from "../../receipt-card";
@@ -27,7 +28,7 @@ export default async function ReceiptPage({
   });
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="mx-auto max-w-3xl">
       <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
         <Link href="/payment" className="text-sm text-teal-700 hover:underline">
           &larr; Receipts
@@ -52,6 +53,12 @@ export default async function ReceiptPage({
           </div>
         </div>
       )}
+
+      {/* Kept off the receipt itself, which follows the centre's template. */}
+      <p className="mb-3 text-sm text-gray-600 print:hidden">
+        Paid by {isPaymentMethod(receipt.method) ? PAYMENT_METHODS[receipt.method] : receipt.method}
+        {receipt.note && <> · Note: {receipt.note}</>}
+      </p>
 
       <ReceiptCard receipt={receipt} voided={receipt.voidedAt ? receipt.voidReason : null} />
 

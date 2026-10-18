@@ -3,14 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { BANDS, type FeePlan, MAX_MONTHS, buildPlans, planFor, quote } from "@/lib/fee-plans";
 import { type PaymentMethod, isMonthKey, parseSubjects } from "@/lib/fees";
 import { RECEIPT_COPY_TO, sendMail } from "@/lib/mailer";
-import {
-  RECEIPT_LOGO_CID,
-  type ReceiptData,
-  receiptEmailHtml,
-  receiptEmailText,
-  receiptSubject,
-} from "@/lib/receipt";
-import { RECEIPT_LOGO_PNG_BASE64 } from "@/lib/receipt-logo";
+import { type ReceiptData, receiptEmailHtml, receiptEmailText, receiptSubject } from "@/lib/receipt";
 
 export type Result = { error?: string; success?: string };
 
@@ -217,12 +210,15 @@ export async function createReceipt(
   if ("error" in priced) return priced;
   const d = priced.data;
 
-  // One running sequence. Two admins saving at the same moment could pick the
-  // same number; the unique index refuses the second, which takes the next.
+  // One running sequence of plain numbers, as on the centre's own receipts,
+  // counting up from RECEIPT_NUMBER_BEFORE_FIRST. The early test receipts were
+  // numbered "YH-00001" and so on, and are left out of the count. Two admins
+  // saving at the same moment could pick the same number; the unique index
+  // refuses the second, which takes the next.
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const row = await prisma.$transaction(async (tx) => {
-        const n = (await tx.feeReceipt.count()) + 1 + attempt;
+        const n = (await lastReceiptNumber(tx)) + 1 + attempt;
         return tx.feeReceipt.create({
           data: {
             name: d.name,
@@ -239,7 +235,7 @@ export async function createReceipt(
             method: d.method,
             paidOn: d.paidOn,
             note: d.note,
-            receiptNo: `YH-${String(n).padStart(5, "0")}`,
+            receiptNo: String(n),
             createdById: adminId,
           },
         });
@@ -254,6 +250,15 @@ export async function createReceipt(
   return { error: "Could not save the receipt. Try again." };
 }
 
+/** The last number given; receipts are numbered from the one after this. */
+export const RECEIPT_NUMBER_BEFORE_FIRST = 0;
+
+async function lastReceiptNumber(tx: Prisma.TransactionClient): Promise<number> {
+  const rows = await tx.$queryRaw<{ n: number | bigint | null }[]>`
+    SELECT MAX(CAST(receiptNo AS INTEGER)) AS n FROM FeeReceipt WHERE receiptNo NOT GLOB '*[^0-9]*'`;
+  return Math.max(RECEIPT_NUMBER_BEFORE_FIRST, Number(rows[0]?.n ?? 0));
+}
+
 /** Emails a saved receipt to its address, with a blind copy to the centre. */
 export async function sendReceipt(id: string): Promise<Result> {
   const receipt = await getReceipt(id);
@@ -266,11 +271,6 @@ export async function sendReceipt(id: string): Promise<Result> {
       subject: receiptSubject(receipt),
       html: receiptEmailHtml(receipt),
       text: receiptEmailText(receipt),
-      // Inside the message rather than linked, so it shows even where a mail
-      // app holds back pictures from the web.
-      attachments: [
-        { filename: "logo.png", content: Buffer.from(RECEIPT_LOGO_PNG_BASE64, "base64"), cid: RECEIPT_LOGO_CID },
-      ],
     });
   } catch (e) {
     const message = (e instanceof Error ? e.message : String(e)).slice(0, 500);
