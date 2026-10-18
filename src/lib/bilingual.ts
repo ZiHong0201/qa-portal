@@ -52,7 +52,9 @@ function pickLine(line: string, lang: "ms" | "en"): string {
 /** A question body or explanation, paragraph by paragraph. */
 export function pickBody(text: string, lang: QuestionLanguage): string {
   if (lang === "both") return text;
+  // A question saved from the admin form comes back with "\r\n" line breaks.
   return text
+    .replace(/\r\n?/g, "\n")
     .split(/\n\s*\n/)
     .map((p) => {
       const lines = p.split("\n");

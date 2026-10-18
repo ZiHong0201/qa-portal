@@ -1,58 +1,77 @@
-// Splits the imported "Science Form 2 — 100 Soalan Objektif" set into one set
-// per chapter, following the paper's own "Bab N" headings.
+// Splits an imported 100-question Science paper into one set per chapter,
+// following the paper's own "Bab N" headings.
 //
 // Questions are moved, not copied: their ids, answers, diagrams and any
 // submissions stay as they are, and live games built from the paper keep
 // working because they snapshot question ids. The original set becomes Bab 1
-// (so nothing is deleted); Bab 2-13 are new sets.
+// (so nothing is deleted); the other chapters are new sets.
 //
 // Students see sets newest first, so the chapter sets are stamped a
 // millisecond apart with Bab 1 newest - the list then reads Bab 1, 2, 3...
 //
-// Run scripts/parse-science-f2.py first; this reads its JSON for the chapter
-// of each question, and checks every question against the database by text
-// before moving anything.
+// Run scripts/parse-science-f<form>.py first; this reads its JSON for the
+// chapter of each question, and checks every question against the database
+// by text before moving anything.
 //
 // Usage:
-//   node scripts/split-science-f2-chapters.mjs <questions.json> --dry-run
-//   node scripts/split-science-f2-chapters.mjs <questions.json>
+//   node scripts/split-science-chapters.mjs <form: 1|2> <questions.json> --dry-run
+//   node scripts/split-science-chapters.mjs <form: 1|2> <questions.json>
 import "dotenv/config";
 import fs from "fs";
 import crypto from "crypto";
 import { createClient } from "@libsql/client";
 
-const [jsonPath] = process.argv.slice(2);
+const [form, jsonPath] = process.argv.slice(2);
 const DRY_RUN = process.argv.includes("--dry-run");
 
-const PAPER = "Sains Tingkatan 2 / Science Form 2 — 100 Soalan Objektif";
-const GRADE = "Form 2";
 const SUBJECT = "Science";
 
-// The paper's chapter headings, verbatim.
-const CHAPTERS = {
-  1: "Biodiversiti / Chapter 1: Biodiversity",
-  2: "Ekosistem / Chapter 2: Ecosystem",
-  3: "Nutrisi / Chapter 3: Nutrition",
-  4: "Kesihatan Manusia / Chapter 4: Human Health",
-  5: "Air dan Larutan / Chapter 5: Water and Solution",
-  6: "Asid dan Alkali / Chapter 6: Acid and Alkali",
-  7: "Keelektrikan dan Kemagnetan / Chapter 7: Electricity and Magnetism",
-  8: "Daya dan Gerakan / Chapter 8: Force and Motion",
-  9: "Haba / Chapter 9: Heat",
-  10: "Gelombang Bunyi / Chapter 10: Sound Waves",
-  11: "Bintang dan Galaksi dalam Alam Semesta / Chapter 11: Stars and Galaxies in the Universe",
-  12: "Sistem Suria / Chapter 12: Solar System",
-  13: "Meteoroid, Asteroid, Komet / Chapter 13: Meteoroids, Asteroids and Comets",
+// Each paper's chapter headings, verbatim.
+const PAPERS = {
+  1: {
+    paper: "Sains Tingkatan 1 / Science Form 1 — 100 Soalan Objektif",
+    chapters: {
+      1: "Pengenalan kepada Penyiasatan Saintifik / Chapter 1: Introduction to Scientific Investigation",
+      2: "Sel sebagai Unit Asas Kehidupan / Chapter 2: Cell as the Basic Unit of Life",
+      3: "Koordinasi dan Gerak Balas / Chapter 3: Coordination and Response",
+      4: "Pembiakan / Chapter 4: Reproduction",
+      5: "Jirim / Chapter 5: Matter",
+      6: "Jadual Berkala / Chapter 6: The Periodic Table",
+      7: "Udara / Chapter 7: Air",
+      8: "Cahaya dan Optik / Chapter 8: Light and Optics",
+      9: "Bumi / Chapter 9: The Earth",
+    },
+  },
+  2: {
+    paper: "Sains Tingkatan 2 / Science Form 2 — 100 Soalan Objektif",
+    chapters: {
+      1: "Biodiversiti / Chapter 1: Biodiversity",
+      2: "Ekosistem / Chapter 2: Ecosystem",
+      3: "Nutrisi / Chapter 3: Nutrition",
+      4: "Kesihatan Manusia / Chapter 4: Human Health",
+      5: "Air dan Larutan / Chapter 5: Water and Solution",
+      6: "Asid dan Alkali / Chapter 6: Acid and Alkali",
+      7: "Keelektrikan dan Kemagnetan / Chapter 7: Electricity and Magnetism",
+      8: "Daya dan Gerakan / Chapter 8: Force and Motion",
+      9: "Haba / Chapter 9: Heat",
+      10: "Gelombang Bunyi / Chapter 10: Sound Waves",
+      11: "Bintang dan Galaksi dalam Alam Semesta / Chapter 11: Stars and Galaxies in the Universe",
+      12: "Sistem Suria / Chapter 12: Solar System",
+      13: "Meteoroid, Asteroid, Komet / Chapter 13: Meteoroids, Asteroids and Comets",
+    },
+  },
 };
+
+if (!PAPERS[form] || !jsonPath) {
+  console.error("Usage: node scripts/split-science-chapters.mjs <form: 1|2> <questions.json> [--dry-run]");
+  process.exit(1);
+}
+const { paper: PAPER, chapters: CHAPTERS } = PAPERS[form];
+const GRADE = `Form ${form}`;
 // Titled like the Sejarah chapter sets ("Bab 1: ..."); students only see
 // their own grade's sets, so the grade is not repeated in the title.
 const titleOf = (n) => `Bab ${n}: ${CHAPTERS[n]}`;
-const DESCRIPTION = "Sains Tingkatan 2, soalan objektif dwibahasa. / Form 2 Science, bilingual objective questions.";
-
-if (!jsonPath) {
-  console.error("Usage: node scripts/split-science-f2-chapters.mjs <questions.json> [--dry-run]");
-  process.exit(1);
-}
+const DESCRIPTION = `Sains Tingkatan ${form}, soalan objektif dwibahasa. / Form ${form} Science, bilingual objective questions.`;
 
 const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
 const bodyOf = (q) =>
