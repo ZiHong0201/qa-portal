@@ -8,6 +8,8 @@ import { ClearAnswersButton } from "./clear-answers-button";
 import { SuspensionPanel } from "./suspension-panel";
 import { auth } from "@/auth";
 import { isAdmin } from "@/lib/permissions";
+import { STATUS_LABEL, STATUS_STYLE, monthLabel, paymentHref, rm } from "@/lib/fees";
+import { getBills } from "@/lib/fees.server";
 
 export default async function AdminStudentDetailPage({
   params,
@@ -61,6 +63,9 @@ export default async function AdminStudentDetailPage({
       take: 20,
     }),
   ]);
+
+  // Fees are the admin's alone; a teacher's view of the student leaves them out.
+  const bills = isAdmin(session) ? await getBills({ studentId: id }) : null;
 
   const setIds = Array.from(new Set(submissions.map((s) => s.question.questionSet.id)));
   const setTotals = await prisma.questionSet.findMany({
@@ -148,6 +153,8 @@ export default async function AdminStudentDetailPage({
             : null
         }
       />
+
+      {bills && <TuitionFees studentId={student.id} bills={bills} />}
 
       <div className="mb-6 grid grid-cols-5 gap-3">
         <StatCard label="Earned" value={balance.earned} />
@@ -344,6 +351,45 @@ function StatCard({
     >
       <p className="text-xs text-gray-500">{label}</p>
       <p className="text-xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+/** What the student owes on YH-ideal-payment, with the way across to it. */
+function TuitionFees({
+  studentId,
+  bills,
+}: {
+  studentId: string;
+  bills: Awaited<ReturnType<typeof getBills>>;
+}) {
+  const owing = bills.reduce((t, b) => t + Math.max(0, b.balanceSen), 0);
+  const latest = bills[0];
+  return (
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-teal-200 bg-teal-50/60 px-4 py-3">
+      <div>
+        <p className="text-sm font-medium text-teal-900">Tuition fees</p>
+        <p className="text-sm text-gray-700">
+          {bills.length === 0 ? (
+            "No bills yet."
+          ) : (
+            <>
+              {owing ? <span className="font-semibold text-rose-700">{rm(owing)} owing</span> : "Nothing owing"}
+              {" · "}
+              {monthLabel(latest.month)}:{" "}
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[latest.status]}`}>
+                {STATUS_LABEL[latest.status]}
+              </span>
+            </>
+          )}
+        </p>
+      </div>
+      <a
+        href={paymentHref(`/payment/students/${studentId}`)}
+        className="rounded-md bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700"
+      >
+        Open in YH Ideal Payment &#8599;
+      </a>
     </div>
   );
 }

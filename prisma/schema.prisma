@@ -48,6 +48,11 @@ model Subject {
   id        String   @id @default(cuid())
   name      String   @unique
   createdAt DateTime @default(now())
+
+  // The monthly tuition fee for this subject, in sen (RM1 = 100), as set on
+  // YH-ideal-payment. Null until set; a subject without a fee is left off
+  // the bill.
+  monthlyFeeSen Int?
 }
 
 model User {
@@ -665,4 +670,75 @@ model LiveAnswer {
   // database, not just hidden by the phone.
   @@unique([participantId, questionIndex])
   @@index([quizId, questionIndex])
+}
+
+// ---------------------------------------------------------------------------
+// YH-ideal-payment: tuition fees. Served at its own address by src/proxy.ts,
+// admin only. Money is held in sen (RM1 = 100) so sums are exact.
+//
+// Student ids here are plain columns, not relations, with the name kept
+// alongside - like AnswerReset. A fee record has to outlive the account: a
+// student who leaves, or is deleted, must not take the receipts with them.
+// ---------------------------------------------------------------------------
+
+// A student's own fee for one subject, where it differs from the subject's
+// usual fee - a sibling discount, say. Kept apart from StudentSubject because
+// saving a student's details deletes and recreates those rows.
+model StudentFeeRate {
+  id            String   @id @default(cuid())
+  studentId     String
+  subject       String
+  monthlyFeeSen Int
+  note          String?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([studentId, subject])
+}
+
+// What one student owes for one month, one line per subject, snapshotted when
+// the bill is made - a fee changed later does not rewrite past bills.
+model FeeBill {
+  id          String @id @default(cuid())
+  studentId   String
+  studentName String
+  grade       String?
+  month       String // "2026-10", Malaysia time
+
+  lines         String // JSON: [{ subject, amountSen }]
+  // Added to the lines' total, usually negative: a discount or a correction.
+  adjustmentSen Int     @default(0)
+  note          String?
+
+  createdAt   DateTime @default(now())
+  createdById String
+
+  payments FeePayment[]
+
+  @@unique([studentId, month])
+  @@index([month])
+}
+
+model FeePayment {
+  id        String  @id @default(cuid())
+  bill      FeeBill @relation(fields: [billId], references: [id], onDelete: Restrict)
+  billId    String
+  studentId String
+
+  amountSen Int
+  method    String // CASH | TRANSFER | OTHER
+  paidOn    String // "2026-10-18", the day the money was received
+  receiptNo String  @unique
+  note      String?
+
+  createdAt    DateTime @default(now())
+  recordedById String
+
+  // A payment entered by mistake is voided, never deleted: the receipt
+  // number stays used and the record shows who voided it and why.
+  voidedAt   DateTime?
+  voidReason String?
+  voidedById String?
+
+  @@index([billId])
+  @@index([studentId])
 }

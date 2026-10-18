@@ -1,4 +1,6 @@
+import { headers } from "next/headers";
 import { LoginForm } from "./login-form";
+import { PAYMENT_SITE_NAME, isPaymentHost } from "@/lib/fees";
 import { InteractiveBackdrop } from "@/components/interactive-background";
 import { BrandAvatar } from "@/components/brand-avatar";
 import { DevDisclaimerNote } from "@/components/dev-disclaimer";
@@ -10,6 +12,8 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const callbackUrl = params.callbackUrl || "/";
+  // The payment site shares this login; it says which site it is signing in to.
+  const onPaymentSite = isPaymentHost((await headers()).get("host"));
 
   return (
     // Pinned to the viewport: h-dvh with overflow-hidden, so there is nothing
@@ -29,10 +33,10 @@ export default async function LoginPage({
             <BrandAvatar size={80} />
           </div>
           <h1 className="mt-2 bg-gradient-to-r from-sky-600 via-indigo-600 to-violet-600 bg-clip-text text-3xl font-bold text-transparent short:mt-0">
-            Mr Tan Exercise Portal
+            {onPaymentSite ? PAYMENT_SITE_NAME : "Mr Tan Exercise Portal"}
           </h1>
           <p className="mt-1 text-sm text-slate-600 short:hidden">
-            Log in to pick up where you left off.
+            {onPaymentSite ? "Admin login, for tuition fees." : "Log in to pick up where you left off."}
           </p>
         </div>
 
