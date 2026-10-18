@@ -28,12 +28,15 @@ export async function sendMail(mail: { to: string; bcc?: string; subject: string
   if (!transport && !mailConfigured()) {
     throw new Error("Email is not set up yet: GMAIL_USER and GMAIL_APP_PASSWORD are missing on the server.");
   }
+  // Google shows an App Password as four groups of four ("abcd efgh ijkl
+  // mnop"), and the spaces tend to come along when it is pasted into Vercel.
+  const user = (process.env.GMAIL_USER ?? "").trim();
   transport ??= nodemailer.createTransport({
     service: "gmail",
-    auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+    auth: { user, pass: (process.env.GMAIL_APP_PASSWORD ?? "").replace(/\s+/g, "") },
   });
   await transport.sendMail({
-    from: { name: PAYMENT_SITE_NAME, address: process.env.GMAIL_USER || "receipts@example.invalid" },
+    from: { name: PAYMENT_SITE_NAME, address: user || "receipts@example.invalid" },
     ...mail,
   });
 }
