@@ -682,19 +682,20 @@ model FeeReceipt {
   id        String @id @default(cuid())
   receiptNo String @unique
 
-  name     String
-  email    String
-  grade    String
-  subjects String // JSON array of subject names, as ticked
+  // Who pays and is billed - usually a parent - and where the receipt goes.
+  name  String
+  email String
 
-  startMonth String // "2026-10", the first month paid for
-  months     Int
+  // The children paid for, one class line each, as JSON:
+  // [{ name, grade, subjects: [..], startMonth: "2026-10", months,
+  //    normalSen, tuitionSen, priceNote }]
+  // normalSen is every month at the monthly price; tuitionSen what was
+  // charged after any promotion. Kept as made, so later price changes leave
+  // the receipt as it was.
+  students String @default("[]")
 
-  // What it would have cost month by month, and what was charged after any
-  // promotion - both kept so the receipt can show the saving.
-  normalSen Int
-  amountSen Int // everything paid: tuition plus any extra charge below
-  priceNote String?
+  normalSen Int // the children's normalSen together
+  amountSen Int // everything paid: tuition, extra charges and tax, less discount
 
   // One-off charges ticked on the receipt - the material fee and so on - as
   // JSON [{ label, amountSen }], with the names and amounts they had then, as

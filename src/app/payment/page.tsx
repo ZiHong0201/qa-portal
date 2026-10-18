@@ -16,7 +16,17 @@ export default async function ReceiptsPage({
   // By the date the money came in, which is the month the receipt belongs to.
   const receipts = await getReceipts({
     paidOn: { startsWith: month },
-    ...(q ? { OR: [{ name: { contains: q } }, { email: { contains: q.toLowerCase() } }, { receiptNo: { contains: q.toUpperCase() } }] } : {}),
+    // A child's name is found inside the receipt's list of children.
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q } },
+            { email: { contains: q.toLowerCase() } },
+            { receiptNo: { contains: q } },
+            { students: { contains: q } },
+          ],
+        }
+      : {}),
   });
   const standing = receipts.filter((r) => !r.voidedAt);
   const received = standing.reduce((t, r) => t + r.amountSen, 0);
@@ -67,7 +77,7 @@ export default async function ReceiptsPage({
         <input
           name="q"
           defaultValue={q}
-          placeholder="Search name, email or receipt no."
+          placeholder="Search parent, child, email or receipt no."
           aria-label="Search receipts"
           className="w-72 max-w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm"
         />
@@ -85,9 +95,8 @@ export default async function ReceiptsPage({
             <tr>
               <th className="px-3 py-2">Receipt</th>
               <th className="px-3 py-2">Paid</th>
-              <th className="px-3 py-2">Student</th>
-              <th className="px-3 py-2">Grade</th>
-              <th className="px-3 py-2">For</th>
+              <th className="px-3 py-2">Bill to</th>
+              <th className="px-3 py-2">Children</th>
               <th className="px-3 py-2 text-right">Amount</th>
               <th className="px-3 py-2">Email</th>
             </tr>
@@ -105,10 +114,16 @@ export default async function ReceiptsPage({
                   <span className="font-medium">{r.name}</span>
                   <span className="block text-xs text-gray-500">{r.email}</span>
                 </td>
-                <td className="px-3 py-2">{r.grade}</td>
                 <td className="px-3 py-2">
-                  {r.subjects.length} subject{r.subjects.length === 1 ? "" : "s"}
-                  <span className="block text-xs text-gray-500">{periodLabel(r.startMonth, r.months)}</span>
+                  {r.students.map((c, i) => (
+                    <span key={i} className="block">
+                      {c.name} <span className="text-xs text-gray-500">({c.grade})</span>
+                      <span className="block text-xs text-gray-500">
+                        {c.subjects.length} subject{c.subjects.length === 1 ? "" : "s"} ·{" "}
+                        {periodLabel(c.startMonth, c.months)}
+                      </span>
+                    </span>
+                  ))}
                 </td>
                 <td className={`px-3 py-2 text-right font-medium tabular-nums ${r.voidedAt ? "line-through" : ""}`}>
                   {rm(r.amountSen)}
@@ -126,7 +141,7 @@ export default async function ReceiptsPage({
             ))}
             {receipts.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-gray-500">
+                <td colSpan={6} className="px-3 py-6 text-center text-gray-500">
                   No receipts {q ? "match" : `for ${monthLabel(month)}`}.{" "}
                   <Link href="/payment/receipts/new" className="text-teal-700 underline">
                     Make one

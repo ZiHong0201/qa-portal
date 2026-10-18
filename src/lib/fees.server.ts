@@ -1,7 +1,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { BANDS, type FeePlan, MAX_MONTHS, MAX_TAX_BP, buildPlans, planFor, quote, taxOn } from "@/lib/fee-plans";
-import { type PaymentMethod, isMonthKey, parseCharges, parseSubjects } from "@/lib/fees";
+import { type PaymentMethod, type StudentLine, isMonthKey, parseCharges, parseStudents } from "@/lib/fees";
 import { RECEIPT_COPY_TO, sendMail } from "@/lib/mailer";
 import { type ReceiptData, receiptEmailHtml, receiptEmailText, receiptSubject } from "@/lib/receipt";
 
@@ -159,7 +159,7 @@ export type ReceiptView = ReceiptData & {
 type ReceiptRow = Awaited<ReturnType<typeof prisma.feeReceipt.findFirstOrThrow>>;
 
 function toView(r: ReceiptRow): ReceiptView {
-  return { ...r, subjects: parseSubjects(r.subjects), extras: parseCharges(r.extras) };
+  return { ...r, students: parseStudents(r.students), extras: parseCharges(r.extras) };
 }
 
 export async function getReceipts(where: Prisma.FeeReceiptWhereInput, take?: number): Promise<ReceiptView[]> {
@@ -172,13 +172,22 @@ export async function getReceipt(id: string): Promise<ReceiptView | null> {
   return row && toView(row);
 }
 
-export type ReceiptInput = {
+/** One child as entered on the form, before pricing. */
+export type StudentInput = {
   name: string;
-  email: string;
   grade: string;
   subjects: string[];
   startMonth: string;
   months: number;
+};
+
+export const MAX_STUDENTS_PER_RECEIPT = 10;
+
+export type ReceiptInput = {
+  /** Who pays and is billed - usually a parent - and where the receipt goes. */
+  name: string;
+  email: string;
+  students: StudentInput[];
   method: PaymentMethod;
   paidOn: string;
   note: string | null;
@@ -194,22 +203,48 @@ export type ReceiptInput = {
 /**
  * Checks a receipt and prices it from the price table - never from an amount
  * sent by the browser. Shared by the preview and by the save, so what the
- * admin checked is what gets saved.
+ * admin checked is what gets saved. Each child is priced on their own - their
+ * grade, how many subjects, how many months - and the extra charges, the
+ * additional discount and tax apply once, to the receipt as a whole.
  */
 export async function priceReceipt(input: ReceiptInput): Promise<{ error: string } | { data: ReceiptData }> {
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
-  if (!name) return { error: "Enter the student's name." };
+  if (!name) return { error: "Enter the parent's (or payer's) name." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address." };
-  const [plans, charges] = await Promise.all([loadFeePlans(), listExtraCharges()]);
-  if (!planFor(plans, input.grade)) return { error: "Choose the student's grade." };
-  if (!isMonthKey(input.startMonth)) return { error: "Choose the first month this pays for." };
-  const subjects = [...new Set(input.subjects)].sort();
-  if (subjects.length && (await prisma.feeSubject.count({ where: { name: { in: subjects } } })) !== subjects.length) {
-    return { error: "One of the subjects is no longer on the list. Untick it and tick again." };
+  if (!Array.isArray(input.students) || input.students.length === 0) return { error: "Add at least one child." };
+  if (input.students.length > MAX_STUDENTS_PER_RECEIPT) {
+    return { error: `A receipt can cover up to ${MAX_STUDENTS_PER_RECEIPT} children.` };
   }
-  const price = quote(plans, input.grade, subjects.length, input.months);
-  if ("error" in price) return { error: price.error };
+  const [plans, charges, known] = await Promise.all([loadFeePlans(), listExtraCharges(), listFeeSubjects()]);
+  const subjectNames = new Set(known.map((k) => k.name));
+
+  const students: StudentLine[] = [];
+  for (const [i, c] of input.students.entries()) {
+    const who = input.students.length > 1 ? `Child ${i + 1}` : "The child";
+    const childName = String(c?.name ?? "").trim();
+    if (!childName) return { error: `${who}: enter their name.` };
+    const label = input.students.length > 1 ? childName : "The child";
+    if (!planFor(plans, c.grade)) return { error: `${label}: choose their grade.` };
+    if (!isMonthKey(c.startMonth)) return { error: `${label}: choose the first month this pays for.` };
+    const subjects = [...new Set((c.subjects ?? []).map(String))].sort();
+    if (subjects.some((x) => !subjectNames.has(x))) {
+      return { error: `${label}: one of the subjects is no longer on the list. Untick it and tick again.` };
+    }
+    const price = quote(plans, c.grade, subjects.length, Number(c.months));
+    if ("error" in price) return { error: `${label}: ${price.error}` };
+    students.push({
+      name: childName,
+      grade: c.grade,
+      subjects,
+      startMonth: c.startMonth,
+      months: Number(c.months),
+      normalSen: price.normalSen,
+      tuitionSen: price.amountSen,
+      priceNote: price.priceNote,
+    });
+  }
+
   const ticked = [...new Set(input.extraIds)];
   const extras = charges.filter((c) => ticked.includes(c.id)).map((c) => ({ label: c.label, amountSen: c.amountSen }));
   if (extras.length !== ticked.length) return { error: "One of the extra charges is no longer on the list. Untick it." };
@@ -217,7 +252,8 @@ export async function priceReceipt(input: ReceiptInput): Promise<{ error: string
     return { error: "Enter a tax rate from 0 to 100." };
   }
   const extraSen = extras.reduce((t, e) => t + e.amountSen, 0);
-  const beforeDiscount = price.amountSen + extraSen;
+  const tuitionSen = students.reduce((t, c) => t + c.tuitionSen, 0);
+  const beforeDiscount = tuitionSen + extraSen;
   if (!Number.isInteger(input.extraDiscountSen) || input.extraDiscountSen < 0) {
     return { error: "Enter the additional discount as an amount, such as 20." };
   }
@@ -231,13 +267,9 @@ export async function priceReceipt(input: ReceiptInput): Promise<{ error: string
       receiptNo: null,
       name,
       email,
-      grade: input.grade,
-      subjects,
-      startMonth: input.startMonth,
-      months: input.months,
-      normalSen: price.normalSen,
+      students,
+      normalSen: students.reduce((t, c) => t + c.normalSen, 0),
       amountSen: beforeDiscount - input.extraDiscountSen + taxSen,
-      priceNote: price.priceNote,
       extras,
       extraSen,
       taxRateBp: input.taxRateBp,
@@ -276,13 +308,9 @@ export async function createReceipt(
           data: {
             name: d.name,
             email: d.email,
-            grade: d.grade,
-            subjects: JSON.stringify(d.subjects),
-            startMonth: d.startMonth,
-            months: d.months,
+            students: JSON.stringify(d.students),
             normalSen: d.normalSen,
             amountSen: d.amountSen,
-            priceNote: d.priceNote,
             extras: JSON.stringify(d.extras),
             extraSen: d.extraSen,
             taxRateBp: d.taxRateBp,

@@ -119,6 +119,28 @@ export function parseCharges(json: string): Charge[] {
   }
 }
 
+/** One child on a receipt: their class line. */
+export type StudentLine = {
+  name: string;
+  grade: string;
+  subjects: string[];
+  startMonth: string;
+  months: number;
+  normalSen: number; // every month at the monthly price
+  tuitionSen: number; // what was charged, after any promotion
+  priceNote: string | null;
+};
+
+/** A receipt's children, stored as JSON. */
+export function parseStudents(json: string): StudentLine[] {
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) ? v.filter((c) => c && typeof c.name === "string" && Number.isInteger(c.months)) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function parseSubjects(json: string): string[] {
   try {
     const v = JSON.parse(json);

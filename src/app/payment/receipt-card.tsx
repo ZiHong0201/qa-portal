@@ -59,7 +59,7 @@ export function ReceiptCard({ receipt, voided }: { receipt: ReceiptData; voided?
           </thead>
           <tbody>
             {L.items.map((i) => (
-              <tr key={i.description}>
+              <tr key={`${i.description}-${i.detail}`}>
                 <td className="border border-[#bfbfbf] px-2 py-1.5">
                   {i.description}
                   {i.detail && <span className="block text-[11px] text-gray-500">{i.detail}</span>}
@@ -71,6 +71,7 @@ export function ReceiptCard({ receipt, voided }: { receipt: ReceiptData; voided?
             ))}
           </tbody>
         </table>
+        {L.discountLine && <p className="mt-1.5 text-[11px] text-gray-600">{L.discountLine}</p>}
       </div>
 
       <div className="flex flex-col-reverse gap-4 px-7 sm:flex-row sm:items-start">

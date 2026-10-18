@@ -9,10 +9,129 @@ import type { ReceiptData } from "@/lib/receipt";
 import { GradeSelect, Message, SubjectTicks, button, input } from "./form-parts";
 import { ReceiptCard } from "./receipt-card";
 
+/** One child on the form. `key` only keeps React's list steady as children come and go. */
+type ChildDraft = { key: number; name: string; grade: string; subjects: string[]; months: number; startMonth: string };
+
+const MAX_CHILDREN = 10;
+
 /**
- * Making a receipt, in the order the admin works: who and what (name, email,
- * grade, subjects, how many months), the total as they tick, then the receipt
- * itself to check - and only then Send, which saves it and emails it.
+ * One child's part of the receipt: who they are, what they take, for how long,
+ * and what that comes to - each child priced on their own.
+ */
+function ChildCard({
+  index,
+  count,
+  child,
+  onChange,
+  onRemove,
+  plans,
+  grades,
+  subjects,
+}: {
+  index: number;
+  count: number;
+  child: ChildDraft;
+  onChange: (c: ChildDraft) => void;
+  onRemove: () => void;
+  plans: FeePlan[];
+  grades: string[];
+  subjects: string[];
+}) {
+  const set = (patch: Partial<ChildDraft>) => onChange({ ...child, ...patch });
+  const plan = planFor(plans, child.grade);
+  const promoMonths = plan?.promo[child.subjects.length]?.months;
+  const price = child.grade ? quote(plans, child.grade, child.subjects.length, child.months) : null;
+
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-stone-50/60 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-stone-900">{count > 1 ? `Child ${index + 1}` : "Child"}</p>
+        {count > 1 && (
+          <button type="button" onClick={onRemove} className="text-sm text-red-600 hover:underline">
+            Remove
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-end gap-4">
+        <label className="flex min-w-48 flex-1 flex-col gap-1 text-sm font-medium">
+          Child&apos;s name
+          <input value={child.name} onChange={(e) => set({ name: e.target.value })} required className={input} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Grade
+          <GradeSelect grades={grades} value={child.grade} onChange={(grade) => set({ grade })} />
+        </label>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium">Subjects joined</span>
+        <SubjectTicks subjects={subjects} chosen={child.subjects} onChange={(s) => set({ subjects: s })} />
+      </div>
+
+      <div className="flex flex-wrap items-end gap-4">
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Duration
+          <select value={child.months} onChange={(e) => set({ months: Number(e.target.value) })} className={input}>
+            {Array.from({ length: MAX_MONTHS }, (_, i) => i + 1).map((n) => {
+              const q = child.grade ? quote(plans, child.grade, child.subjects.length, n) : null;
+              const priced = q && !("error" in q) ? q : null;
+              return (
+                <option key={n} value={n}>
+                  {n} month{n === 1 ? "" : "s"}
+                  {priced && ` - ${rm(priced.amountSen)}${priced.priceNote ? " (with promotion)" : ""}`}
+                </option>
+              );
+            })}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Starting from
+          <input
+            type="month"
+            value={child.startMonth}
+            onChange={(e) => set({ startMonth: e.target.value })}
+            required
+            className={input}
+          />
+        </label>
+        {promoMonths && child.months % promoMonths !== 0 && price && !("error" in price) && (
+          <button
+            type="button"
+            onClick={() => set({ months: promoMonths })}
+            className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-100"
+          >
+            Use the {promoMonths}-month promotion
+          </button>
+        )}
+      </div>
+
+      <p className="text-sm">
+        {!price ? (
+          <span className="text-gray-500">Choose the grade to see the fee.</span>
+        ) : "error" in price ? (
+          <span className="text-red-700">{price.error}</span>
+        ) : (
+          <>
+            <span className="font-semibold tabular-nums text-teal-800">{rm(price.amountSen)}</span>
+            <span className="text-gray-600">
+              {" "}
+              · {periodLabel(child.startMonth, child.months)} ·{" "}
+              {price.priceNote ?? `${child.months} x ${rm(price.monthlySen)} a month`}
+              {price.amountSen < price.normalSen && ` (saves ${rm(price.normalSen - price.amountSen)})`}
+            </span>
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Making a receipt, in the order the admin works: who pays (the parent) and
+ * where the receipt goes, then each child - grade, subjects, how many months -
+ * then any extra charges, discount and tax, the total as they go, the receipt
+ * itself to check, and only then Send, which saves it and emails it.
  */
 export function ReceiptBuilder({
   plans,
@@ -34,12 +153,17 @@ export function ReceiptBuilder({
   /** The tax rate a receipt starts with, from the Prices page. */
   defaultTaxRateBp: number;
 }) {
+  const newChild = (key: number, from?: ChildDraft): ChildDraft => ({
+    key,
+    name: "",
+    grade: "",
+    subjects: [],
+    months: from?.months ?? 1,
+    startMonth: from?.startMonth ?? startMonth,
+  });
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [grade, setGrade] = useState("");
-  const [chosen, setChosen] = useState<string[]>([]);
-  const [months, setMonths] = useState(1);
-  const [start, setStart] = useState(startMonth);
+  const [children, setChildren] = useState<ChildDraft[]>([newChild(0)]);
   const [method, setMethod] = useState("CASH");
   const [paidOn, setPaidOn] = useState(today);
   const [note, setNote] = useState("");
@@ -52,20 +176,20 @@ export function ReceiptBuilder({
   const [error, setError] = useState<string | null>(null);
   const [busy, startTransition] = useTransition();
 
-  const plan = planFor(plans, grade);
-  const promoMonths = plan?.promo[chosen.length]?.months;
-  const price = grade ? quote(plans, grade, chosen.length, months) : { error: "Choose the grade." };
-
-  // The rest of the total, worked out as the server will: extra charges, then
-  // the additional discount, then tax on what is left.
+  // The total, worked out as the server will: each child's fee, the extra
+  // charges, less the additional discount, then tax on what is left.
+  const prices = children.map((c) => (c.grade ? quote(plans, c.grade, c.subjects.length, c.months) : null));
+  const childProblem = prices.some((p) => !p || "error" in p);
+  const tuitionSen = prices.reduce((t, p) => t + (p && !("error" in p) ? p.amountSen : 0), 0);
   const extraSen = extras.filter((e) => ticked.includes(e.id)).reduce((t, e) => t + e.amountSen, 0);
   const discountSen = discount.trim() ? parseRinggit(discount) : 0;
   const taxBp = taxRate.trim() ? parsePercent(taxRate) : 0;
-  const beforeDiscount = "error" in price ? 0 : price.amountSen + extraSen;
-  const problem =
-    discountSen === null || discountSen < 0
+  const beforeDiscount = tuitionSen + extraSen;
+  const problem = childProblem
+    ? "Fill in each child's grade and subjects to see the total."
+    : discountSen === null || discountSen < 0
       ? "Enter the discount as an amount, such as 20."
-      : discountSen > beforeDiscount && !("error" in price)
+      : discountSen > beforeDiscount
         ? "The discount is more than the amount being charged."
         : taxBp === null || taxBp > 10000
           ? "Enter a tax rate from 0 to 100, such as 6."
@@ -78,10 +202,18 @@ export function ReceiptBuilder({
     const f = new FormData();
     f.set("name", name);
     f.set("email", email);
-    f.set("grade", grade);
-    chosen.forEach((s) => f.append("subjects", s));
-    f.set("months", String(months));
-    f.set("startMonth", start);
+    f.set(
+      "students",
+      JSON.stringify(
+        children.map((c) => ({
+          name: c.name,
+          grade: c.grade,
+          subjects: c.subjects,
+          startMonth: c.startMonth,
+          months: c.months,
+        }))
+      )
+    );
     f.set("method", method);
     f.set("paidOn", paidOn);
     f.set("note", note);
@@ -98,7 +230,7 @@ export function ReceiptBuilder({
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-semibold">Check the receipt before sending.</p>
           <p>
-            Make sure the name, email and amount are right. <strong>Send</strong> saves it under the next receipt
+            Make sure the names, email and amount are right. <strong>Send</strong> saves it under the next receipt
             number and emails it to <strong>{preview.email}</strong>, with a copy to the centre.
           </p>
         </div>
@@ -147,64 +279,50 @@ export function ReceiptBuilder({
         });
       }}
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Student name
-          <input value={name} onChange={(e) => setName(e.target.value)} required className={input} />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Email address
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={input} />
-          <span className="text-xs font-normal text-gray-500">The receipt is emailed here.</span>
-        </label>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <span className="text-sm font-medium">Grade</span>
-        <div>
-          <GradeSelect grades={grades} value={grade} onChange={setGrade} />
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-semibold text-stone-900">Bill to (parent)</span>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Parent&apos;s name
+            <input value={name} onChange={(e) => setName(e.target.value)} required className={input} />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Email address
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={input} />
+            <span className="text-xs font-normal text-gray-500">The receipt is emailed here.</span>
+          </label>
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">Subjects joined</span>
-        <SubjectTicks subjects={subjects} chosen={chosen} onChange={setChosen} />
-      </div>
-
-      <div className="flex flex-wrap items-end gap-4">
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Duration
-          <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className={input}>
-            {Array.from({ length: MAX_MONTHS }, (_, i) => i + 1).map((n) => {
-              const q = grade ? quote(plans, grade, chosen.length, n) : null;
-              const priced = q && !("error" in q) ? q : null;
-              return (
-                <option key={n} value={n}>
-                  {n} month{n === 1 ? "" : "s"}
-                  {priced && ` - ${rm(priced.amountSen)}${priced.priceNote ? " (with promotion)" : ""}`}
-                </option>
-              );
-            })}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Starting from
-          <input type="month" value={start} onChange={(e) => setStart(e.target.value)} required className={input} />
-        </label>
-        {promoMonths && months % promoMonths !== 0 && !("error" in price) && (
-          <button
-            type="button"
-            onClick={() => setMonths(promoMonths)}
-            className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-100"
-          >
-            Use the {promoMonths}-month promotion
-          </button>
-        )}
-      </div>
+      {children.map((c, i) => (
+        <ChildCard
+          key={c.key}
+          index={i}
+          count={children.length}
+          child={c}
+          onChange={(next) => setChildren(children.map((x) => (x.key === c.key ? next : x)))}
+          onRemove={() => setChildren(children.filter((x) => x.key !== c.key))}
+          plans={plans}
+          grades={grades}
+          subjects={subjects}
+        />
+      ))}
+      {children.length < MAX_CHILDREN && (
+        <button
+          type="button"
+          onClick={() => {
+            const last = children[children.length - 1];
+            setChildren([...children, newChild(Math.max(...children.map((c) => c.key)) + 1, last)]);
+          }}
+          className="self-start rounded-md border border-dashed border-teal-500 px-3 py-1.5 text-sm text-teal-700 hover:bg-teal-50"
+        >
+          + Add another child
+        </button>
+      )}
 
       {extras.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium">Extra charges</span>
+          <span className="text-sm font-medium">Extra charges (once for the receipt)</span>
           <div className="flex flex-wrap gap-2">
             {extras.map((e) => (
               <label
@@ -265,24 +383,13 @@ export function ReceiptBuilder({
 
       <div className="rounded-lg border border-teal-200 bg-teal-50/40 p-4">
         <p className="text-xs font-medium tracking-wide text-teal-900 uppercase">Total</p>
-        {"error" in price ? (
-          <p className="mt-1 text-sm text-red-700">{price.error}</p>
-        ) : problem ? (
+        {problem ? (
           <p className="mt-1 text-sm text-red-700">{problem}</p>
         ) : (
           <>
-            <div className="mt-1 flex flex-wrap items-baseline gap-x-3">
-              <span className="text-3xl font-bold tabular-nums text-teal-800">{rm(totalSen)}</span>
-              {price.amountSen < price.normalSen && (
-                <span className="text-sm text-gray-600">
-                  tuition <span className="line-through">{rm(price.normalSen)}</span> · promotion saves{" "}
-                  {rm(price.normalSen - price.amountSen)}
-                </span>
-              )}
-            </div>
+            <p className="mt-1 text-3xl font-bold tabular-nums text-teal-800">{rm(totalSen)}</p>
             <p className="mt-1 text-xs text-gray-600">
-              {grade} · {chosen.length} subject{chosen.length === 1 ? "" : "s"} · {periodLabel(start, months)} ·{" "}
-              {price.priceNote ?? `${months} x ${rm(price.monthlySen)} a month`}
+              {children.length} child{children.length === 1 ? "" : "ren"}: {rm(tuitionSen)}
               {extraSen > 0 && ` · + ${rm(extraSen)} extra charges`}
               {(discountSen ?? 0) > 0 && ` · - ${rm(discountSen!)} discount`}
               {taxSen > 0 && ` · + ${rm(taxSen)} tax at ${percent(taxBp!)}`}
@@ -324,7 +431,7 @@ export function ReceiptBuilder({
       </div>
 
       {error && <p className="text-sm text-red-700">{error}</p>}
-      <button disabled={busy || "error" in price || !!problem} className={`${button} self-start px-5 py-2`}>
+      <button disabled={busy || !!problem} className={`${button} self-start px-5 py-2`}>
         {busy ? "Preparing..." : "Preview receipt"}
       </button>
     </form>

@@ -3,7 +3,7 @@
 // a DESCRIPTION / QTY / UNIT PRICE / TOTAL table, the totals column ending in
 // "Paid", the payment instructions and the non-refundable note. The screen,
 // print and email versions all read from receiptLayout(), so they agree.
-import { type Charge, endMonth, rm } from "@/lib/fees";
+import { type Charge, type StudentLine, endMonth, rm } from "@/lib/fees";
 import { percent } from "@/lib/fee-plans";
 
 export const COMPANY = {
@@ -18,15 +18,11 @@ export const COMPANY = {
 
 export type ReceiptData = {
   receiptNo: string | null; // null in the preview, before it is assigned
-  name: string;
+  name: string; // who pays - usually a parent
   email: string;
-  grade: string;
-  subjects: string[];
-  startMonth: string;
-  months: number;
+  students: StudentLine[]; // the children paid for, one class line each
   normalSen: number;
-  amountSen: number; // everything paid: tuition, extra charges and tax
-  priceNote: string | null;
+  amountSen: number; // everything paid: tuition, extra charges and tax, less discount
   extras: Charge[];
   extraSen: number;
   taxRateBp: number;
@@ -47,6 +43,8 @@ export type ReceiptLayout = {
   items: LineItem[];
   subtotalSen: number;
   discountSen: number;
+  /** The additional discount, said in words under the table; null if none. */
+  discountLine: string | null;
   lessDiscountSen: number;
   taxRate: string;
   taxSen: number;
@@ -75,18 +73,12 @@ export const money = (sen: number) => rm(sen).replace("RM", "");
 
 /**
  * The receipt's lines. Each extra charge ticked - the material fee and so on
- * - is a line of its own first, as in the template; then tuition, a month's
- * fee times the months. The DISCOUNT is a promotion's saving plus any
- * additional discount the admin gave, and tax is the rate on SUBTOTAL LESS
- * DISCOUNT.
+ * - is a line of its own first, as in the template; then one CLASS
+ * SUBSCRIPTION FEE line per child, a month's fee times the months. The
+ * DISCOUNT is the promotions' savings plus any additional discount the admin
+ * gave, and tax is the rate on SUBTOTAL LESS DISCOUNT.
  */
 export function receiptLayout(r: ReceiptData): ReceiptLayout {
-  // Tuition after any promotion: what was paid, less tax and the extra
-  // charges, with the additional discount added back.
-  const tuitionSen = r.amountSen - r.taxSen - r.extraSen + r.extraDiscountSen;
-  const extraDiscount = r.extraDiscountSen
-    ? `discount ${money(r.extraDiscountSen)}${r.discountNote ? ` (${r.discountNote})` : ""}`
-    : null;
   const items: LineItem[] = r.extras.map((e) => ({
     description: e.label.toUpperCase(),
     detail: null,
@@ -94,15 +86,21 @@ export function receiptLayout(r: ReceiptData): ReceiptLayout {
     unitSen: e.amountSen,
     totalSen: e.amountSen,
   }));
-  items.push({
-    description: `CLASS SUBSCRIPTION FEE (${periodShort(r.startMonth, r.months)})`,
-    detail: [`${r.grade} · ${r.subjects.join(", ")}`, r.priceNote, extraDiscount].filter(Boolean).join(" · "),
-    qty: r.months,
-    unitSen: Math.round(r.normalSen / r.months),
-    totalSen: r.normalSen,
-  });
+  // A child's name goes on their line only when it says something the BILL
+  // TO line does not - always for siblings, and when a parent pays.
+  const named = r.students.length > 1 || r.students.some((c) => c.name !== r.name);
+  for (const c of r.students) {
+    items.push({
+      description: `CLASS SUBSCRIPTION FEE${named ? ` - ${c.name.toUpperCase()}` : ""} (${periodShort(c.startMonth, c.months)})`,
+      detail: [`${c.grade} · ${c.subjects.join(", ")}`, c.priceNote].filter(Boolean).join(" · "),
+      qty: c.months,
+      unitSen: Math.round(c.normalSen / c.months),
+      totalSen: c.normalSen,
+    });
+  }
   const subtotalSen = items.reduce((t, i) => t + i.totalSen, 0);
-  const discountSen = r.normalSen - tuitionSen + r.extraDiscountSen;
+  const promoSaving = r.students.reduce((t, c) => t + (c.normalSen - c.tuitionSen), 0);
+  const discountSen = promoSaving + r.extraDiscountSen;
   return {
     date: receiptDate(r.paidOn),
     receiptNo: r.receiptNo ?? "",
@@ -110,6 +108,9 @@ export function receiptLayout(r: ReceiptData): ReceiptLayout {
     items,
     subtotalSen,
     discountSen,
+    discountLine: r.extraDiscountSen
+      ? `Additional discount ${money(r.extraDiscountSen)}${r.discountNote ? ` - ${r.discountNote}` : ""}`
+      : null,
     lessDiscountSen: subtotalSen - discountSen,
     taxRate: percent(r.taxRateBp),
     taxSen: r.taxSen,
@@ -118,7 +119,7 @@ export function receiptLayout(r: ReceiptData): ReceiptLayout {
 }
 
 export function receiptSubject(r: ReceiptData): string {
-  return `YH Ideal Academy - Official Receipt ${r.receiptNo ?? ""} (${periodShort(r.startMonth, r.months)})`;
+  return `YH Ideal Academy - Official Receipt ${r.receiptNo ?? ""}`.trim();
 }
 
 const esc = (s: string) =>
@@ -172,6 +173,7 @@ export function receiptEmailHtml(r: ReceiptData): string {
       <th style="${cell};border-color:${COMPANY.red};text-align:center;width:90px">TOTAL</th>
     </tr>${items}
   </table>
+  ${L.discountLine ? `<div style="font-size:11px;color:#444;margin-top:6px">${esc(L.discountLine)}</div>` : ""}
 </td></tr>
 <tr><td style="padding:0 28px">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
@@ -211,6 +213,7 @@ export function receiptEmailText(r: ReceiptData): string {
     ...L.billTo,
     "",
     ...L.items.map((i) => `${i.description}  ${i.qty} x ${money(i.unitSen)} = ${money(i.totalSen)}`),
+    ...(L.discountLine ? [L.discountLine] : []),
     "",
     `SUBTOTAL: ${money(L.subtotalSen)}`,
     `DISCOUNT: ${L.discountSen ? money(L.discountSen) : "-"}`,

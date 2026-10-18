@@ -10,6 +10,7 @@ import type { ReceiptData } from "@/lib/receipt";
 import {
   type ReceiptInput,
   type Result,
+  type StudentInput,
   createReceipt,
   addFeeSubject,
   deleteFeeSubject,
@@ -29,7 +30,6 @@ function refresh() {
 }
 
 const text = (v: FormDataEntryValue | null) => (typeof v === "string" ? v : "");
-const subjectsOf = (formData: FormData) => formData.getAll("subjects").map(String);
 
 // ---- prices -----------------------------------------------------------------
 
@@ -114,6 +114,16 @@ export async function removeSubject(id: string): Promise<Result> {
 
 // ---- receipts ---------------------------------------------------------------
 
+/** The children, sent by the form as JSON; shapes are checked when priced. */
+function studentsOf(formData: FormData): StudentInput[] {
+  try {
+    const v = JSON.parse(text(formData.get("students")));
+    return Array.isArray(v) ? v.slice(0, 50) : [];
+  } catch {
+    return [];
+  }
+}
+
 function receiptInput(formData: FormData): ReceiptInput | { error: string } {
   const method = formData.get("method");
   if (!isPaymentMethod(method)) return { error: "Choose how it was paid." };
@@ -123,10 +133,7 @@ function receiptInput(formData: FormData): ReceiptInput | { error: string } {
   return {
     name: text(formData.get("name")),
     email: text(formData.get("email")),
-    grade: text(formData.get("grade")),
-    subjects: subjectsOf(formData),
-    startMonth: text(formData.get("startMonth")),
-    months: Number(formData.get("months")),
+    students: studentsOf(formData),
     method,
     paidOn,
     note: text(formData.get("note")).trim().slice(0, 300) || null,
