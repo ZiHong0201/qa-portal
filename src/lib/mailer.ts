@@ -17,6 +17,18 @@ export function mailConfigured(): boolean {
   return !!process.env.GMAIL_USER && !!process.env.GMAIL_APP_PASSWORD;
 }
 
+/**
+ * What the server will sign in to Gmail with, for when a login is refused: the
+ * address, and only the length of the App Password - which should be 16 -
+ * never the password itself.
+ */
+export function mailSettingsCheck(): { user: string; passwordLength: number } {
+  return {
+    user: (process.env.GMAIL_USER ?? "").trim(),
+    passwordLength: (process.env.GMAIL_APP_PASSWORD ?? "").replace(/\s+/g, "").length,
+  };
+}
+
 let transport: Transporter | null = null;
 
 /** For tests: send through a stand-in instead of Gmail. */
