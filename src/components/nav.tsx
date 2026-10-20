@@ -61,6 +61,9 @@ export async function Nav() {
     }
   }
 
+  // Everyone can change their own password; on a phone it is in the menu.
+  const drawerLinks = [...links, { href: "/account", label: "Change password" }];
+
   // The admin pages are laid out wider than the student ones, so the bar
   // matches whichever it sits above instead of ending short of the content.
   const width = isStaff ? "max-w-screen-2xl" : "max-w-4xl";
@@ -89,7 +92,7 @@ export async function Nav() {
       <div className={`mx-auto flex ${width} items-center gap-3 px-4 py-3`}>
         {/* Phone: hamburger + drawer. Hidden from md up. */}
         <NavDrawer
-          links={links}
+          links={drawerLinks}
           userName={session.user.name ?? ""}
           balance={balance}
         >
@@ -127,7 +130,9 @@ export async function Nav() {
               {balance.toLocaleString()} points
             </span>
           )}
-          <span className="text-gray-500">{session.user.name}</span>
+          <Link href="/account" className="text-gray-500 hover:underline" title="Change password">
+            {session.user.name}
+          </Link>
           {logOut}
         </nav>
       </div>

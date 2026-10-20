@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { loginAction } from "@/lib/actions/auth";
 
 // Solid white rather than translucent: globals.css pins input backgrounds
@@ -35,9 +36,14 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         />
       </div>
       <div>
-        <label className="mb-1 block text-sm font-semibold text-slate-700" htmlFor="password">
-          Password
-        </label>
+        <div className="mb-1 flex items-baseline justify-between">
+          <label className="block text-sm font-semibold text-slate-700" htmlFor="password">
+            Password
+          </label>
+          <Link href="/forgot-password" className="text-xs font-medium text-sky-700 hover:underline">
+            Forgot password?
+          </Link>
+        </div>
         <input
           id="password"
           name="password"

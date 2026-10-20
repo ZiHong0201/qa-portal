@@ -85,6 +85,15 @@ function LinkIcon({ label }: { label: string }) {
           <path d="M17 9a4 4 0 0 1 0 6" />
         </svg>
       );
+    case "Change password":
+      return (
+        <svg {...common}>
+          <circle cx="8" cy="15" r="4" />
+          <path d="m10.8 12.2 9.2-9.2" />
+          <path d="m17 6 3 3" />
+          <path d="m14.5 8.5 2 2" />
+        </svg>
+      );
     default:
       return (
         <svg {...common}>

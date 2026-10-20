@@ -778,3 +778,18 @@ model FeeSetting {
   key   String @id
   value String
 }
+
+// A "forgot password" link. Only a hash of the token is kept, so the database
+// alone cannot be used to reset anyone's password; the token itself exists
+// only in the email. A link works once, for an hour, and asking for a new one
+// retires the old.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}

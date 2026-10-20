@@ -45,7 +45,15 @@ export function setTransportForTests(t: Transporter | null) {
   transport = t;
 }
 
-export async function sendMail(mail: { to: string; bcc?: string; subject: string; html: string; text: string }) {
+export async function sendMail(mail: {
+  to: string;
+  bcc?: string;
+  subject: string;
+  html: string;
+  text: string;
+  /** The sender's display name; receipts go out as YH Ideal Payment. */
+  fromName?: string;
+}) {
   if (!transport && !mailConfigured()) {
     throw new Error("Email is not set up yet: GMAIL_USER and GMAIL_APP_PASSWORD are missing on the server.");
   }
@@ -54,8 +62,9 @@ export async function sendMail(mail: { to: string; bcc?: string; subject: string
     service: "gmail",
     auth: { user, pass: appPassword() },
   });
+  const { fromName, ...message } = mail;
   await transport.sendMail({
-    from: { name: PAYMENT_SITE_NAME, address: user || "receipts@example.invalid" },
-    ...mail,
+    from: { name: fromName ?? PAYMENT_SITE_NAME, address: user || "receipts@example.invalid" },
+    ...message,
   });
 }
