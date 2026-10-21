@@ -101,6 +101,8 @@ model User {
 
   pet          Pet?          @relation("StudentPet")
   petPurchases PetPurchase[] @relation("StudentPetPurchases")
+
+  feedback Feedback[] @relation("StudentFeedback")
 }
 
 // A notice that scrolls across the top of the portal. Admins write the text
@@ -821,4 +823,48 @@ model AccountRequest {
   name      String
   email     String   @unique
   createdAt DateTime @default(now())
+}
+
+enum FeedbackKind {
+  IDEA
+  SUGGESTION
+  FEEDBACK
+}
+
+// How a student agreed to be named if their words are quoted on the website.
+enum FeedbackCredit {
+  FULL_NAME
+  FIRST_NAME_GRADE // "Aisyah, Form 2"
+  ANONYMOUS
+}
+
+// An idea, suggestion or piece of feedback a student sent from
+// /dashboard/feedback, read by the admin at /admin/feedback. The admin can
+// star the good ones as testimonials for the public website, but only those
+// the student allowed to be quoted.
+//
+// creditLine is the name exactly as it would appear under the quote, written
+// when the student sends it - so a later change of name or grade on the
+// account never puts words to a name the student did not agree to. It is
+// null whenever quoting is not allowed, and so is credit.
+model Feedback {
+  id        String       @id @default(cuid())
+  student   User         @relation("StudentFeedback", fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String
+  kind      FeedbackKind
+  message   String
+
+  mayQuote   Boolean         @default(false)
+  credit     FeedbackCredit?
+  creditLine String?
+
+  readAt     DateTime?
+  starredAt  DateTime?
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  // The student's own history and the daily cap both read by student and date.
+  @@index([studentId, createdAt])
+  @@index([createdAt])
 }

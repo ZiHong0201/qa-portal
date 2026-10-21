@@ -129,6 +129,8 @@ export async function deleteStudent(studentId: string) {
     prisma.redemption.deleteMany({ where: { studentId } }),
     prisma.pointAdjustment.deleteMany({ where: { studentId } }),
     prisma.studentSubject.deleteMany({ where: { studentId } }),
+    // Their testimonials go with them, and so drop out of the next export.
+    prisma.feedback.deleteMany({ where: { studentId } }),
     prisma.user.delete({ where: { id: studentId } }),
   ]);
 

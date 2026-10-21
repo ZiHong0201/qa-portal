@@ -9,6 +9,7 @@ const STUDENT_LINKS: NavLink[] = [
   { href: "/dashboard/sets", label: "My Sets" },
   { href: "/dashboard/catalogue", label: "Gift Exchange" },
   { href: "/dashboard/leaderboard", label: "Scoreboard" },
+  { href: "/dashboard/feedback", label: "Feedback" },
 ];
 
 // The teaching half of /admin: everything a teacher and an admin both use.
@@ -35,6 +36,7 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/live", label: "Live Quiz" },
   { href: "/admin/master-data", label: "Master Data" },
   { href: "/admin/staff", label: "Staff" },
+  { href: "/admin/feedback", label: "Feedback" },
   { href: "/admin/reset", label: "Reset" },
   { href: "/dashboard/leaderboard", label: "Scoreboard" },
 ];

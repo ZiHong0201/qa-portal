@@ -2,10 +2,11 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { isAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { unreadFeedbackCount } from "@/lib/feedback.server";
 
 export default async function AdminHome() {
   // Teachers share this page. They see the same teaching figures and lose the
-  // two cards that link into admin-only sections - a card that bounces you
+  // cards that link into admin-only sections - a card that bounces you
   // back to the page you clicked it from is worse than no card.
   const admin = isAdmin(await auth());
 
@@ -27,6 +28,7 @@ export default async function AdminHome() {
     pendingCount,
     catalogueCount,
     liveNoticeCount,
+    unreadFeedback,
   ] = await Promise.all([
     prisma.user.count({ where: { role: "STUDENT" } }),
     prisma.questionSet.count(),
@@ -37,12 +39,16 @@ export default async function AdminHome() {
       prisma.announcement.count({ where: liveWindow }),
       prisma.popupAd.count({ where: liveWindow }),
     ]).then(([a, p]) => a + p),
+    // Not counted for a teacher, who has no card to show it on.
+    admin ? unreadFeedbackCount() : 0,
   ]);
 
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold">Admin overview</h1>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {/* One row on a wide screen for either role, rather than the admin's
+          seventh card wrapping onto a row of its own. */}
+      <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 ${admin ? "lg:grid-cols-7" : "lg:grid-cols-6"}`}>
         <Link href="/admin/students">
           <StatCard label="Students" value={studentCount} />
         </Link>
@@ -62,6 +68,9 @@ export default async function AdminHome() {
             </Link>
             <Link href="/admin/announcements">
               <StatCard label="Live notices" value={liveNoticeCount} />
+            </Link>
+            <Link href="/admin/feedback">
+              <StatCard label="Unread feedback" value={unreadFeedback} highlight={unreadFeedback > 0} />
             </Link>
           </>
         )}

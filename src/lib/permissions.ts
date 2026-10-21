@@ -56,6 +56,9 @@ export const ADMIN_ONLY_PREFIXES = [
   "/admin/master-data",
   "/admin/reset",
   "/admin/staff",
+  // Students may write about their teachers, and choosing testimonials for
+  // the website is marketing - running the service, not teaching.
+  "/admin/feedback",
 ];
 
 export function isAdminOnlyPath(pathname: string): boolean {
