@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { changeMyPassword, forgotPassword, resetForgottenPassword } from "@/lib/actions/password";
+import { requestStudentAccount } from "@/lib/actions/account-requests";
 
 // As on the login form: solid white, since globals.css pins input backgrounds.
 const FIELD =
@@ -113,6 +114,39 @@ export function ForgotPasswordForm() {
       <Field label="Email" name="email" type="email" value={email} onChange={setEmail} autoComplete="email" />
       <button disabled={pending} className={BUTTON}>
         {pending ? "Sending…" : "Email me a reset link"}
+      </button>
+      <Link href="/login" className="text-center text-sm font-medium text-sky-700 hover:underline">
+        Back to log in
+      </Link>
+    </form>
+  );
+}
+
+export function RequestAccountForm() {
+  const [state, action, pending] = useActionState(requestStudentAccount, {});
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  if (state.success) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Notice state={state} />
+        <Link href="/login" className="text-center text-sm font-medium text-sky-700 hover:underline">
+          Back to log in
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <form action={action} className="flex flex-col gap-4">
+      <Notice state={state} />
+      <p className="text-sm text-slate-600">
+        Tell us who you are. Once your teacher approves the request, a password is made for you and emailed to this
+        address.
+      </p>
+      <Field label="Your name" name="name" type="text" value={name} onChange={setName} autoComplete="name" />
+      <Field label="Email" name="email" type="email" value={email} onChange={setEmail} autoComplete="email" />
+      <button disabled={pending} className={BUTTON}>
+        {pending ? "Sending…" : "Request an account"}
       </button>
       <Link href="/login" className="text-center text-sm font-medium text-sky-700 hover:underline">
         Back to log in

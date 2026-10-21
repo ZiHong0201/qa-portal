@@ -23,7 +23,7 @@ export default async function AdminStudentsPage({
     ];
   }
 
-  const [students, grades, subjects, earnedRows, checkInRows, adjustmentRows, redeemedRows] =
+  const [students, grades, subjects, earnedRows, checkInRows, adjustmentRows, redeemedRows, requestCount] =
     await Promise.all([
       prisma.user.findMany({
         where,
@@ -45,6 +45,7 @@ export default async function AdminStudentsPage({
         where: { rejectedAt: null },
         _sum: { cost: true },
       }),
+      prisma.accountRequest.count(),
     ]);
 
   // Mirrors getStudentBalance(), batched across students instead of per-row.
@@ -61,13 +62,34 @@ export default async function AdminStudentsPage({
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Students</h1>
-        <Link
-          href="/admin/students/new"
-          className="rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700"
-        >
-          + New student
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/students/requests"
+            className="rounded-md border border-gray-300 bg-white px-4 py-2 hover:bg-gray-50"
+          >
+            Requests
+            {requestCount > 0 && (
+              <span className="ml-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white">
+                {requestCount}
+              </span>
+            )}
+          </Link>
+          <Link
+            href="/admin/students/new"
+            className="rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700"
+          >
+            + New student
+          </Link>
+        </div>
       </div>
+      {requestCount > 0 && (
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {requestCount === 1 ? "1 account request is" : `${requestCount} account requests are`} waiting.{" "}
+          <Link href="/admin/students/requests" className="font-medium underline">
+            Review
+          </Link>
+        </p>
+      )}
       {created && (
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
           Student account created.

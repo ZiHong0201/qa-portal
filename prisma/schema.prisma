@@ -793,3 +793,15 @@ model PasswordResetToken {
 
   @@index([userId])
 }
+
+// Someone asking for a student account from the login page, waiting for staff
+// at /admin/students/requests. No password is kept here: approving creates
+// the account with a freshly generated one and emails it, so the password
+// only ever exists as a hash and in that email. Approving or rejecting
+// deletes the row.
+model AccountRequest {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now())
+}

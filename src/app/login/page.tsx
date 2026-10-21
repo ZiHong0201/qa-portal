@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { LoginForm } from "./login-form";
 import { PAYMENT_SITE_NAME, isPaymentHost } from "@/lib/fees";
 import { InteractiveBackdrop } from "@/components/interactive-background";
@@ -42,6 +43,15 @@ export default async function LoginPage({
 
         <div className="rounded-2xl border border-white/70 bg-white/70 p-6 shadow-xl backdrop-blur-md select-text short:p-4">
           <LoginForm callbackUrl={callbackUrl} />
+          {/* Student accounts only - the payment site's login is for the admin. */}
+          {!onPaymentSite && (
+            <p className="mt-4 text-center text-sm text-slate-600 short:mt-2">
+              No account yet?{" "}
+              <Link href="/request-account" className="font-medium text-sky-700 hover:underline">
+                Request one
+              </Link>
+            </p>
+          )}
         </div>
       </div>
 
