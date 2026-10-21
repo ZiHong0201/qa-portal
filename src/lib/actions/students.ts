@@ -128,6 +128,8 @@ export async function deleteStudent(studentId: string) {
     prisma.submission.deleteMany({ where: { studentId } }),
     prisma.redemption.deleteMany({ where: { studentId } }),
     prisma.pointAdjustment.deleteMany({ where: { studentId } }),
+    // Check-ins block the delete otherwise: their foreign key restricts.
+    prisma.checkIn.deleteMany({ where: { studentId } }),
     prisma.studentSubject.deleteMany({ where: { studentId } }),
     // Their testimonials go with them, and so drop out of the next export.
     prisma.feedback.deleteMany({ where: { studentId } }),
