@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireStaff } from "@/lib/permissions";
+import { requireSetAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { extractFromDocx, extractFromPdf, type ExtractedQuestion } from "@/lib/examImport";
 import type { FormState } from "./auth";
@@ -18,9 +18,7 @@ export async function importQuestionsFromFile(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const session = await requireStaff();
-
-  const set = await prisma.questionSet.findUnique({ where: { id: setId } });
+  const { session, set } = await requireSetAccess(setId);
   if (!set) return { error: "Question set not found." };
 
   const file = formData.get("examFile");

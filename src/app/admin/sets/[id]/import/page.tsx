@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { canEditSubject, currentEditableSubjects } from "@/lib/permissions";
 import { importQuestionsFromFile } from "@/lib/actions/importQuestions";
 import { ImportForm } from "./import-form";
 
@@ -9,8 +10,12 @@ export default async function ImportQuestionsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const set = await prisma.questionSet.findUnique({ where: { id } });
+  const [set, editable] = await Promise.all([
+    prisma.questionSet.findUnique({ where: { id } }),
+    currentEditableSubjects(),
+  ]);
   if (!set) notFound();
+  if (!canEditSubject(editable, set.subject)) redirect(`/admin/sets/${set.id}`);
 
   const action = importQuestionsFromFile.bind(null, set.id);
 

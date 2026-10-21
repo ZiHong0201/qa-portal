@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireStaff } from "@/lib/permissions";
+import { requireSetAccess, requireStaff, requireSubjectAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "./auth";
 
@@ -55,6 +55,7 @@ export async function createQuestionSet(
 
   const validationError = await validateGradesAndSubject(parsed.data.grades, parsed.data.subject);
   if (validationError) return { error: validationError };
+  await requireSubjectAccess(parsed.data.subject);
 
   const set = await prisma.questionSet.create({
     data: {
@@ -77,7 +78,8 @@ export async function updateQuestionSet(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireStaff();
+  const { set: existing } = await requireSetAccess(setId);
+  if (!existing) return { error: "Question set not found." };
 
   const parsed = setSchema.safeParse({
     title: formData.get("title"),
@@ -93,6 +95,9 @@ export async function updateQuestionSet(
 
   const validationError = await validateGradesAndSubject(parsed.data.grades, parsed.data.subject);
   if (validationError) return { error: validationError };
+  // The set's current subject was checked above; this is the one it is
+  // moving to, so a teacher cannot hand a set over to another subject.
+  await requireSubjectAccess(parsed.data.subject);
 
   await prisma.$transaction([
     prisma.questionSet.update({
@@ -117,14 +122,16 @@ export async function updateQuestionSet(
 }
 
 export async function toggleQuestionSetActive(setId: string, isActive: boolean) {
-  await requireStaff();
+  const { set } = await requireSetAccess(setId);
+  if (!set) return;
   await prisma.questionSet.update({ where: { id: setId }, data: { isActive } });
   revalidatePath("/admin/sets");
   revalidatePath(`/admin/sets/${setId}`);
 }
 
 export async function deleteQuestionSet(setId: string) {
-  await requireStaff();
+  const { set } = await requireSetAccess(setId);
+  if (!set) return;
 
   const count = await prisma.submission.count({ where: { question: { questionSetId: setId } } });
   if (count > 0) {

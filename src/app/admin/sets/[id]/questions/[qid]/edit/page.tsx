@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { canEditSubject, currentEditableSubjects } from "@/lib/permissions";
 import { QuestionForm } from "../../question-form";
 import { updateQuestion } from "@/lib/actions/questions";
 
@@ -9,14 +10,19 @@ export default async function EditQuestionPage({
   params: Promise<{ id: string; qid: string }>;
 }) {
   const { id, qid } = await params;
-  const question = await prisma.question.findUnique({
-    where: { id: qid },
-    include: {
-      choices: { orderBy: { order: "asc" } },
-      _count: { select: { submissions: true } },
-    },
-  });
+  const [question, editable] = await Promise.all([
+    prisma.question.findUnique({
+      where: { id: qid },
+      include: {
+        choices: { orderBy: { order: "asc" } },
+        _count: { select: { submissions: true } },
+        questionSet: { select: { subject: true } },
+      },
+    }),
+    currentEditableSubjects(),
+  ]);
   if (!question || question.questionSetId !== id) notFound();
+  if (!canEditSubject(editable, question.questionSet.subject)) redirect(`/admin/sets/${id}`);
 
   const action = updateQuestion.bind(null, question.id);
 

@@ -16,7 +16,14 @@ export default async function AdminStaffPage({
       // Admins first, then newest teachers: the list is read to answer "who
       // can do what here", and the answer starts with who can do everything.
       orderBy: [{ role: "asc" }, { createdAt: "desc" }],
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        teachingSubjects: { select: { subject: true }, orderBy: { subject: "asc" } },
+      },
     }),
   ]);
 
@@ -36,8 +43,9 @@ export default async function AdminStaffPage({
       </div>
       <p className="mb-6 max-w-2xl text-sm text-gray-600">
         Teachers write and mark question sets, manage students and their points, and see
-        integrity signals. Admins do all of that, and also hold the gift exchange, announcements, the
-        virtual cat, master data, these staff accounts, and the portal reset.
+        integrity signals. Each teacher changes only the sets in the subjects you give them. Admins
+        do all of that in every subject, and also hold the gift exchange, announcements, the virtual
+        cat, master data, these staff accounts, and the portal reset.
       </p>
 
       {created && (
@@ -70,6 +78,7 @@ export default async function AdminStaffPage({
           people={teachers}
           currentUserId={session?.user.id}
           empty="No teacher accounts yet. Everything is being run from the admin accounts above."
+          showSubjects
         />
       </div>
     </div>
@@ -81,11 +90,20 @@ function StaffList({
   people,
   currentUserId,
   empty,
+  showSubjects,
 }: {
   title: string;
-  people: { id: string; name: string; email: string; createdAt: Date }[];
+  people: {
+    id: string;
+    name: string;
+    email: string;
+    createdAt: Date;
+    teachingSubjects: { subject: string }[];
+  }[];
   currentUserId?: string;
   empty: string;
+  /** Teachers only: admins edit every subject, so there is nothing to list. */
+  showSubjects?: boolean;
 }) {
   return (
     <div>
@@ -111,6 +129,16 @@ function StaffList({
                   )}
                 </p>
                 <p className="truncate text-sm text-gray-500">{p.email}</p>
+                {showSubjects &&
+                  (p.teachingSubjects.length > 0 ? (
+                    <p className="text-xs text-gray-500">
+                      Edits {p.teachingSubjects.map((t) => t.subject).join(", ")}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-700">
+                      No subjects - cannot change any question set
+                    </p>
+                  ))}
               </div>
               <span className="text-xs text-gray-400">
                 since{" "}

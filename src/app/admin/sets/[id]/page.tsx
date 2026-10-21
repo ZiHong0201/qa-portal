@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { canEditSubject, currentEditableSubjects } from "@/lib/permissions";
 import { deleteQuestion, toggleQuestionActive } from "@/lib/actions/questions";
 import { ExplanationEditor } from "./explanation-editor";
 import { SubmitButton } from "@/components/submit-button";
@@ -14,20 +15,24 @@ export default async function AdminSetDetailPage({
 }) {
   const { id } = await params;
   const { imported } = await searchParams;
-  const set = await prisma.questionSet.findUnique({
-    where: { id },
-    include: {
-      questions: {
-        orderBy: { createdAt: "asc" },
-        include: {
-          _count: { select: { submissions: true } },
-          choices: { orderBy: { order: "asc" } },
+  const [set, editable] = await Promise.all([
+    prisma.questionSet.findUnique({
+      where: { id },
+      include: {
+        questions: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            _count: { select: { submissions: true } },
+            choices: { orderBy: { order: "asc" } },
+          },
         },
+        grades: true,
       },
-      grades: true,
-    },
-  });
+    }),
+    currentEditableSubjects(),
+  ]);
   if (!set) notFound();
+  const canEdit = canEditSubject(editable, set.subject);
 
   const totalMarks = set.questions.reduce((sum, q) => sum + q.points, 0);
 
@@ -40,27 +45,35 @@ export default async function AdminSetDetailPage({
           </Link>
           <h1 className="mt-1 text-2xl font-bold">{set.title}</h1>
         </div>
-        <div className="flex gap-2">
-          <Link
-            href={`/admin/sets/${set.id}/edit`}
-            className="rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50"
-          >
-            Edit set
-          </Link>
-          <Link
-            href={`/admin/sets/${set.id}/import`}
-            className="rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50"
-          >
-            Import from exam paper
-          </Link>
-          <Link
-            href={`/admin/sets/${set.id}/questions/new`}
-            className="rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700"
-          >
-            + Add question
-          </Link>
-        </div>
+        {canEdit && (
+          <div className="flex gap-2">
+            <Link
+              href={`/admin/sets/${set.id}/edit`}
+              className="rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50"
+            >
+              Edit set
+            </Link>
+            <Link
+              href={`/admin/sets/${set.id}/import`}
+              className="rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50"
+            >
+              Import from exam paper
+            </Link>
+            <Link
+              href={`/admin/sets/${set.id}/questions/new`}
+              className="rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700"
+            >
+              + Add question
+            </Link>
+          </div>
+        )}
       </div>
+      {!canEdit && (
+        <p className="mb-2 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">
+          Read-only: {set.subject} is not one of your subjects. Ask the admin if you need to change
+          this set.
+        </p>
+      )}
       {set.description && <p className="mb-2 text-gray-600">{set.description}</p>}
       <p className="mb-2 text-sm text-gray-500">
         {set.grades.map((g) => g.grade).join(", ") || "No grades"} · {set.subject} ·{" "}
@@ -113,7 +126,9 @@ export default async function AdminSetDetailPage({
                   {q.explanation && (
                     <p className="mb-1 text-sm text-gray-600">{q.explanation}</p>
                   )}
-                  <ExplanationEditor questionId={q.id} initialExplanation={q.explanation} />
+                  {canEdit && (
+                    <ExplanationEditor questionId={q.id} initialExplanation={q.explanation} />
+                  )}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2 text-sm">
@@ -124,18 +139,22 @@ export default async function AdminSetDetailPage({
                 >
                   {q.isActive ? "Active" : "Inactive"}
                 </span>
-                <Link
-                  href={`/admin/sets/${set.id}/questions/${q.id}/edit`}
-                  className="text-blue-600 hover:underline"
-                >
-                  Edit
-                </Link>
-                <form action={toggleQuestionActive.bind(null, q.id, !q.isActive)}>
-                  <SubmitButton pendingText="..." className="text-blue-600 hover:underline">
-                    {q.isActive ? "Deactivate" : "Activate"}
-                  </SubmitButton>
-                </form>
-                {q._count.submissions === 0 && (
+                {canEdit && (
+                  <>
+                    <Link
+                      href={`/admin/sets/${set.id}/questions/${q.id}/edit`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Edit
+                    </Link>
+                    <form action={toggleQuestionActive.bind(null, q.id, !q.isActive)}>
+                      <SubmitButton pendingText="..." className="text-blue-600 hover:underline">
+                        {q.isActive ? "Deactivate" : "Activate"}
+                      </SubmitButton>
+                    </form>
+                  </>
+                )}
+                {canEdit && q._count.submissions === 0 && (
                   <form action={deleteQuestion.bind(null, q.id)}>
                     <SubmitButton pendingText="Deleting…" className="text-red-600 hover:underline">
                       Delete

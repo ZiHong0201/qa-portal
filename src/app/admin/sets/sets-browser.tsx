@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { deleteQuestionSet, toggleQuestionSetActive } from "@/lib/actions/questionSets";
 import { SubmitButton } from "@/components/submit-button";
+import { canEditSubject } from "@/lib/subject-access";
 
 export type BrowsableSet = {
   id: string;
@@ -21,12 +22,12 @@ function FolderGrid({
   items,
   onSelect,
 }: {
-  items: { label: string; count: number }[];
+  items: { label: string; count: number; readOnly?: boolean }[];
   onSelect: (label: string) => void;
 }) {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-      {items.map(({ label, count }) => (
+      {items.map(({ label, count, readOnly }) => (
         <button
           key={label}
           type="button"
@@ -39,6 +40,7 @@ function FolderGrid({
           <span className="font-medium">{label}</span>
           <span className="text-sm text-gray-500">
             {count} set{count === 1 ? "" : "s"}
+            {readOnly && " · read-only"}
           </span>
         </button>
       ))}
@@ -65,7 +67,14 @@ function Breadcrumb({ crumbs }: { crumbs: { label: string; onClick?: () => void 
   );
 }
 
-export function SetsBrowser({ sets }: { sets: BrowsableSet[] }) {
+export function SetsBrowser({
+  sets,
+  editable,
+}: {
+  sets: BrowsableSet[];
+  /** Subjects the viewer may change; null for every subject. */
+  editable: string[] | null;
+}) {
   const [subject, setSubject] = useState<string | null>(null);
   const [grade, setGrade] = useState<string | null>(null);
 
@@ -77,6 +86,7 @@ export function SetsBrowser({ sets }: { sets: BrowsableSet[] }) {
         items={subjects.map((subj) => ({
           label: subj,
           count: sets.filter((s) => s.subject === subj).length,
+          readOnly: !canEditSubject(editable, subj),
         }))}
         onSelect={setSubject}
       />
@@ -122,6 +132,7 @@ export function SetsBrowser({ sets }: { sets: BrowsableSet[] }) {
       <ul className="flex flex-col gap-3">
         {setsInGrade.map((set) => {
           const submissionCount = set.questions.reduce((n, q) => n + q._count.submissions, 0);
+          const canEdit = canEditSubject(editable, set.subject);
           return (
             <li key={set.id} className="rounded-lg border border-gray-200 bg-white p-4">
               <div className="flex items-start justify-between gap-4">
@@ -143,15 +154,24 @@ export function SetsBrowser({ sets }: { sets: BrowsableSet[] }) {
                   >
                     {set.isActive ? "Active" : "Inactive"}
                   </span>
-                  <Link href={`/admin/sets/${set.id}/edit`} className="text-blue-600 hover:underline">
-                    Edit
-                  </Link>
-                  <form action={toggleQuestionSetActive.bind(null, set.id, !set.isActive)}>
-                    <SubmitButton pendingText="..." className="text-blue-600 hover:underline">
-                      {set.isActive ? "Deactivate" : "Activate"}
-                    </SubmitButton>
-                  </form>
-                  {submissionCount === 0 && (
+                  {canEdit ? (
+                    <>
+                      <Link
+                        href={`/admin/sets/${set.id}/edit`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        Edit
+                      </Link>
+                      <form action={toggleQuestionSetActive.bind(null, set.id, !set.isActive)}>
+                        <SubmitButton pendingText="..." className="text-blue-600 hover:underline">
+                          {set.isActive ? "Deactivate" : "Activate"}
+                        </SubmitButton>
+                      </form>
+                    </>
+                  ) : (
+                    <span className="text-xs text-gray-400">Read-only</span>
+                  )}
+                  {canEdit && submissionCount === 0 && (
                     <form action={deleteQuestionSet.bind(null, set.id)}>
                       <SubmitButton pendingText="Deleting…" className="text-red-600 hover:underline">
                         Delete

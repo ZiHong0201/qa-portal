@@ -91,6 +91,9 @@ model User {
   madeAdjustments       PointAdjustment[] @relation("PointAdjustmentCreator")
 
   subjects StudentSubject[] // students only - a student can take multiple subjects
+  // Teachers only - the subjects whose question sets they may edit. Admins
+  // edit every subject and have none here. See src/lib/permissions.ts.
+  teachingSubjects TeacherSubject[]
   checkIns CheckIn[]        @relation("StudentCheckIns")
 
   createdAnnouncements Announcement[] @relation("AnnouncementCreator")
@@ -188,6 +191,20 @@ model StudentSubject {
   createdAt DateTime @default(now())
 
   @@unique([studentId, subject])
+}
+
+// A subject (by name, matching Subject master data) a teacher may edit
+// question sets in. Same shape as StudentSubject, kept as its own table so
+// what a teacher may touch is never confused with what a student studies.
+// A teacher with no rows here can read every set but edit none.
+model TeacherSubject {
+  id        String   @id @default(cuid())
+  teacher   User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId String
+  subject   String
+  createdAt DateTime @default(now())
+
+  @@unique([teacherId, subject])
 }
 
 // A gift/reward students can redeem with their points balance.

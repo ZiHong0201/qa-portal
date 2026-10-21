@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireStaff } from "@/lib/permissions";
+import { requireQuestionAccess, requireSetAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { saveDiagram, deleteDiagram } from "@/lib/uploads";
 import type { FormState } from "./auth";
@@ -40,9 +40,7 @@ export async function createQuestion(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const session = await requireStaff();
-
-  const set = await prisma.questionSet.findUnique({ where: { id: setId } });
+  const { session, set } = await requireSetAccess(setId);
   if (!set) return { error: "Question set not found." };
 
   const parsed = questionSchema.safeParse({
@@ -90,11 +88,7 @@ export async function updateQuestion(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireStaff();
-
-  const existing = await prisma.question.findUnique({
-    where: { id: questionId },
-  });
+  const { question: existing } = await requireQuestionAccess(questionId);
   if (!existing) return { error: "Question not found." };
 
   const parsed = questionSchema.safeParse({
@@ -149,9 +143,7 @@ export async function updateQuestion(
 }
 
 export async function deleteQuestion(questionId: string) {
-  await requireStaff();
-
-  const question = await prisma.question.findUnique({ where: { id: questionId } });
+  const { question } = await requireQuestionAccess(questionId);
   if (!question) return;
 
   const count = await prisma.submission.count({ where: { questionId } });
@@ -167,8 +159,9 @@ export async function deleteQuestion(questionId: string) {
 }
 
 export async function toggleQuestionActive(questionId: string, isActive: boolean) {
-  await requireStaff();
-  const question = await prisma.question.update({
+  const { question } = await requireQuestionAccess(questionId);
+  if (!question) return;
+  await prisma.question.update({
     where: { id: questionId },
     data: { isActive },
   });
@@ -179,14 +172,15 @@ export async function toggleQuestionActive(questionId: string, isActive: boolean
 // it stays editable even after a question has submissions - explanations are
 // usually added *because* students got something wrong.
 export async function updateQuestionExplanation(questionId: string, formData: FormData) {
-  await requireStaff();
+  const { question } = await requireQuestionAccess(questionId);
+  if (!question) return;
 
   const explanation = (formData.get("explanation") as string | null)?.trim() || null;
   if (explanation && explanation.length > 2000) {
     throw new Error("Explanation is too long (max 2000 characters).");
   }
 
-  const question = await prisma.question.update({
+  await prisma.question.update({
     where: { id: questionId },
     data: { explanation },
   });

@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { canEditSubject, currentEditableSubjects } from "@/lib/permissions";
 import { SetForm } from "../../set-form";
 import { updateQuestionSet } from "@/lib/actions/questionSets";
 import { getGradeNames } from "@/lib/grades";
@@ -11,12 +12,16 @@ export default async function EditQuestionSetPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [set, grades, subjects] = await Promise.all([
+  const [set, grades, allSubjects, editable] = await Promise.all([
     prisma.questionSet.findUnique({ where: { id }, include: { grades: true } }),
     getGradeNames(),
     getSubjectNames(),
+    currentEditableSubjects(),
   ]);
   if (!set) notFound();
+  if (!canEditSubject(editable, set.subject)) redirect(`/admin/sets/${set.id}`);
+  // A set can only be moved into a subject the teacher also has.
+  const subjects = allSubjects.filter((s) => canEditSubject(editable, s));
 
   const action = updateQuestionSet.bind(null, set.id);
 

@@ -16,9 +16,11 @@ import type { FormState } from "./auth";
  * the admin's business rather than a teacher's. An account that can make more
  * admins, doubly so.
  *
- * Staff are plain users with role TEACHER or ADMIN - no grade, no subjects.
- * Those describe what a student studies, not what a teacher may touch; staff
- * see every set regardless.
+ * Staff are plain users with role TEACHER or ADMIN - no grade, and none of
+ * the StudentSubject rows that say what a student studies. A teacher instead
+ * has TeacherSubject rows: the subjects whose sets they may edit (see
+ * src/lib/permissions.ts). Admins edit every subject, so an admin keeps none -
+ * a stale list would only mislead whoever reads it after a demotion.
  *
  * Two rules run through every function here, and both exist to stop the portal
  * being locked away from its owner:
@@ -38,6 +40,24 @@ const staffSchema = z.object({
   role: z.enum(ROLES, { message: "Choose teacher or admin." }),
 });
 
+/**
+ * The subjects ticked on the form, checked against master data. Only a
+ * teacher keeps any; for an admin the list is ignored and comes back empty.
+ */
+async function parseTeachingSubjects(
+  formData: FormData,
+  role: (typeof ROLES)[number]
+): Promise<{ subjects: string[] } | { error: string }> {
+  if (role !== "TEACHER") return { subjects: [] };
+  const subjects = [
+    ...new Set(formData.getAll("subjects").filter((s): s is string => typeof s === "string")),
+  ];
+  if (subjects.length === 0) return { subjects };
+  const valid = await prisma.subject.count({ where: { name: { in: subjects } } });
+  if (valid !== subjects.length) return { error: "Select valid subjects." };
+  return { subjects };
+}
+
 export async function createStaff(
   _prevState: FormState,
   formData: FormData
@@ -53,11 +73,20 @@ export async function createStaff(
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { name, email, password, role } = parsed.data;
 
+  const teaching = await parseTeachingSubjects(formData, role);
+  if ("error" in teaching) return { error: teaching.error };
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return { error: "An account with that email already exists." };
 
   await prisma.user.create({
-    data: { name, email, passwordHash: await bcrypt.hash(password, 10), role },
+    data: {
+      name,
+      email,
+      passwordHash: await bcrypt.hash(password, 10),
+      role,
+      teachingSubjects: { create: teaching.subjects.map((subject) => ({ subject })) },
+    },
   });
 
   revalidatePath("/admin/staff");
@@ -87,6 +116,9 @@ export async function updateStaff(
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { name, email, password, role } = parsed.data;
 
+  const teaching = await parseTeachingSubjects(formData, role);
+  if ("error" in teaching) return { error: teaching.error };
+
   const staff = await staffOrNull(staffId);
   // Guarding the role as well as the id: this must not become a way to rename
   // a student, or to quietly reset their password.
@@ -102,15 +134,17 @@ export async function updateStaff(
     return { error: "An account with that email already exists." };
   }
 
-  await prisma.user.update({
-    where: { id: staffId },
-    data: {
-      name,
-      email,
-      role,
-      ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
-    },
-  });
+  const passwordHash = password ? await bcrypt.hash(password, 10) : undefined;
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: staffId },
+      data: { name, email, role, ...(passwordHash ? { passwordHash } : {}) },
+    }),
+    prisma.teacherSubject.deleteMany({ where: { teacherId: staffId } }),
+    prisma.teacherSubject.createMany({
+      data: teaching.subjects.map((subject) => ({ teacherId: staffId, subject })),
+    }),
+  ]);
 
   revalidatePath("/admin/staff");
   redirect("/admin/staff?saved=1");
@@ -174,7 +208,12 @@ export async function revokeStaff(staffId: string): Promise<{ error?: string }> 
     if (blocked) return { error: blocked };
   }
 
-  await prisma.user.update({ where: { id: staffId }, data: { role: "STUDENT" } });
+  // Their subjects go too: restoring access later should be a fresh decision
+  // about what they may edit, not a quiet return of last term's list.
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: staffId }, data: { role: "STUDENT" } }),
+    prisma.teacherSubject.deleteMany({ where: { teacherId: staffId } }),
+  ]);
   revalidatePath("/admin/staff");
   return {};
 }

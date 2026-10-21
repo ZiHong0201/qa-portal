@@ -87,6 +87,11 @@ export async function deleteSubject(subjectId: string) {
     );
   }
 
-  await prisma.subject.delete({ where: { id: subjectId } });
+  // A teacher assigned the subject is no reason to keep it: nothing would be
+  // left in it for them to edit. Their assignment goes with it.
+  await prisma.$transaction([
+    prisma.teacherSubject.deleteMany({ where: { subject: subject.name } }),
+    prisma.subject.delete({ where: { id: subjectId } }),
+  ]);
   revalidatePath("/admin/master-data");
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { FormState } from "@/lib/actions/auth";
 
 /**
@@ -27,16 +27,20 @@ const ROLE_OPTIONS = [
 export function StaffForm({
   action,
   initial,
+  subjects,
   submitLabel,
   roleLocked,
 }: {
   action: (prevState: FormState, formData: FormData) => Promise<FormState>;
-  initial?: { name: string; email: string; role: string };
+  initial?: { name: string; email: string; role: string; subjects: string[] };
+  /** Every subject in master data, to choose a teacher's from. */
+  subjects: string[];
   submitLabel: string;
   /** Set when the role must not change - the last admin, or yourself. */
   roleLocked?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
+  const [role, setRole] = useState(initial?.role ?? "TEACHER");
   const isEdit = !!initial;
 
   return (
@@ -102,6 +106,7 @@ export function StaffForm({
                 required
                 disabled={!!roleLocked}
                 defaultChecked={(initial?.role ?? "TEACHER") === opt.value}
+                onChange={() => setRole(opt.value)}
                 className="mt-1"
               />
               <span>
@@ -121,6 +126,35 @@ export function StaffForm({
           </>
         )}
       </fieldset>
+
+      {/* Only teachers are tied to subjects - an admin edits every set - so
+          the choice is hidden rather than offered and then ignored. */}
+      {role === "TEACHER" && (
+        <fieldset>
+          <legend className="mb-1 block text-sm font-medium">Subjects they can edit</legend>
+          {subjects.length === 0 ? (
+            <p className="text-sm text-gray-500">No subjects in master data yet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {subjects.map((s) => (
+                <label key={s} className="flex items-center gap-1 text-sm whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    name="subjects"
+                    value={s}
+                    defaultChecked={initial?.subjects.includes(s)}
+                  />
+                  {s}
+                </label>
+              ))}
+            </div>
+          )}
+          <p className="mt-1 text-xs text-gray-500">
+            They can read every question set, but change only the sets in these subjects. With
+            none ticked they can change no sets at all.
+          </p>
+        </fieldset>
+      )}
 
       <button
         type="submit"
