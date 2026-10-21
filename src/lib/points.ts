@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
+import { FEEDBACK_ENABLED_KEY } from "@/lib/feedback";
 
 export type StudentBalance = {
   earned: number;
@@ -42,6 +43,7 @@ type BalanceRow = {
   petEnabled?: number | bigint | null;
   suspensionReason?: string | null;
   suspendedAt?: string | null;
+  feedbackSetting?: string | null;
 };
 
 const n = (v: number | bigint | null | undefined) => Number(v ?? 0);
@@ -67,7 +69,8 @@ async function balanceRow(
         WHERE studentId = ${studentId}) AS petSpend,
       (SELECT petEnabled FROM User WHERE id = ${studentId}) AS petEnabled,
       (SELECT suspensionReason FROM User WHERE id = ${studentId}) AS suspensionReason,
-      (SELECT suspendedAt FROM User WHERE id = ${studentId}) AS suspendedAt
+      (SELECT suspendedAt FROM User WHERE id = ${studentId}) AS suspendedAt,
+      (SELECT value FROM PortalSetting WHERE key = ${FEEDBACK_ENABLED_KEY}) AS feedbackSetting
   `;
   return rows[0] ?? { earned: 0, checkInBonus: 0, adjustments: 0, redeemed: 0, petSpend: 0 };
 }
@@ -104,16 +107,25 @@ export type Suspension = { reason: string; since: Date };
  * Also whether the account is suspended, which the dashboard layout checks
  * before rendering anything. Wrapped in React's cache() so that check and the
  * nav share this one query within a request, rather than every page paying
- * an extra round trip to Tokyo for a flag that is almost always unset.
+ * an extra round trip to Tokyo for a flag that is almost always unset. The
+ * admin's feedback switch rides along for the same reason: the nav link and
+ * the home page banner both depend on it.
  */
 export const getStudentNav = cache(
   async (
     studentId: string
-  ): Promise<{ balance: StudentBalance; petEnabled: boolean; suspension: Suspension | null }> => {
+  ): Promise<{
+    balance: StudentBalance;
+    petEnabled: boolean;
+    feedbackEnabled: boolean;
+    suspension: Suspension | null;
+  }> => {
     const row = await balanceRow(studentId);
     return {
       balance: toBalance(row),
       petEnabled: !!n(row.petEnabled),
+      // Open unless an admin closed it, as isFeedbackEnabled reads it.
+      feedbackEnabled: row.feedbackSetting !== "false",
       suspension: row.suspendedAt
         ? { reason: row.suspensionReason ?? "", since: new Date(row.suspendedAt) }
         : null,

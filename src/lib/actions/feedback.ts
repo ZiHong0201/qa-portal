@@ -9,6 +9,7 @@ import {
   markAllFeedbackRead,
   sendFeedback,
   setFeedbackArchived,
+  setFeedbackEnabled,
   setFeedbackRead,
   setFeedbackStarred,
   withdrawQuote,
@@ -28,6 +29,8 @@ export async function sendMyFeedback(_prev: Result, formData: FormData): Promise
     mayQuote: formData.get("mayQuote") === "on",
     credit: formData.get("credit"),
     shortName: formData.get("shortName"),
+    rating: formData.get("rating"),
+    recommend: formData.get("recommend"),
   });
   if (result.success) {
     revalidatePath("/dashboard/feedback");
@@ -72,6 +75,14 @@ export async function starFeedback(id: string, starred: boolean) {
   await setFeedbackStarred(id, starred);
   revalidatePath("/admin/feedback");
   revalidatePath("/admin");
+}
+
+export async function switchFeedback(enabled: boolean) {
+  await requireAdmin();
+  await setFeedbackEnabled(enabled);
+  // The nav link and the home page banner sit on every student page.
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/admin/feedback");
 }
 
 export async function archiveFeedback(id: string, archived: boolean) {

@@ -847,12 +847,24 @@ enum FeedbackCredit {
 // when the student sends it - so a later change of name or grade on the
 // account never puts words to a name the student did not agree to. It is
 // null whenever quoting is not allowed, and so is credit.
+//
+// Feedback outlives the account: deleting a student clears studentId and
+// keeps the message, still credited as the student chose. studentName and
+// studentGrade are who wrote it, as at sending, so the admin's list still
+// reads properly once the account is gone.
 model Feedback {
-  id        String       @id @default(cuid())
-  student   User         @relation("StudentFeedback", fields: [studentId], references: [id], onDelete: Cascade)
-  studentId String
-  kind      FeedbackKind
-  message   String
+  id           String       @id @default(cuid())
+  student      User?        @relation("StudentFeedback", fields: [studentId], references: [id], onDelete: SetNull)
+  studentId    String?
+  studentName  String
+  studentGrade String?
+  kind         FeedbackKind
+  message      String
+
+  // Optional, answered with the message: 1 to 5 stars for Mr Tan, and whether
+  // they would recommend him to a friend. Null when skipped.
+  rating         Int?
+  wouldRecommend Boolean?
 
   mayQuote   Boolean         @default(false)
   credit     FeedbackCredit?
@@ -867,4 +879,12 @@ model Feedback {
   // The student's own history and the daily cap both read by student and date.
   @@index([studentId, createdAt])
   @@index([createdAt])
+}
+
+// Portal-wide switches an admin flips, one value per key. "feedbackEnabled"
+// is "false" while the student Feedback page is closed; with no row it is
+// open. The payment site keeps its own settings in FeeSetting.
+model PortalSetting {
+  key   String @id
+  value String
 }

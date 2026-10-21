@@ -9,7 +9,6 @@ const STUDENT_LINKS: NavLink[] = [
   { href: "/dashboard/sets", label: "My Sets" },
   { href: "/dashboard/catalogue", label: "Gift Exchange" },
   { href: "/dashboard/leaderboard", label: "Scoreboard" },
-  { href: "/dashboard/feedback", label: "Feedback" },
 ];
 
 // The teaching half of /admin: everything a teacher and an admin both use.
@@ -56,10 +55,14 @@ export async function Nav() {
     // renders on every page, so anything extra here is paid for everywhere.
     const nav = await getStudentNav(session.user.id);
     balance = nav.balance.balance;
+    // Feedback shows only while the admin has it switched on.
+    if (nav.feedbackEnabled) {
+      links = [...links, { href: "/dashboard/feedback", label: "Feedback" }];
+    }
     // The cat is opt-in, and a student who does not have it should not see a
     // link to it at all - the page itself redirects them away regardless.
     if (nav.petEnabled) {
-      links = [...STUDENT_LINKS, { href: "/dashboard/pet", label: "My Cat" }];
+      links = [...links, { href: "/dashboard/pet", label: "My Cat" }];
     }
   }
 

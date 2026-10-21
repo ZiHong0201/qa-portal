@@ -27,6 +27,13 @@ export const FEEDBACK_PER_DAY = 3;
 
 export const ANONYMOUS_CREDIT = "Anonymous student";
 
+/** "★★★★☆" for 4, so a rating reads the same on every page. */
+export const stars = (rating: number) => "★".repeat(rating) + "☆".repeat(5 - rating);
+
+/** The PortalSetting key for the admin's on/off switch; "false" means closed. */
+export const FEEDBACK_ENABLED_KEY = "feedbackEnabled";
+export const FEEDBACK_CLOSED_ERROR = "Feedback is closed for now. Please check back later.";
+
 /**
  * A guess at the name a student goes by, to prefill the short credit.
  *
@@ -57,7 +64,7 @@ export function creditLine(
   return ANONYMOUS_CREDIT;
 }
 
-export type Testimonial = { quote: string; credit: string; date: string };
+export type Testimonial = { quote: string; credit: string; date: string; rating: number | null };
 
 /**
  * Testimonials as CSV for a spreadsheet. A cell that starts with = + - or @
@@ -70,6 +77,9 @@ export function testimonialsCsv(rows: Testimonial[]): string {
     const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
     return `"${safe.replace(/"/g, '""')}"`;
   };
-  const lines = [["quote", "credit", "date"], ...rows.map((r) => [r.quote, r.credit, r.date])];
+  const lines = [
+    ["quote", "credit", "date", "rating"],
+    ...rows.map((r) => [r.quote, r.credit, r.date, r.rating === null ? "" : String(r.rating)]),
+  ];
   return "﻿" + lines.map((l) => l.map(cell).join(",")).join("\r\n") + "\r\n";
 }

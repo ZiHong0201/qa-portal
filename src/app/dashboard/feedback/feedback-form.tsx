@@ -11,6 +11,7 @@ import {
   MAX_SHORT_NAME,
   creditLine,
   guessFirstName,
+  stars,
   type FeedbackCredit,
   type FeedbackKind,
 } from "@/lib/feedback";
@@ -38,10 +39,14 @@ export function FeedbackForm({
   const [mayQuote, setMayQuote] = useState(false);
   const [credit, setCredit] = useState<FeedbackCredit>("FIRST_NAME_GRADE");
   const [shortName, setShortName] = useState(guessFirstName(name));
+  const [rating, setRating] = useState<number | null>(null);
+  const [recommend, setRecommend] = useState<"yes" | "no" | null>(null);
   const [state, action, pending] = useActionState(async (prev: Result, f: FormData) => {
     const r = await sendMyFeedback(prev, f);
     if (r.success) {
       setMessage("");
+      setRating(null);
+      setRecommend(null);
       // Permission is asked afresh each time, never carried over.
       setMayQuote(false);
     }
@@ -98,6 +103,65 @@ export function FeedbackForm({
           {message.length} / {MAX_MESSAGE}
         </p>
       </div>
+
+      {/* Both optional. Clicking the chosen answer again clears it, since a
+          radio button cannot otherwise be un-chosen. */}
+      <fieldset>
+        <legend className="mb-1 text-sm font-medium">
+          Rate Mr Tan <span className="font-normal text-gray-400">(optional)</span>
+        </legend>
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <label key={n} className="cursor-pointer" title={`${n} star${n === 1 ? "" : "s"}`}>
+              <input
+                type="radio"
+                name="rating"
+                value={n}
+                checked={rating === n}
+                onChange={() => setRating(n)}
+                onClick={() => rating === n && setRating(null)}
+                className="sr-only"
+              />
+              <span
+                aria-hidden="true"
+                className={`text-3xl leading-none ${rating !== null && n <= rating ? "text-amber-400" : "text-gray-300 hover:text-amber-200"}`}
+              >
+                ★
+              </span>
+              <span className="sr-only">{n} stars</span>
+            </label>
+          ))}
+          {rating !== null && <span className="ml-2 text-xs text-gray-500">{stars(rating)} {rating} / 5</span>}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend className="mb-1 text-sm font-medium">
+          Will you recommend Mr Tan to your friends?{" "}
+          <span className="font-normal text-gray-400">(optional)</span>
+        </legend>
+        <div className="flex gap-2">
+          {(["yes", "no"] as const).map((v) => (
+            <label
+              key={v}
+              className={`cursor-pointer rounded-md border px-4 py-1.5 text-sm ${
+                recommend === v ? "border-sky-400 bg-sky-50 text-sky-900" : "border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="recommend"
+                value={v}
+                checked={recommend === v}
+                onChange={() => setRecommend(v)}
+                onClick={() => recommend === v && setRecommend(null)}
+                className="sr-only"
+              />
+              {v === "yes" ? "Yes" : "No"}
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
         <label className="flex items-start gap-2 text-sm">

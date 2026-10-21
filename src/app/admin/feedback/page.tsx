@@ -1,14 +1,22 @@
 import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
-import { archiveFeedback, markEveryFeedbackRead, markFeedbackRead, starFeedback } from "@/lib/actions/feedback";
 import {
+  archiveFeedback,
+  markEveryFeedbackRead,
+  markFeedbackRead,
+  starFeedback,
+  switchFeedback,
+} from "@/lib/actions/feedback";
+import {
+  isFeedbackEnabled,
   listFeedback,
+  ratingSummary,
   testimonialCount,
   unreadFeedbackCount,
   type FeedbackFilter,
   type FeedbackView,
 } from "@/lib/feedback.server";
-import { FEEDBACK_KINDS, KIND_LABELS, type FeedbackKind } from "@/lib/feedback";
+import { FEEDBACK_KINDS, KIND_LABELS, stars, type FeedbackKind } from "@/lib/feedback";
 
 const VIEWS: { value: FeedbackView; label: string }[] = [
   { value: "inbox", label: "Inbox" },
@@ -43,10 +51,12 @@ export default async function FeedbackAdminPage({
     quote: params.quote === "yes" ? true : params.quote === "no" ? false : null,
   };
 
-  const [items, unread, starredCount] = await Promise.all([
+  const [items, unread, starredCount, open, summary] = await Promise.all([
     listFeedback(filter),
     unreadFeedbackCount(),
     testimonialCount(),
+    isFeedbackEnabled(),
+    ratingSummary(),
   ]);
 
   // Each filter link keeps the other two filters as they are.
@@ -84,12 +94,67 @@ export default async function FeedbackAdminPage({
         starred, and they are credited exactly as the student chose.
       </p>
 
+      {(summary.ratings > 0 || summary.recommendAnswered > 0) && (
+        <div className="mb-3 grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <p className="text-xs font-medium text-gray-500">Average rating</p>
+            <p className="mt-0.5 text-2xl font-bold text-amber-500">
+              {summary.average !== null ? `${summary.average.toFixed(1)} ★` : "—"}
+            </p>
+            <p className="text-xs text-gray-500">
+              from {summary.ratings} rating{summary.ratings === 1 ? "" : "s"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <p className="text-xs font-medium text-gray-500">Would recommend Mr Tan</p>
+            <p className="mt-0.5 text-2xl font-bold text-sky-900">
+              {summary.recommendAnswered > 0
+                ? `${Math.round((summary.recommendYes / summary.recommendAnswered) * 100)}%`
+                : "—"}
+            </p>
+            <p className="text-xs text-gray-500">
+              {summary.recommendYes} of {summary.recommendAnswered} said yes
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={`mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 ${
+          open ? "border-green-200 bg-green-50" : "border-gray-200 bg-white"
+        }`}
+      >
+        <div>
+          <p className="text-sm font-medium text-gray-800">
+            Feedback from students is{" "}
+            <span className={open ? "text-green-700" : "text-gray-500"}>{open ? "on" : "off"}</span>
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            {open
+              ? "Students see the Feedback link, the banner at the top of their home page, and the form."
+              : "The link, banner and form are hidden, and nothing new can be sent. Students can still see what they sent and stop it being quoted."}
+          </p>
+        </div>
+        <form action={switchFeedback.bind(null, !open)}>
+          <SubmitButton
+            pendingText="Saving…"
+            className={
+              open
+                ? SMALL_BUTTON
+                : "rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700"
+            }
+          >
+            {open ? "Turn off" : "Turn on"}
+          </SubmitButton>
+        </form>
+      </div>
+
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
         <p className="text-sm font-medium text-gray-800">Testimonials for the website</p>
         <p className="mt-1 text-xs text-gray-500">
           {starredCount === 0
             ? "Nothing starred yet."
-            : `${starredCount} starred. The download has each quote, the credit line the student chose, and the date - never an email address.`}{" "}
+            : `${starredCount} starred. The download has each quote, the credit line the student chose, the date and their star rating - never an email address.`}{" "}
           A student can take back permission at any time; download again before each website update so a withdrawn
           quote comes off.
         </p>
@@ -153,13 +218,27 @@ export default async function FeedbackAdminPage({
                 {f.starredAt && (
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">★ Testimonial</span>
                 )}
-                <Link href={`/admin/students/${f.student.id}`} className="font-medium text-gray-800 hover:underline">
-                  {f.student.name}
-                </Link>
-                {f.student.grade && <span className="text-gray-500">{f.student.grade}</span>}
+                {f.studentId ? (
+                  <Link href={`/admin/students/${f.studentId}`} className="font-medium text-gray-800 hover:underline">
+                    {f.studentName}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-gray-800">
+                    {f.studentName} <span className="font-normal text-gray-400">(account deleted)</span>
+                  </span>
+                )}
+                {f.studentGrade && <span className="text-gray-500">{f.studentGrade}</span>}
                 <span className="text-gray-400">{sentAt(f.createdAt)}</span>
               </div>
               <p className="whitespace-pre-wrap text-sm text-gray-800">{f.message}</p>
+              {(f.rating !== null || f.wouldRecommend !== null) && (
+                <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-gray-500">
+                  {f.rating !== null && <span className="text-amber-500">{stars(f.rating)}</span>}
+                  {f.wouldRecommend !== null && (
+                    <span>{f.wouldRecommend ? "Would recommend" : "Would not recommend"}</span>
+                  )}
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs text-gray-500">
                   {f.mayQuote ? (

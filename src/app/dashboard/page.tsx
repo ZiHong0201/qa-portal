@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getCheckInState } from "@/lib/check-in.server";
 import { getRankedStudents } from "@/lib/leaderboard";
+import { getStudentNav } from "@/lib/points";
 import { CheckInCard } from "@/components/check-in-card";
 import { SubjectArt, themeFor } from "@/components/subject-art";
 import { CelebratingCat } from "@/components/celebrating-cat";
@@ -20,20 +21,28 @@ export default async function DashboardPage() {
   const userId = session!.user.id;
   const firstName = session!.user.name?.split(" ")[0] ?? "there";
 
-  const student = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { grade: true, subjects: { select: { subject: true } } },
-  });
+  const [student, nav] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { grade: true, subjects: { select: { subject: true } } },
+    }),
+    // Already fetched by the layout this request, so the switch costs nothing.
+    getStudentNav(userId),
+  ]);
+  const banner = nav.feedbackEnabled && <FeedbackBanner />;
   const subjectNames = (student?.subjects.map((s) => s.subject) ?? []).sort();
 
   if (!student?.grade || subjectNames.length === 0) {
     return (
-      <div className="rounded-2xl border border-sky-100 bg-white p-8 text-center">
-        <h1 className="mb-2 text-2xl font-bold text-sky-950">Welcome, {firstName}!</h1>
-        <p className="text-gray-500">
-          Your grade and subjects haven&apos;t been set yet. Ask your teacher to set them and your
-          journey will show up here.
-        </p>
+      <div className="flex flex-col gap-6">
+        {banner}
+        <div className="rounded-2xl border border-sky-100 bg-white p-8 text-center">
+          <h1 className="mb-2 text-2xl font-bold text-sky-950">Welcome, {firstName}!</h1>
+          <p className="text-gray-500">
+            Your grade and subjects haven&apos;t been set yet. Ask your teacher to set them and your
+            journey will show up here.
+          </p>
+        </div>
       </div>
     );
   }
@@ -98,6 +107,8 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {banner}
+
       {/* Hero */}
       <section className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-indigo-50 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -226,6 +237,24 @@ export default async function DashboardPage() {
         </Link>
       </section>
     </div>
+  );
+}
+
+/** The way in to /dashboard/feedback, first thing on the home page. */
+function FeedbackBanner() {
+  return (
+    <Link
+      href="/dashboard/feedback"
+      className="flex items-center gap-3 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 transition-colors hover:bg-violet-100"
+    >
+      <span className="text-2xl">💬</span>
+      <span className="min-w-0 flex-1 font-semibold text-violet-900">
+        有什么话想告诉老师的吗？ 欢迎留下你的看法!
+      </span>
+      <span className="shrink-0 text-violet-700" aria-hidden="true">
+        →
+      </span>
+    </Link>
   );
 }
 

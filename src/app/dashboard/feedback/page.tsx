@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { feedbackLeftToday, myFeedback } from "@/lib/feedback.server";
-import { KIND_LABELS } from "@/lib/feedback";
+import { feedbackLeftToday, isFeedbackEnabled, myFeedback } from "@/lib/feedback.server";
+import { FEEDBACK_CLOSED_ERROR, KIND_LABELS, stars } from "@/lib/feedback";
 import { FeedbackForm, StopQuotingButton } from "./feedback-form";
 
 const sentOn = (d: Date) =>
@@ -11,10 +11,11 @@ export default async function FeedbackPage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [student, sent, remaining] = await Promise.all([
+  const [student, sent, remaining, open] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { name: true, grade: true } }),
     myFeedback(userId),
     feedbackLeftToday(userId),
+    isFeedbackEnabled(),
   ]);
 
   return (
@@ -24,11 +25,17 @@ export default async function FeedbackPage() {
         Got an idea, a suggestion, or something to say about the classes or this portal? Tell Mr Tan here.
       </p>
 
-      <FeedbackForm
-        name={student?.name ?? session!.user.name ?? ""}
-        grade={student?.grade ?? null}
-        remaining={remaining}
-      />
+      {/* Closed, the page stays reachable so a student can still see what
+          they sent and take back permission to quote it. */}
+      {open ? (
+        <FeedbackForm
+          name={student?.name ?? session!.user.name ?? ""}
+          grade={student?.grade ?? null}
+          remaining={remaining}
+        />
+      ) : (
+        <p className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">{FEEDBACK_CLOSED_ERROR}</p>
+      )}
 
       <h2 className="mt-8 mb-3 font-medium">What you&apos;ve sent</h2>
       {sent.length === 0 ? (
@@ -47,6 +54,14 @@ export default async function FeedbackPage() {
                 )}
               </div>
               <p className="whitespace-pre-wrap text-gray-800">{f.message}</p>
+              {(f.rating !== null || f.wouldRecommend !== null) && (
+                <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-gray-500">
+                  {f.rating !== null && <span className="text-amber-500">{stars(f.rating)}</span>}
+                  {f.wouldRecommend !== null && (
+                    <span>{f.wouldRecommend ? "Would recommend Mr Tan" : "Would not recommend Mr Tan"}</span>
+                  )}
+                </p>
+              )}
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
                 {f.mayQuote ? (
                   <>
