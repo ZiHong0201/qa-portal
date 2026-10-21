@@ -7,6 +7,9 @@ import { getStudentNav } from "@/lib/points";
 import { CheckInCard } from "@/components/check-in-card";
 import { SubjectArt, themeFor } from "@/components/subject-art";
 import { CelebratingCat } from "@/components/celebrating-cat";
+import { getUiLang } from "@/lib/i18n.server";
+import { dateLocale } from "@/lib/i18n";
+import { homeText } from "@/lib/text/home";
 
 type SubjectSummary = {
   subject: string;
@@ -17,9 +20,10 @@ type SubjectSummary = {
 };
 
 export default async function DashboardPage() {
-  const session = await auth();
+  const [session, lang] = await Promise.all([auth(), getUiLang()]);
+  const t = homeText[lang];
   const userId = session!.user.id;
-  const firstName = session!.user.name?.split(" ")[0] ?? "there";
+  const firstName = session!.user.name?.split(" ")[0] ?? t.fallbackName;
 
   const [student, nav] = await Promise.all([
     prisma.user.findUnique({
@@ -29,7 +33,7 @@ export default async function DashboardPage() {
     // Already fetched by the layout this request, so the switch costs nothing.
     getStudentNav(userId),
   ]);
-  const banner = nav.feedbackEnabled && <FeedbackBanner />;
+  const banner = nav.feedbackEnabled && <FeedbackBanner text={t.feedbackBanner} />;
   const subjectNames = (student?.subjects.map((s) => s.subject) ?? []).sort();
 
   if (!student?.grade || subjectNames.length === 0) {
@@ -37,11 +41,8 @@ export default async function DashboardPage() {
       <div className="flex flex-col gap-6">
         {banner}
         <div className="rounded-2xl border border-sky-100 bg-white p-8 text-center">
-          <h1 className="mb-2 text-2xl font-bold text-sky-950">Welcome, {firstName}!</h1>
-          <p className="text-gray-500">
-            Your grade and subjects haven&apos;t been set yet. Ask your teacher to set them and your
-            journey will show up here.
-          </p>
+          <h1 className="mb-2 text-2xl font-bold text-sky-950">{t.welcome(firstName)}</h1>
+          <p className="text-gray-500">{t.notSetUp}</p>
         </div>
       </div>
     );
@@ -116,13 +117,13 @@ export default async function DashboardPage() {
             <p className="text-xs font-semibold tracking-wide text-sky-500 uppercase">
               {student.grade} · {subjectNames.join(" · ")}
             </p>
-            <h1 className="mt-1 text-3xl font-bold text-sky-950">Welcome back, {firstName}!</h1>
+            <h1 className="mt-1 text-3xl font-bold text-sky-950">{t.welcomeBack(firstName)}</h1>
             <p className="mt-1 text-sm text-gray-600">
               {nextUp
                 ? nextUp.answered > 0
-                  ? `Pick up ${nextUp.title} where you left off — ${nextUp.total - nextUp.answered} card${nextUp.total - nextUp.answered === 1 ? "" : "s"} to go.`
-                  : "Your next set is ready when you are."
-                : "You've finished every set available. Nicely done!"}
+                  ? t.pickUp(nextUp.title, nextUp.total - nextUp.answered)
+                  : t.nextReady
+                : t.allDone}
             </p>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -130,13 +131,13 @@ export default async function DashboardPage() {
                 href={nextUp ? `/dashboard/sets/${nextUp.id}` : "/dashboard/sets"}
                 className="rounded-xl bg-sky-600 px-5 py-2.5 font-semibold text-white shadow-sm hover:bg-sky-700 active:scale-[0.98]"
               >
-                {nextUp && nextUp.answered > 0 ? "Continue journey →" : "Start your journey →"}
+                {nextUp && nextUp.answered > 0 ? t.continueJourney : t.startJourney}
               </Link>
               <Link
                 href="/dashboard/sets"
                 className="rounded-xl border border-sky-200 bg-white px-4 py-2.5 font-medium text-sky-700 hover:bg-sky-50"
               >
-                All sets
+                {t.allSets}
               </Link>
             </div>
           </div>
@@ -153,25 +154,20 @@ export default async function DashboardPage() {
 
       {/* Stats */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Marks earned" value={marksEarned.toLocaleString()} />
-        <Stat label="Sets finished" value={`${setsComplete} / ${setProgress.length}`} />
+        <Stat label={t.marksEarned} value={marksEarned.toLocaleString(dateLocale(lang))} />
+        <Stat label={t.setsFinished} value={`${setsComplete} / ${setProgress.length}`} />
         <Stat
-          label="Scoreboard"
+          label={t.scoreboard}
           value={me ? `#${me.rank}` : "—"}
           href="/dashboard/leaderboard"
         />
-        <Stat
-          label="Check-in streak"
-          value={`${checkIn.currentStreak} day${checkIn.currentStreak === 1 ? "" : "s"}`}
-        />
+        <Stat label={t.checkInStreak} value={t.days(checkIn.currentStreak)} />
       </section>
 
       {/* Subject tiles */}
       <section>
-        <h2 className="mb-1 text-lg font-bold text-sky-950">Choose your path</h2>
-        <p className="mb-4 text-sm text-gray-500">
-          Hover a subject to wake it up, then tap to see its sets.
-        </p>
+        <h2 className="mb-1 text-lg font-bold text-sky-950">{t.choosePath}</h2>
+        <p className="mb-4 text-sm text-gray-500">{t.choosePathHelp}</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {subjectNames.map((name) => {
             const summary = bySubject.get(name)!;
@@ -189,9 +185,7 @@ export default async function DashboardPage() {
                 <div className="p-4">
                   <div className="flex items-baseline justify-between gap-2">
                     <p className={`font-bold ${theme.text}`}>{name}</p>
-                    <p className="text-xs text-gray-500">
-                      {summary.setCount} set{summary.setCount === 1 ? "" : "s"}
-                    </p>
+                    <p className="text-xs text-gray-500">{t.setCount(summary.setCount)}</p>
                   </div>
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
                     <div
@@ -201,8 +195,8 @@ export default async function DashboardPage() {
                   </div>
                   <p className="mt-2 text-xs text-gray-500">
                     {summary.questions === 0
-                      ? "No questions yet"
-                      : `${summary.answered} / ${summary.questions} answered · ${summary.setsComplete} set${summary.setsComplete === 1 ? "" : "s"} done`}
+                      ? t.noQuestions
+                      : t.subjectProgress(summary.answered, summary.questions, summary.setsComplete)}
                   </p>
                 </div>
               </Link>
@@ -219,10 +213,8 @@ export default async function DashboardPage() {
         >
           <span className="text-2xl">🏆</span>
           <span>
-            <span className="block font-semibold text-amber-900">Scoreboard</span>
-            <span className="block text-xs text-amber-700">
-              See where you stand in the top 10
-            </span>
+            <span className="block font-semibold text-amber-900">{t.scoreboard}</span>
+            <span className="block text-xs text-amber-700">{t.scoreboardBlurb}</span>
           </span>
         </Link>
         <Link
@@ -231,8 +223,8 @@ export default async function DashboardPage() {
         >
           <span className="text-2xl">🎁</span>
           <span>
-            <span className="block font-semibold text-rose-900">Gift Exchange</span>
-            <span className="block text-xs text-rose-700">Spend your marks on gifts</span>
+            <span className="block font-semibold text-rose-900">{t.giftExchange}</span>
+            <span className="block text-xs text-rose-700">{t.giftExchangeBlurb}</span>
           </span>
         </Link>
       </section>
@@ -241,16 +233,14 @@ export default async function DashboardPage() {
 }
 
 /** The way in to /dashboard/feedback, first thing on the home page. */
-function FeedbackBanner() {
+function FeedbackBanner({ text }: { text: string }) {
   return (
     <Link
       href="/dashboard/feedback"
       className="flex items-center gap-3 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 transition-colors hover:bg-violet-100"
     >
       <span className="text-2xl">💬</span>
-      <span className="min-w-0 flex-1 font-semibold text-violet-900">
-        有什么话想告诉老师的吗？ 欢迎留下你的看法!
-      </span>
+      <span className="min-w-0 flex-1 font-semibold text-violet-900">{text}</span>
       <span className="shrink-0 text-violet-700" aria-hidden="true">
         →
       </span>

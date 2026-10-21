@@ -4,18 +4,20 @@ import { useActionState, useState } from "react";
 import { adoptPet } from "@/lib/actions/pet";
 import { AVAILABLE_COATS, PET_NAME_MAX_LENGTH } from "@/lib/pet";
 import { PetSprite } from "@/components/pet-sprite";
+import { useUiLang } from "@/components/ui-language";
+import { rewardsText } from "@/lib/text/rewards";
 
 export function AdoptScreen() {
   const [state, formAction, pending] = useActionState(adoptPet, {});
   const [coat, setCoat] = useState(AVAILABLE_COATS[0].key);
   const [name, setName] = useState("");
+  const t = rewardsText[useUiLang()].pet;
 
   return (
     <div className="mx-auto max-w-lg">
-      <h1 className="mb-1 text-2xl font-bold text-sky-950">Adopt a cat</h1>
+      <h1 className="mb-1 text-2xl font-bold text-sky-950">{t.adoptTitle}</h1>
       <p className="mb-6 text-sm text-gray-500">
-        Yours to look after. Feeding it costs the same points you spend in the gift exchange, so
-        treats and rewards come out of one pot.
+        {t.adoptIntro}
       </p>
 
       <form action={formAction} className="rounded-2xl border border-sky-100 bg-white p-6 shadow-sm">
@@ -36,7 +38,7 @@ export function AdoptScreen() {
 
         {AVAILABLE_COATS.length > 1 && (
           <fieldset className="mb-5">
-            <legend className="mb-2 block text-sm font-medium">Colour</legend>
+            <legend className="mb-2 block text-sm font-medium">{t.colour}</legend>
             <div className="flex flex-wrap justify-center gap-3">
               {AVAILABLE_COATS.map((c) => (
                 <label
@@ -57,7 +59,7 @@ export function AdoptScreen() {
                     className="h-8 w-8 rounded-full border-2"
                     style={{ backgroundColor: c.fur, borderColor: c.stroke }}
                   />
-                  <span className="text-xs text-gray-600">{c.name}</span>
+                  <span className="text-xs text-gray-600">{t.coats[c.key]}</span>
                 </label>
               ))}
             </div>
@@ -66,7 +68,7 @@ export function AdoptScreen() {
 
         <div className="mb-5">
           <label className="mb-1 block text-sm font-medium" htmlFor="name">
-            Name
+            {t.name}
           </label>
           <input
             id="name"
@@ -75,7 +77,7 @@ export function AdoptScreen() {
             maxLength={PET_NAME_MAX_LENGTH}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Mochi"
+            placeholder={t.namePlaceholder}
             className="w-full rounded-md border border-gray-300 px-3 py-2"
           />
         </div>
@@ -85,9 +87,9 @@ export function AdoptScreen() {
           disabled={pending}
           className="w-full rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-3 font-semibold text-white shadow transition-all hover:from-sky-500 hover:to-indigo-500 disabled:opacity-50"
         >
-          {pending ? "Adopting…" : "Adopt"}
+          {pending ? t.adopting : t.adopt}
         </button>
-        <p className="mt-2 text-center text-xs text-gray-400">Adopting is free.</p>
+        <p className="mt-2 text-center text-xs text-gray-400">{t.adoptFree}</p>
       </form>
     </div>
   );

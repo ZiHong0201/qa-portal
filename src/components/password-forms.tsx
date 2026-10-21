@@ -4,6 +4,11 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { changeMyPassword, forgotPassword, resetForgottenPassword } from "@/lib/actions/password";
 import { requestStudentAccount } from "@/lib/actions/account-requests";
+import type { UiLang } from "@/lib/i18n";
+import { authText } from "@/lib/text/auth";
+
+// Each form takes its language from the page rather than useUiLang(): the
+// pages pin English on the payment site whatever the cookie says.
 
 // As on the login form: solid white, since globals.css pins input backgrounds.
 const FIELD =
@@ -63,7 +68,8 @@ function Field({
   );
 }
 
-export function ChangePasswordForm() {
+export function ChangePasswordForm({ lang }: { lang: UiLang }) {
+  const t = authText[lang];
   // Held in state: React resets an uncontrolled form once its action returns,
   // which would wipe what was typed when the answer is an error.
   const [current, setCurrent] = useState("");
@@ -81,18 +87,25 @@ export function ChangePasswordForm() {
   return (
     <form action={action} className="flex flex-col gap-4">
       <Notice state={state} />
-      <Field label="Current password" name="current" value={current} onChange={setCurrent} autoComplete="current-password" />
-      <Field label="New password" name="password" value={password} onChange={setPassword} autoComplete="new-password" />
-      <Field label="New password again" name="confirm" value={confirm} onChange={setConfirm} autoComplete="new-password" />
-      <p className="-mt-2 text-xs text-slate-500">At least 8 characters.</p>
+      <Field
+        label={t.currentPassword}
+        name="current"
+        value={current}
+        onChange={setCurrent}
+        autoComplete="current-password"
+      />
+      <Field label={t.newPassword} name="password" value={password} onChange={setPassword} autoComplete="new-password" />
+      <Field label={t.newPasswordAgain} name="confirm" value={confirm} onChange={setConfirm} autoComplete="new-password" />
+      <p className="-mt-2 text-xs text-slate-500">{t.minLength}</p>
       <button disabled={pending} className={BUTTON}>
-        {pending ? "Saving…" : "Change password"}
+        {pending ? t.saving : t.changePassword}
       </button>
     </form>
   );
 }
 
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({ lang }: { lang: UiLang }) {
+  const t = authText[lang];
   const [state, action, pending] = useActionState(forgotPassword, {});
   const [email, setEmail] = useState("");
   if (state.success) {
@@ -100,7 +113,7 @@ export function ForgotPasswordForm() {
       <div className="flex flex-col gap-4">
         <Notice state={state} />
         <Link href="/login" className="text-center text-sm font-medium text-sky-700 hover:underline">
-          Back to log in
+          {t.backToLogin}
         </Link>
       </div>
     );
@@ -108,21 +121,20 @@ export function ForgotPasswordForm() {
   return (
     <form action={action} className="flex flex-col gap-4">
       <Notice state={state} />
-      <p className="text-sm text-slate-600">
-        Enter the email you log in with, and we will email you a link to choose a new password.
-      </p>
-      <Field label="Email" name="email" type="email" value={email} onChange={setEmail} autoComplete="email" />
+      <p className="text-sm text-slate-600">{t.forgotHelp}</p>
+      <Field label={t.email} name="email" type="email" value={email} onChange={setEmail} autoComplete="email" />
       <button disabled={pending} className={BUTTON}>
-        {pending ? "Sending…" : "Email me a reset link"}
+        {pending ? t.sending : t.emailResetLink}
       </button>
       <Link href="/login" className="text-center text-sm font-medium text-sky-700 hover:underline">
-        Back to log in
+        {t.backToLogin}
       </Link>
     </form>
   );
 }
 
-export function RequestAccountForm() {
+export function RequestAccountForm({ lang }: { lang: UiLang }) {
+  const t = authText[lang];
   const [state, action, pending] = useActionState(requestStudentAccount, {});
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -131,7 +143,7 @@ export function RequestAccountForm() {
       <div className="flex flex-col gap-4">
         <Notice state={state} />
         <Link href="/login" className="text-center text-sm font-medium text-sky-700 hover:underline">
-          Back to log in
+          {t.backToLogin}
         </Link>
       </div>
     );
@@ -139,23 +151,21 @@ export function RequestAccountForm() {
   return (
     <form action={action} className="flex flex-col gap-4">
       <Notice state={state} />
-      <p className="text-sm text-slate-600">
-        Tell us who you are. Once your teacher approves the request, a password is made for you and emailed to this
-        address.
-      </p>
-      <Field label="Your name" name="name" type="text" value={name} onChange={setName} autoComplete="name" />
-      <Field label="Email" name="email" type="email" value={email} onChange={setEmail} autoComplete="email" />
+      <p className="text-sm text-slate-600">{t.requestHelp}</p>
+      <Field label={t.yourName} name="name" type="text" value={name} onChange={setName} autoComplete="name" />
+      <Field label={t.email} name="email" type="email" value={email} onChange={setEmail} autoComplete="email" />
       <button disabled={pending} className={BUTTON}>
-        {pending ? "Sending…" : "Request an account"}
+        {pending ? t.sending : t.requestAccount}
       </button>
       <Link href="/login" className="text-center text-sm font-medium text-sky-700 hover:underline">
-        Back to log in
+        {t.backToLogin}
       </Link>
     </form>
   );
 }
 
-export function ResetPasswordForm({ token }: { token: string }) {
+export function ResetPasswordForm({ token, lang }: { token: string; lang: UiLang }) {
+  const t = authText[lang];
   const [state, action, pending] = useActionState(resetForgottenPassword.bind(null, token), {});
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -164,7 +174,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <div className="flex flex-col gap-4">
         <Notice state={state} />
         <Link href="/login" className={`${BUTTON} text-center`}>
-          Log in
+          {t.logIn}
         </Link>
       </div>
     );
@@ -172,11 +182,11 @@ export function ResetPasswordForm({ token }: { token: string }) {
   return (
     <form action={action} className="flex flex-col gap-4">
       <Notice state={state} />
-      <Field label="New password" name="password" value={password} onChange={setPassword} autoComplete="new-password" />
-      <Field label="New password again" name="confirm" value={confirm} onChange={setConfirm} autoComplete="new-password" />
-      <p className="-mt-2 text-xs text-slate-500">At least 8 characters.</p>
+      <Field label={t.newPassword} name="password" value={password} onChange={setPassword} autoComplete="new-password" />
+      <Field label={t.newPasswordAgain} name="confirm" value={confirm} onChange={setConfirm} autoComplete="new-password" />
+      <p className="-mt-2 text-xs text-slate-500">{t.minLength}</p>
       <button disabled={pending} className={BUTTON}>
-        {pending ? "Saving…" : "Set new password"}
+        {pending ? t.saving : t.setNewPassword}
       </button>
     </form>
   );

@@ -8,8 +8,10 @@ import {
   CHECK_IN_MAX_DAILY_MARKS,
   type CheckInState,
 } from "@/lib/check-in";
+import { useUiLang } from "@/components/ui-language";
+import { homeText } from "@/lib/text/home";
 
-function StreakDots({ streak }: { streak: number }) {
+function StreakDots({ streak, dayTitle }: { streak: number; dayTitle: (n: number) => string }) {
   // Position within the current week of the streak, so the dots fill up and
   // reset every seventh day alongside the milestone bonus.
   const done = streak === 0 ? 0 : ((streak - 1) % CHECK_IN_MILESTONE_EVERY) + 1;
@@ -18,7 +20,7 @@ function StreakDots({ streak }: { streak: number }) {
       {Array.from({ length: CHECK_IN_MILESTONE_EVERY }, (_, i) => (
         <span
           key={i}
-          title={`Day ${i + 1} of this week`}
+          title={dayTitle(i + 1)}
           className={`h-2.5 w-2.5 rounded-full ${
             i < done ? "bg-amber-400" : "bg-white/40 ring-1 ring-white/60"
           }`}
@@ -29,6 +31,7 @@ function StreakDots({ streak }: { streak: number }) {
 }
 
 export function CheckInCard({ state }: { state: CheckInState }) {
+  const t = homeText[useUiLang()];
   const [claimed, setClaimed] = useState(state.todayCheckIn);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -62,37 +65,29 @@ export function CheckInCard({ state }: { state: CheckInState }) {
 
       <div className="relative flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-sky-200 uppercase">Daily check-in</p>
+          <p className="text-xs font-semibold tracking-wide text-sky-200 uppercase">{t.dailyCheckIn}</p>
           <p className="mt-1 text-xl font-bold">
-            {streak > 0
-              ? `${streak} day${streak === 1 ? "" : "s"} in a row`
-              : "Start your streak today"}
+            {streak > 0 ? t.streakInARow(streak) : t.startStreak}
           </p>
 
           <div className="mt-2">
-            <StreakDots streak={streak} />
+            <StreakDots streak={streak} dayTitle={t.dayOfWeek} />
           </div>
 
           <p className="mt-2 text-sm text-sky-100">
             {claimed ? (
               <>
-                Checked in — <span className="font-semibold text-white">+{claimed.pointsAwarded} bonus marks</span>{" "}
-                added
-                {daysToMilestone === 0 && `, including the +${CHECK_IN_MILESTONE_BONUS} weekly bonus`}
-                . Come back tomorrow to keep the streak.
+                {t.claimedBefore}
+                <span className="font-semibold text-white">{t.bonusMarks(claimed.pointsAwarded)}</span>
+                {t.claimedAfter(daysToMilestone === 0, CHECK_IN_MILESTONE_BONUS)}
               </>
             ) : (
               <>
-                Check in for <span className="font-semibold text-white">+{state.marksAvailable} bonus marks</span>
-                {daysToMilestone === 0 ? (
-                  <> — a full week, so the +{CHECK_IN_MILESTONE_BONUS} weekly bonus is included!</>
-                ) : (
-                  <>
-                    {" "}
-                    · {daysToMilestone} more day{daysToMilestone === 1 ? "" : "s"} for a +
-                    {CHECK_IN_MILESTONE_BONUS} weekly bonus
-                  </>
-                )}
+                {t.offerBefore}
+                <span className="font-semibold text-white">{t.bonusMarks(state.marksAvailable)}</span>
+                {daysToMilestone === 0
+                  ? t.offerFullWeek(CHECK_IN_MILESTONE_BONUS)
+                  : t.offerToGo(daysToMilestone, CHECK_IN_MILESTONE_BONUS)}
               </>
             )}
           </p>
@@ -103,7 +98,7 @@ export function CheckInCard({ state }: { state: CheckInState }) {
           {claimed ? (
             <div className="flex flex-col items-center rounded-xl bg-white/15 px-5 py-3 text-center ring-1 ring-white/30">
               <span className="text-2xl">✓</span>
-              <span className="text-xs font-semibold text-sky-100">Done today</span>
+              <span className="text-xs font-semibold text-sky-100">{t.doneToday}</span>
             </div>
           ) : (
             <button
@@ -112,16 +107,14 @@ export function CheckInCard({ state }: { state: CheckInState }) {
               disabled={pending}
               className="animate-cat-pop rounded-xl bg-white px-6 py-3 font-bold text-sky-700 shadow-sm hover:bg-sky-50 active:scale-95 disabled:opacity-60"
             >
-              {pending ? "Checking in…" : `Check in +${state.marksAvailable}`}
+              {pending ? t.checkingIn : t.checkInButton(state.marksAvailable)}
             </button>
           )}
         </div>
       </div>
 
       <p className="relative mt-3 text-xs text-sky-200/80">
-        Daily marks grow with your streak, up to {CHECK_IN_MAX_DAILY_MARKS} a day, plus +
-        {CHECK_IN_MILESTONE_BONUS} every {CHECK_IN_MILESTONE_EVERY}th day. Bonus marks are spendable
-        in the gift exchange — the scoreboard still ranks marks you earn from questions.
+        {t.checkInRules(CHECK_IN_MAX_DAILY_MARKS, CHECK_IN_MILESTONE_BONUS, CHECK_IN_MILESTONE_EVERY)}
       </p>
     </div>
   );

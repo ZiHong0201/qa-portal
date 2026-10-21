@@ -4,7 +4,6 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { Result } from "@/lib/password.server";
 import { dayKey } from "@/lib/check-in";
 import {
-  FEEDBACK_CLOSED_ERROR,
   FEEDBACK_CREDITS,
   FEEDBACK_ENABLED_KEY,
   FEEDBACK_KINDS,
@@ -16,28 +15,31 @@ import {
   type FeedbackKind,
   type Testimonial,
 } from "@/lib/feedback";
+import type { UiLang } from "@/lib/i18n";
+import { feedbackText } from "@/lib/text/feedback";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const sendSchema = z
-  .object({
-    kind: z.enum(FEEDBACK_KINDS, "Choose idea, suggestion or feedback."),
-    message: z
-      .string()
-      .trim()
-      .min(MIN_MESSAGE, `Write at least ${MIN_MESSAGE} characters.`)
-      .max(MAX_MESSAGE, `Keep it under ${MAX_MESSAGE} characters.`),
-    mayQuote: z.boolean(),
-    credit: z.enum(FEEDBACK_CREDITS).nullable(),
-    shortName: z.string().trim().max(MAX_SHORT_NAME, "That name is too long."),
-    rating: z.number("Choose 1 to 5 stars.").int().min(1, "Choose 1 to 5 stars.").max(5, "Choose 1 to 5 stars.").nullable(),
-    wouldRecommend: z.boolean("Answer yes or no.").nullable(),
-  })
-  .refine((v) => !v.mayQuote || v.credit !== null, "Choose how you'd like to be named.")
-  .refine(
-    (v) => !v.mayQuote || v.credit !== "FIRST_NAME_GRADE" || v.shortName.length > 0,
-    "Type the name you'd like shown."
-  );
+// One schema per language, so its messages come back in the student's.
+const sendSchemaIn = (t: (typeof feedbackText)[UiLang]) =>
+  z
+    .object({
+      kind: z.enum(FEEDBACK_KINDS, t.chooseKind),
+      message: z
+        .string()
+        .trim()
+        .min(MIN_MESSAGE, t.minMessage(MIN_MESSAGE))
+        .max(MAX_MESSAGE, t.maxMessage(MAX_MESSAGE)),
+      mayQuote: z.boolean(),
+      credit: z.enum(FEEDBACK_CREDITS).nullable(),
+      shortName: z.string().trim().max(MAX_SHORT_NAME, t.nameTooLong),
+      rating: z.number(t.chooseStars).int().min(1, t.chooseStars).max(5, t.chooseStars).nullable(),
+      wouldRecommend: z.boolean(t.yesOrNo).nullable(),
+    })
+    .refine((v) => !v.mayQuote || v.credit !== null, t.chooseCredit)
+    .refine((v) => !v.mayQuote || v.credit !== "FIRST_NAME_GRADE" || v.shortName.length > 0, t.typeShortName);
+
+const sendSchemas = { en: sendSchemaIn(feedbackText.en), zh: sendSchemaIn(feedbackText.zh) };
 
 /**
  * Whether students can send feedback. Open unless an admin has closed it, so
@@ -62,6 +64,9 @@ export async function setFeedbackEnabled(enabled: boolean): Promise<void> {
  * it, and the credit is only kept when they did - an unticked box with a
  * credit still picked in the form (they ticked, chose, then unticked) leaves
  * nothing behind that could be mistaken for permission.
+ *
+ * Errors are in `lang`, English unless told otherwise. The stored credit line
+ * is not: it is what the website prints, whatever language the form was in.
  */
 export async function sendFeedback(
   studentId: string,
@@ -73,12 +78,14 @@ export async function sendFeedback(
     shortName: unknown;
     rating?: unknown;
     recommend?: unknown;
-  }
+  },
+  lang: UiLang = "en"
 ): Promise<Result> {
+  const t = feedbackText[lang];
   // Both questions are optional: nothing sent means skipped. Anything else
   // that is not a real answer is passed through for the schema to refuse.
   const skipped = (v: unknown) => v === null || v === undefined || v === "";
-  const parsed = sendSchema.safeParse({
+  const parsed = sendSchemas[lang].safeParse({
     kind: input.kind,
     message: input.message,
     mayQuote: input.mayQuote,
@@ -101,15 +108,13 @@ export async function sendFeedback(
     feedbackLeftToday(studentId),
     isFeedbackEnabled(),
   ]);
-  if (!student) return { error: "Feedback is for students only." };
+  if (!student) return { error: t.studentsOnly };
   // A page left open from before the admin closed it still has its form.
-  if (!open) return { error: FEEDBACK_CLOSED_ERROR };
+  if (!open) return { error: t.closed };
   // Two tabs sending at the same instant can both slip under this. That costs
   // one extra message, which is not worth a transaction to prevent.
   if (left <= 0) {
-    return {
-      error: `You've sent ${FEEDBACK_PER_DAY} messages in the last 24 hours. Thank you! Please send the next one tomorrow.`,
-    };
+    return { error: t.dailyLimit(FEEDBACK_PER_DAY) };
   }
 
   await prisma.feedback.create({
@@ -126,7 +131,7 @@ export async function sendFeedback(
       creditLine: mayQuote && credit ? creditLine(credit, student, shortName) : null,
     },
   });
-  return { success: "Sent - thank you! Mr Tan reads every message." };
+  return { success: t.sent };
 }
 
 /**

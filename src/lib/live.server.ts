@@ -14,6 +14,8 @@ import {
   type LiveStanding,
   type LiveState,
 } from "@/lib/live";
+import type { UiLang } from "@/lib/i18n";
+import { liveText } from "@/lib/text/live";
 
 /**
  * The live quiz's server side: building the shared state every phone polls,
@@ -212,13 +214,14 @@ export type JoinResult =
   | { ok: true; quizId: string; participantId: string; token: string; name: string }
   | { ok: false; status: number; error: string };
 
-const NAME_TAKEN = "Someone already has that name. Try another.";
-
-export async function joinQuiz(code: string, rawName: unknown): Promise<JoinResult> {
+/** Errors come back in the player's language; English unless told otherwise. */
+export async function joinQuiz(code: string, rawName: unknown, lang: UiLang = "en"): Promise<JoinResult> {
+  const t = liveText[lang];
+  const nameTaken = t.errNameTaken;
   const name = typeof rawName === "string" ? cleanName(rawName) : "";
-  if (!name) return { ok: false, status: 400, error: "Type a name to join." };
+  if (!name) return { ok: false, status: 400, error: t.errTypeName };
   if (name.length > NAME_MAX_LENGTH) {
-    return { ok: false, status: 400, error: `Keep your name to ${NAME_MAX_LENGTH} characters.` };
+    return { ok: false, status: 400, error: t.errNameLength(NAME_MAX_LENGTH) };
   }
   const nameKey = nameKeyOf(name);
 
@@ -241,15 +244,15 @@ export async function joinQuiz(code: string, rawName: unknown): Promise<JoinResu
   );
 
   const quiz = toQuiz(quizRes.rows[0]);
-  if (!quiz) return { ok: false, status: 404, error: "There is no quiz with that code." };
+  if (!quiz) return { ok: false, status: 404, error: t.errNoQuiz };
   // Joining late is allowed - the player starts from the next question -
   // because in a hall of a hundred someone always arrives after the start.
-  if (quiz.status === "FINISHED") return { ok: false, status: 410, error: "This quiz has finished." };
+  if (quiz.status === "FINISHED") return { ok: false, status: 410, error: t.errFinished };
   // A removed name is refused with the same words as a taken one: telling
   // someone the host removed that exact name only invites a variation of it.
-  if (takenRes.rows.length > 0) return { ok: false, status: 409, error: NAME_TAKEN };
+  if (takenRes.rows.length > 0) return { ok: false, status: 409, error: nameTaken };
   if (Number(countRes.rows[0]?.n ?? 0) >= MAX_PLAYERS) {
-    return { ok: false, status: 409, error: "This quiz is full." };
+    return { ok: false, status: 409, error: t.errFull };
   }
 
   const token = randomBytes(24).toString("base64url");
@@ -263,7 +266,7 @@ export async function joinQuiz(code: string, rawName: unknown): Promise<JoinResu
   } catch (e) {
     // Two people typing the same name in the same second: the unique index
     // decides, and the second is told the same thing as above.
-    if (isUniqueViolation(e)) return { ok: false, status: 409, error: NAME_TAKEN };
+    if (isUniqueViolation(e)) return { ok: false, status: 409, error: nameTaken };
     throw e;
   }
   return { ok: true, quizId: quiz.id, participantId, token, name };
@@ -273,19 +276,21 @@ export async function joinQuiz(code: string, rawName: unknown): Promise<JoinResu
 
 export type AnswerResult = { ok: true } | { ok: false; status: number; error: string };
 
-const CLOSED = { ok: false, status: 409, error: "That question is closed." } as const;
-
+/** Errors come back in the player's language; English unless told otherwise. */
 export async function recordAnswer(
   code: string,
-  body: { token?: unknown; index?: unknown; choiceId?: unknown }
+  body: { token?: unknown; index?: unknown; choiceId?: unknown },
+  lang: UiLang = "en"
 ): Promise<AnswerResult> {
   // Taken first, before any database work, so the speed score reflects when
   // the answer arrived rather than how long the lookups below took.
   const receivedAt = Date.now();
+  const t = liveText[lang];
+  const closed = { ok: false, status: 409, error: t.errClosed } as const;
 
   const { token, index, choiceId } = body;
   if (typeof token !== "string" || typeof index !== "number" || typeof choiceId !== "string") {
-    return { ok: false, status: 400, error: "Bad request." };
+    return { ok: false, status: 400, error: t.errBadRequest };
   }
 
   const db = liveDb();
@@ -302,25 +307,25 @@ export async function recordAnswer(
   const quiz = toQuiz(quizRes.rows[0]);
   const player = playerRes.rows[0];
   if (!quiz || !player || String(player.quizId) !== quiz.id) {
-    return { ok: false, status: 403, error: "You are not in this quiz." };
+    return { ok: false, status: 403, error: t.errNotIn };
   }
   if (Number(player.removed) === 1) {
-    return { ok: false, status: 403, error: "The host removed you from this quiz." };
+    return { ok: false, status: 403, error: t.errRemoved };
   }
 
   // The question being answered has to be the one open now. A phone that has
   // fallen behind could otherwise answer the previous question late, or the
   // next one early.
   if (quiz.status !== "RUNNING" || quiz.currentIndex !== index || !quiz.startsAt || !quiz.endsAt) {
-    return CLOSED;
+    return closed;
   }
   const opens = quiz.startsAt.getTime();
   const closes = quiz.endsAt.getTime();
-  if (receivedAt < opens || receivedAt > closes + ANSWER_GRACE_MS) return CLOSED;
+  if (receivedAt < opens || receivedAt > closes + ANSWER_GRACE_MS) return closed;
 
   const choice = choiceRes.rows[0];
   if (!choice || String(choice.questionId) !== quiz.questionIds[index]) {
-    return { ok: false, status: 400, error: "That is not one of the options." };
+    return { ok: false, status: 400, error: t.errNotOption };
   }
   const correct = Number(choice.isCorrect) === 1;
   const points = pointsFor(correct, receivedAt - opens, closes - opens);

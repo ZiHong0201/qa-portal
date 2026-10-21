@@ -3,10 +3,11 @@
 import { useActionState, useState } from "react";
 import { sendMyFeedback, stopQuotingMine } from "@/lib/actions/feedback";
 import { SubmitButton } from "@/components/submit-button";
+import { useUiLang } from "@/components/ui-language";
+import { feedbackText } from "@/lib/text/feedback";
 import {
   ANONYMOUS_CREDIT,
   FEEDBACK_KINDS,
-  KIND_LABELS,
   MAX_MESSAGE,
   MAX_SHORT_NAME,
   creditLine,
@@ -17,12 +18,6 @@ import {
 } from "@/lib/feedback";
 import type { Result } from "@/lib/password.server";
 
-const KIND_HINTS: Record<FeedbackKind, string> = {
-  IDEA: "Something new you'd like to see",
-  SUGGESTION: "Something we could do better",
-  FEEDBACK: "How the classes or portal are going for you",
-};
-
 export function FeedbackForm({
   name,
   grade,
@@ -32,6 +27,7 @@ export function FeedbackForm({
   grade: string | null;
   remaining: number;
 }) {
+  const t = feedbackText[useUiLang()];
   // Held in state: React resets an uncontrolled form once its action returns,
   // which would wipe a long message when the answer is an error.
   const [kind, setKind] = useState<FeedbackKind>("FEEDBACK");
@@ -61,7 +57,7 @@ export function FeedbackForm({
       {state.success && <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{state.success}</p>}
 
       <fieldset>
-        <legend className="mb-1 text-sm font-medium">What is it?</legend>
+        <legend className="mb-1 text-sm font-medium">{t.whatIsIt}</legend>
         <div className="grid gap-2 sm:grid-cols-3">
           {FEEDBACK_KINDS.map((k) => (
             <label
@@ -78,8 +74,8 @@ export function FeedbackForm({
                 onChange={() => setKind(k)}
                 className="sr-only"
               />
-              <span className="block font-medium">{KIND_LABELS[k]}</span>
-              <span className="block text-xs text-gray-500">{KIND_HINTS[k]}</span>
+              <span className="block font-medium">{t.kindLabels[k]}</span>
+              <span className="block text-xs text-gray-500">{t.kindHints[k]}</span>
             </label>
           ))}
         </div>
@@ -87,7 +83,7 @@ export function FeedbackForm({
 
       <div>
         <label className="mb-1 block text-sm font-medium" htmlFor="message">
-          Your message
+          {t.yourMessage}
         </label>
         <textarea
           id="message"
@@ -108,11 +104,11 @@ export function FeedbackForm({
           radio button cannot otherwise be un-chosen. */}
       <fieldset>
         <legend className="mb-1 text-sm font-medium">
-          Rate Mr Tan <span className="font-normal text-gray-400">(optional)</span>
+          {t.rate} <span className="font-normal text-gray-400">{t.optional}</span>
         </legend>
         <div className="flex items-center gap-1">
           {[1, 2, 3, 4, 5].map((n) => (
-            <label key={n} className="cursor-pointer" title={`${n} star${n === 1 ? "" : "s"}`}>
+            <label key={n} className="cursor-pointer" title={t.starsLabel(n)}>
               <input
                 type="radio"
                 name="rating"
@@ -128,7 +124,7 @@ export function FeedbackForm({
               >
                 ★
               </span>
-              <span className="sr-only">{n} stars</span>
+              <span className="sr-only">{t.starsLabel(n)}</span>
             </label>
           ))}
           {rating !== null && <span className="ml-2 text-xs text-gray-500">{stars(rating)} {rating} / 5</span>}
@@ -137,8 +133,7 @@ export function FeedbackForm({
 
       <fieldset>
         <legend className="mb-1 text-sm font-medium">
-          Will you recommend Mr Tan to your friends?{" "}
-          <span className="font-normal text-gray-400">(optional)</span>
+          {t.recommendQuestion} <span className="font-normal text-gray-400">{t.optional}</span>
         </legend>
         <div className="flex gap-2">
           {(["yes", "no"] as const).map((v) => (
@@ -157,7 +152,7 @@ export function FeedbackForm({
                 onClick={() => recommend === v && setRecommend(null)}
                 className="sr-only"
               />
-              {v === "yes" ? "Yes" : "No"}
+              {v === "yes" ? t.yes : t.no}
             </label>
           ))}
         </div>
@@ -173,18 +168,15 @@ export function FeedbackForm({
             className="mt-0.5"
           />
           <span>
-            <span className="font-medium">You may quote this on the Mr Tan website</span>
-            <span className="block text-xs text-gray-500">
-              Anyone can read the website. Leave this off to keep your message between you and Mr Tan. Not sure? Ask
-              a parent first. You can change your mind later on this page.
-            </span>
+            <span className="font-medium">{t.mayQuote}</span>
+            <span className="block text-xs text-gray-500">{t.mayQuoteHelp}</span>
           </span>
         </label>
 
         {mayQuote && (
           <fieldset className="mt-3 flex flex-col gap-2 border-t border-gray-200 pt-3 text-sm">
-            <legend className="sr-only">How should we name you?</legend>
-            <p className="font-medium">How should we name you?</p>
+            <legend className="sr-only">{t.howName}</legend>
+            <p className="font-medium">{t.howName}</p>
             <label className="flex items-start gap-2">
               <input
                 type="radio"
@@ -195,7 +187,7 @@ export function FeedbackForm({
                 className="mt-0.5"
               />
               <span>
-                My full name <span className="text-gray-500">({name})</span>
+                {t.fullName} <span className="text-gray-500">({name})</span>
               </span>
             </label>
             <label className="flex items-start gap-2">
@@ -208,7 +200,7 @@ export function FeedbackForm({
                 className="mt-0.5"
               />
               <span className="flex-1">
-                The name I go by{grade ? " and my grade" : ""}
+                {t.nameIGoBy(!!grade)}
                 {credit === "FIRST_NAME_GRADE" && (
                   <input
                     name="shortName"
@@ -216,7 +208,7 @@ export function FeedbackForm({
                     onChange={(e) => setShortName(e.target.value)}
                     maxLength={MAX_SHORT_NAME}
                     required
-                    aria-label="The name to show"
+                    aria-label={t.nameToShow}
                     className="mt-1 block w-full max-w-xs rounded-md border border-gray-300 bg-white px-3 py-1.5"
                   />
                 )}
@@ -232,11 +224,12 @@ export function FeedbackForm({
                 className="mt-0.5"
               />
               <span>
-                Don&apos;t name me <span className="text-gray-500">(&ldquo;{ANONYMOUS_CREDIT}&rdquo;)</span>
+                {/* The anonymous credit stays in English: it is what the website prints. */}
+                {t.dontName} <span className="text-gray-500">(&ldquo;{ANONYMOUS_CREDIT}&rdquo;)</span>
               </span>
             </label>
             <p className="rounded-md bg-white px-3 py-2 text-xs text-gray-600">
-              It would be shown as: <span className="font-medium text-gray-900">— {shownAs || "…"}</span>
+              {t.shownAs} <span className="font-medium text-gray-900">— {shownAs || "…"}</span>
             </p>
           </fieldset>
         )}
@@ -248,12 +241,10 @@ export function FeedbackForm({
           disabled={pending || remaining <= 0}
           className="rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-700 disabled:opacity-50"
         >
-          {pending ? "Sending…" : "Send"}
+          {pending ? t.sending : t.send}
         </button>
         <span className="text-xs text-gray-500">
-          {remaining <= 0
-            ? "You've sent the most for today. Thank you! Come back tomorrow."
-            : `You can send ${remaining} more today.`}
+          {remaining <= 0 ? t.limitReached : t.canSendMore(remaining)}
         </span>
       </div>
     </form>
@@ -261,18 +252,19 @@ export function FeedbackForm({
 }
 
 export function StopQuotingButton({ feedbackId }: { feedbackId: string }) {
+  const t = feedbackText[useUiLang()];
   return (
     <form
       action={stopQuotingMine.bind(null, feedbackId)}
       onSubmit={(e) => {
-        if (!confirm("Stop Mr Tan quoting this message? You can't turn it back on for this one.")) e.preventDefault();
+        if (!confirm(t.stopConfirm)) e.preventDefault();
       }}
     >
       <SubmitButton
-        pendingText="Saving…"
+        pendingText={t.saving}
         className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50"
       >
-        Don&apos;t quote this
+        {t.dontQuote}
       </SubmitButton>
     </form>
   );

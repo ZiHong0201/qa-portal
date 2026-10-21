@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { isPaymentHost } from "@/lib/fees";
+import { getUiLang } from "@/lib/i18n.server";
+import { authText } from "@/lib/text/auth";
 import { AuthCard } from "@/components/auth-card";
 import { ChangePasswordForm } from "@/components/password-forms";
 
@@ -13,16 +15,21 @@ export default async function AccountPage() {
 
   const onPaymentSite = isPaymentHost((await headers()).get("host"));
   const back = onPaymentSite ? "/payment" : session.user.role === "STUDENT" ? "/dashboard" : "/admin";
+  // Staff use this page too; it follows the toggle on it, except on the
+  // payment site, which stays in English.
+  const lang = onPaymentSite ? "en" : await getUiLang();
+  const t = authText[lang];
 
   return (
-    <AuthCard title="Change password">
+    <AuthCard title={t.changePasswordTitle} showLanguage={!onPaymentSite}>
       <p className="mb-4 text-sm text-slate-600">
-        Logged in as <span className="font-medium text-slate-800">{session.user.name}</span>
-        {session.user.email && <> ({session.user.email})</>}.
+        {t.loggedInAs}<span className="font-medium text-slate-800">{session.user.name}</span>
+        {session.user.email && t.withEmail(session.user.email)}
+        {t.fullStop}
       </p>
-      <ChangePasswordForm />
+      <ChangePasswordForm lang={lang} />
       <Link href={back} className="mt-4 block text-center text-sm font-medium text-sky-700 hover:underline">
-        Back
+        {t.back}
       </Link>
     </AuthCard>
   );

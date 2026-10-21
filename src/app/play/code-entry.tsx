@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUiLang } from "@/components/ui-language";
+import { liveText } from "@/lib/text/live";
 
 export function CodeEntry() {
+  const t = liveText[useUiLang()];
   const router = useRouter();
   const [code, setCode] = useState("");
   const ready = code.length === 6;
@@ -25,7 +28,7 @@ export function CodeEntry() {
         autoComplete="off"
         autoFocus
         placeholder="123 456"
-        aria-label="Quiz code"
+        aria-label={t.codeLabel}
         className="w-full rounded-2xl border-2 border-sky-200 px-4 py-3 text-center font-mono text-3xl tracking-[0.3em] text-sky-950 outline-none focus:border-sky-500"
       />
       <button
@@ -33,7 +36,7 @@ export function CodeEntry() {
         disabled={!ready}
         className="rounded-2xl bg-sky-600 py-3 text-lg font-semibold text-white shadow-sm transition-colors hover:bg-sky-700 disabled:opacity-40"
       >
-        Enter
+        {t.enter}
       </button>
     </form>
   );

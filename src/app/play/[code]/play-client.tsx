@@ -11,6 +11,9 @@ import {
   withRanks,
 } from "@/lib/live";
 import { secondsUntil, useLiveState, useServerNow } from "@/lib/use-live-state";
+import { useUiLang } from "@/components/ui-language";
+import { dateLocale } from "@/lib/i18n";
+import { liveText } from "@/lib/text/live";
 
 /**
  * A player's phone. No account: the name typed here and a token handed back
@@ -51,6 +54,7 @@ const noopSubscribe = () => () => {};
 export function PlayClient({ code }: { code: string }) {
   const { state, missing, offset } = useLiveState(code, PLAYER_POLL_MS);
   const now = useServerNow(offset);
+  const t = liveText[useUiLang()];
 
   // Nothing from localStorage is rendered until hydration is over, so the
   // server's HTML and the first client render match.
@@ -73,10 +77,10 @@ export function PlayClient({ code }: { code: string }) {
     return (
       <Screen tone="slate">
         <Card>
-          <h1 className="text-xl font-bold text-gray-900">No quiz with code {code}</h1>
-          <p className="mt-2 text-sm text-gray-500">Check the code on the screen and try again.</p>
+          <h1 className="text-xl font-bold text-gray-900">{t.noQuiz(code)}</h1>
+          <p className="mt-2 text-sm text-gray-500">{t.checkCode}</p>
           <Link href="/play" className="mt-4 inline-block font-medium text-sky-700 underline">
-            Enter a different code
+            {t.differentCode}
           </Link>
         </Card>
       </Screen>
@@ -106,11 +110,11 @@ export function PlayClient({ code }: { code: string }) {
     return (
       <Screen tone="slate">
         <Card>
-          <h1 className="text-xl font-bold text-gray-900">You have been removed</h1>
-          <p className="mt-2 text-sm text-gray-500">The host took you out of this game.</p>
+          <h1 className="text-xl font-bold text-gray-900">{t.removedTitle}</h1>
+          <p className="mt-2 text-sm text-gray-500">{t.removedBody}</p>
           {state.phase !== "FINISHED" && (
             <button onClick={forget} className="mt-4 font-medium text-sky-700 underline">
-              Join with a different name
+              {t.joinDifferentName}
             </button>
           )}
         </Card>
@@ -123,7 +127,7 @@ export function PlayClient({ code }: { code: string }) {
       return (
         <Screen tone="slate">
           <Card>
-            <h1 className="text-xl font-bold text-gray-900">This quiz has finished</h1>
+            <h1 className="text-xl font-bold text-gray-900">{t.finishedTitle}</h1>
             <p className="mt-2 text-sm text-gray-500">{state.title}</p>
           </Card>
         </Screen>
@@ -176,10 +180,10 @@ export function PlayClient({ code }: { code: string }) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (res.status === 403) setKicked(true);
       undo();
-      setAnswerError(body.error ?? "That answer did not go through.");
+      setAnswerError(body.error ?? t.answerFailed);
     } catch {
       undo();
-      setAnswerError("No connection - tap your answer again.");
+      setAnswerError(t.answerOffline);
     } finally {
       setSending(false);
     }
@@ -207,6 +211,7 @@ function JoinForm({
   state: LiveState;
   onJoined: (id: Omit<Identity, "joinedAt">) => void;
 }) {
+  const t = liveText[useUiLang()];
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -214,12 +219,10 @@ function JoinForm({
   return (
     <Screen tone="sky">
       <Card>
-        <p className="text-xs font-semibold tracking-wide text-sky-600 uppercase">Live quiz</p>
+        <p className="text-xs font-semibold tracking-wide text-sky-600 uppercase">{t.liveQuiz}</p>
         <h1 className="mt-1 text-xl font-bold text-gray-900">{state.title}</h1>
         {state.phase !== "LOBBY" && (
-          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Already started - you will join from the next question.
-          </p>
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{t.lateJoin}</p>
         )}
         <form
           className="mt-5 flex flex-col gap-3"
@@ -235,10 +238,10 @@ function JoinForm({
                 body: JSON.stringify({ name }),
               });
               const body = await res.json().catch(() => ({}));
-              if (!res.ok) setError(body.error ?? "Could not join.");
+              if (!res.ok) setError(body.error ?? t.joinFailed);
               else onJoined(body);
             } catch {
-              setError("No connection - try again.");
+              setError(t.joinOffline);
             } finally {
               setBusy(false);
             }
@@ -250,8 +253,8 @@ function JoinForm({
             maxLength={NAME_MAX_LENGTH}
             autoFocus
             autoComplete="nickname"
-            placeholder="Your name"
-            aria-label="Your name"
+            placeholder={t.yourName}
+            aria-label={t.yourName}
             className="w-full rounded-2xl border-2 border-sky-200 px-4 py-3 text-center text-xl text-sky-950 outline-none focus:border-sky-500"
           />
           {error && <p className="text-sm text-rose-600">{error}</p>}
@@ -260,10 +263,10 @@ function JoinForm({
             disabled={busy || !name.trim()}
             className="rounded-2xl bg-sky-600 py-3 text-lg font-semibold text-white shadow-sm hover:bg-sky-700 disabled:opacity-40"
           >
-            {busy ? "Joining…" : "Join"}
+            {busy ? t.joining : t.join}
           </button>
         </form>
-        <p className="mt-3 text-xs text-gray-400">{state.players} playing</p>
+        <p className="mt-3 text-xs text-gray-400">{t.playing(state.players)}</p>
       </Card>
     </Screen>
   );
@@ -286,6 +289,9 @@ function Game({
   error: string | null;
   onAnswer: (index: number, choiceId: string) => void;
 }) {
+  const lang = useUiLang();
+  const t = liveText[lang];
+  const num = (n: number) => n.toLocaleString(dateLocale(lang));
   const header = (
     <div className="mb-3 flex items-center justify-between text-sm text-white/90">
       <span className="truncate font-medium">{me.name}</span>
@@ -303,11 +309,9 @@ function Game({
         {header}
         <Card>
           <div className="text-5xl">✓</div>
-          <h1 className="mt-2 text-2xl font-bold text-gray-900">You&apos;re in!</h1>
-          <p className="mt-1 text-gray-600">Look for your name on the screen.</p>
-          <p className="mt-6 text-sm text-gray-400">
-            Waiting for the host to start · {state.players} joined
-          </p>
+          <h1 className="mt-2 text-2xl font-bold text-gray-900">{t.youreIn}</h1>
+          <p className="mt-1 text-gray-600">{t.lookForName}</p>
+          <p className="mt-6 text-sm text-gray-400">{t.waiting(state.players)}</p>
           <PulseDots />
         </Card>
       </Screen>
@@ -320,12 +324,12 @@ function Game({
         {header}
         <Card>
           <p className="text-sm font-semibold tracking-wide text-indigo-600 uppercase">
-            Question {state.index + 1} of {state.total}
+            {t.questionOf(state.index + 1, state.total)}
           </p>
           <p className="mt-3 text-6xl font-bold text-gray-900 tabular-nums">
             {secondsUntil(state.startsAt, now)}
           </p>
-          <p className="mt-2 text-gray-500">Get ready…</p>
+          <p className="mt-2 text-gray-500">{t.getReady}</p>
         </Card>
       </Screen>
     );
@@ -355,9 +359,7 @@ function Game({
         <div className="rounded-2xl bg-white p-4 shadow-lg">
           <div className="mb-2 flex items-center justify-between text-xs text-gray-400">
             <span>{secondsUntil(state.endsAt, now)}s</span>
-            <span>
-              {state.answered} / {state.players} answered
-            </span>
+            <span>{t.answeredCount(state.answered, state.players)}</span>
           </div>
           <p className="max-h-[45dvh] overflow-y-auto whitespace-pre-wrap text-gray-900">
             {state.question.body}
@@ -366,7 +368,7 @@ function Game({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={state.question.diagramUrl}
-              alt="Diagram for this question"
+              alt={t.diagramAlt}
               className="mt-3 max-w-full rounded-md border border-gray-200"
             />
           )}
@@ -398,10 +400,10 @@ function Game({
           {error ??
             (timeUp
               ? chosen
-                ? "Time's up! Your answer is in."
-                : "Time's up!"
+                ? t.timeUpAnswered
+                : t.timeUp
               : chosen
-                ? "Answer in. Tap another option to change it before time runs out."
+                ? t.answerIn
                 : "")}
         </p>
       </Screen>
@@ -422,14 +424,14 @@ function Game({
         <Card>
           <div className="text-5xl">{right ? "🎉" : chosen ? "✗" : "⏱"}</div>
           <h1 className="mt-2 text-2xl font-bold text-gray-900">
-            {right ? "Correct!" : chosen ? "Not this time" : "No answer"}
+            {right ? t.correct : chosen ? t.notThisTime : t.noAnswer}
           </h1>
           {right && mine?.gained ? (
-            <p className="mt-1 text-3xl font-bold text-emerald-600">+{mine.gained.toLocaleString()}</p>
+            <p className="mt-1 text-3xl font-bold text-emerald-600">+{num(mine.gained)}</p>
           ) : null}
           {!right && correctText && (
             <p className="mt-2 text-sm text-gray-600">
-              The answer was{" "}
+              {t.answerWas}{" "}
               <span className="font-semibold">
                 {CHOICE_STYLES[correctIndex % CHOICE_STYLES.length].letter}. {correctText}
               </span>
@@ -437,12 +439,12 @@ function Game({
           )}
           {mine && rank && (
             <p className="mt-5 rounded-xl bg-gray-50 px-3 py-2 text-gray-700">
-              <span className="font-semibold">{ordinal(rank)}</span> of {state.standings.length} ·{" "}
-              {mine.score.toLocaleString()} pts
+              <span className="font-semibold">{t.rank(rank)}</span>
+              {t.outOf(state.standings.length)} · {num(mine.score)} {t.pts}
             </p>
           )}
           <p className="mt-4 text-xs text-gray-400">
-            {state.index + 1 >= state.total ? "Final results coming up…" : "Next question coming up…"}
+            {state.index + 1 >= state.total ? t.finalComing : t.nextComing}
           </p>
         </Card>
       </Screen>
@@ -456,13 +458,13 @@ function Game({
       <Screen tone="amber">
         {header}
         <Card>
-          <p className="text-sm font-semibold tracking-wide text-amber-600 uppercase">Final results</p>
+          <p className="text-sm font-semibold tracking-wide text-amber-600 uppercase">{t.finalResults}</p>
           {rank && (
             <>
               <div className="mt-2 text-5xl">{rank === 1 ? "🏆" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "⭐"}</div>
-              <h1 className="mt-2 text-3xl font-bold text-gray-900">{ordinal(rank)} place</h1>
+              <h1 className="mt-2 text-3xl font-bold text-gray-900">{t.place(rank)}</h1>
               <p className="text-gray-600">
-                {mine?.score.toLocaleString()} pts · {state.standings.length} players
+                {mine && num(mine.score)} {t.pts} · {t.players(state.standings.length)}
               </p>
             </>
           )}
@@ -475,7 +477,7 @@ function Game({
                 <span className="truncate">
                   {["🥇", "🥈", "🥉"][s.rank - 1]} {s.name}
                 </span>
-                <span className="font-semibold tabular-nums">{s.score.toLocaleString()}</span>
+                <span className="font-semibold tabular-nums">{num(s.score)}</span>
               </li>
             ))}
           </ol>
@@ -484,7 +486,7 @@ function Game({
             // three, and wants to see where their friends came.
             <details className="mt-3 text-left">
               <summary className="cursor-pointer text-center text-sm font-medium text-amber-700">
-                All {state.standings.length} players
+                {t.allPlayers(state.standings.length)}
               </summary>
               <ol className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto">
                 {withRanks(state.standings).map((s) => (
@@ -498,13 +500,13 @@ function Game({
                       <span className="mr-2 text-gray-400 tabular-nums">{s.rank}</span>
                       {s.name}
                     </span>
-                    <span className="tabular-nums">{s.score.toLocaleString()}</span>
+                    <span className="tabular-nums">{num(s.score)}</span>
                   </li>
                 ))}
               </ol>
             </details>
           )}
-          <p className="mt-4 text-xs text-gray-400">Thanks for playing!</p>
+          <p className="mt-4 text-xs text-gray-400">{t.thanks}</p>
         </Card>
       </Screen>
     );
@@ -517,12 +519,6 @@ function Game({
       <Spinner />
     </Screen>
   );
-}
-
-function ordinal(n: number) {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
 }
 
 const TONES = {

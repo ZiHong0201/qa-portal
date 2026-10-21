@@ -13,8 +13,12 @@ import {
 } from "@/lib/pet";
 import { CLOTHING_ENABLED } from "@/lib/pet-art";
 import type { PetView, ShopItem } from "@/lib/pet.server";
+import { useUiLang } from "@/components/ui-language";
+import { rewardsText } from "@/lib/text/rewards";
 
 function StatBar({ label, value, perHour }: { label: string; value: number; perHour: number }) {
+  const lang = useUiLang();
+  const t = rewardsText[lang].pet;
   return (
     <div>
       <div className="mb-1 flex items-baseline justify-between text-xs">
@@ -28,16 +32,17 @@ function StatBar({ label, value, perHour }: { label: string; value: number; perH
         />
       </div>
       <p className="mt-1 text-[11px] text-gray-400">
-        {value === 0 ? "empty" : `empty in ${describeTimeLeft(hoursUntilEmpty(value, perHour))}`}
+        {value === 0 ? t.empty : t.emptyIn(describeTimeLeft(hoursUntilEmpty(value, perHour), lang))}
       </p>
     </div>
   );
 }
 
+// Labels are keys into rewardsText, so the tabs follow the chosen language.
 const ALL_TABS = [
-  { key: "FOOD", label: "Food" },
-  { key: "SNACK", label: "Snacks" },
-  { key: "CLOTHING", label: "Clothes" },
+  { key: "FOOD", label: "food" },
+  { key: "SNACK", label: "snacks" },
+  { key: "CLOTHING", label: "clothes" },
 ] as const;
 
 const TABS = CLOTHING_ENABLED ? ALL_TABS : ALL_TABS.filter((t) => t.key !== "CLOTHING");
@@ -47,6 +52,7 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const t = rewardsText[useUiLang()].pet;
 
   // A one-shot overlay above the cat: the treat it was just given, or a puff
   // of hearts from a fuss. The counter is part of the key so giving the same
@@ -101,7 +107,7 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
         <h1 className="text-2xl font-bold text-sky-950">{pet.name}</h1>
         <span className="shrink-0 rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
           {balance.toLocaleString()}
-          <span className="ml-1 text-xs font-normal text-sky-500">pts</span>
+          <span className="ml-1 text-xs font-normal text-sky-500">{t.pts}</span>
         </span>
       </div>
 
@@ -159,13 +165,13 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
             disabled={pending}
             className="mt-3 rounded-full border border-sky-200 px-4 py-1.5 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-50 disabled:opacity-50"
           >
-            Give a fuss (free)
+            {t.giveFuss}
           </button>
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-4">
-          <StatBar label="Hunger" value={pet.stats.hunger} perHour={HUNGER_DECAY_PER_HOUR} />
-          <StatBar label="Happiness" value={pet.stats.happiness} perHour={HAPPINESS_DECAY_PER_HOUR} />
+          <StatBar label={t.hunger} value={pet.stats.hunger} perHour={HUNGER_DECAY_PER_HOUR} />
+          <StatBar label={t.happiness} value={pet.stats.happiness} perHour={HAPPINESS_DECAY_PER_HOUR} />
         </div>
       </div>
 
@@ -182,7 +188,7 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
       {CLOTHING_ENABLED && wardrobe.length > 0 && (
         <section className="mt-6">
           <h2 className="mb-2 text-sm font-semibold tracking-wide text-gray-500 uppercase">
-            Wardrobe
+            {t.wardrobe}
           </h2>
           <div className="flex flex-wrap gap-2">
             {wardrobe.map((item) => (
@@ -200,25 +206,25 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
 
       <section className="mt-6">
         <div className="mb-3 flex gap-2">
-          {TABS.map((t) => (
+          {TABS.map((tb) => (
             <button
-              key={t.key}
+              key={tb.key}
               type="button"
-              onClick={() => setTab(t.key)}
+              onClick={() => setTab(tb.key)}
               className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
-                tab === t.key
+                tab === tb.key
                   ? "border-sky-300 bg-sky-100 text-sky-800"
                   : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
               }`}
             >
-              {t.label}
+              {t[tb.label]}
             </button>
           ))}
         </div>
 
         {shown.length === 0 ? (
           <p className="rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
-            Nothing in this section yet.
+            {t.nothingHere}
           </p>
         ) : (
           <ul className="grid gap-2 sm:grid-cols-2">
@@ -241,8 +247,7 @@ export function PetScreen({ pet, balance }: { pet: PetView; balance: number }) {
       </section>
 
       <p className="mt-6 text-center text-xs text-gray-400">
-        {CLOTHING_ENABLED ? "Food and clothes" : "Treats"} come out of the same points you spend in
-        the gift exchange.
+        {CLOTHING_ENABLED ? t.footerClothing : t.footerTreats}
       </p>
     </div>
   );
@@ -257,6 +262,7 @@ function WardrobeChip({
   pending: boolean;
   onToggle: () => void;
 }) {
+  const t = rewardsText[useUiLang()].pet;
   return (
     <button
       type="button"
@@ -269,7 +275,7 @@ function WardrobeChip({
       }`}
     >
       {item.name}
-      {item.equipped && <span className="ml-1.5 text-xs text-sky-500">worn</span>}
+      {item.equipped && <span className="ml-1.5 text-xs text-sky-500">{t.worn}</span>}
     </button>
   );
 }
@@ -287,6 +293,7 @@ function ShopRow({
 }) {
   const affordable = balance >= item.cost;
   const isClothing = item.kind === "CLOTHING";
+  const t = rewardsText[useUiLang()].pet;
 
   return (
     <li
@@ -297,11 +304,11 @@ function ShopRow({
         <p className="text-xs text-gray-500">
           {isClothing
             ? item.owned
-              ? "In your wardrobe"
-              : "Worn straight away"
+              ? t.inWardrobe
+              : t.wornStraightAway
             : [
-                item.hungerEffect > 0 ? `+${item.hungerEffect} hunger` : null,
-                item.happinessEffect > 0 ? `+${item.happinessEffect} happiness` : null,
+                item.hungerEffect > 0 ? t.plusHunger(item.hungerEffect) : null,
+                item.happinessEffect > 0 ? t.plusHappiness(item.happinessEffect) : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -310,17 +317,17 @@ function ShopRow({
 
       {item.owned && isClothing ? (
         <span className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
-          Owned
+          {t.owned}
         </span>
       ) : (
         <button
           type="button"
           onClick={onBuy}
           disabled={pending || !affordable}
-          title={affordable ? undefined : "Not enough points"}
+          title={affordable ? undefined : t.notEnoughPoints}
           className="shrink-0 rounded-full bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-gray-300"
         >
-          {item.cost} pts
+          {t.cost(item.cost)}
         </button>
       )}
     </li>

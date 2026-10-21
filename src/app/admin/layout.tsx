@@ -7,6 +7,7 @@ import { DevDisclaimerBar } from "@/components/dev-disclaimer";
 import { ResetWarning } from "@/components/reset-warning";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { getLiveAnnouncements } from "@/lib/announcements.server";
+import { UiLangProvider } from "@/components/ui-language";
 
 export default async function AdminLayout({
   children,
@@ -21,16 +22,20 @@ export default async function AdminLayout({
   // editing them would be interrupted by their own work on every sign-in.
   const announcements = await getLiveAnnouncements();
 
+  // Staff pages are not translated, so the pieces shared with the student
+  // side are pinned to English here rather than following the toggle.
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AnnouncementBar announcements={announcements} />
-      <Nav />
-      <DevDisclaimerBar />
-      <ResetWarning />
-      <div className="mx-auto max-w-screen-2xl px-4 py-8">
-        <InstallBanner />
-        {children}
+    <UiLangProvider lang="en">
+      <div className="min-h-screen bg-gray-50">
+        <AnnouncementBar announcements={announcements} />
+        <Nav />
+        <DevDisclaimerBar />
+        <ResetWarning />
+        <div className="mx-auto max-w-screen-2xl px-4 py-8">
+          <InstallBanner />
+          {children}
+        </div>
       </div>
-    </div>
+    </UiLangProvider>
   );
 }

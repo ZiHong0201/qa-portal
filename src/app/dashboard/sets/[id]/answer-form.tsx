@@ -3,6 +3,8 @@
 import { useActionState, useEffect } from "react";
 import { submitAnswer, type SubmitAnswerState } from "@/lib/actions/submissions";
 import { useIntegrityTracker, blockingHandlers } from "@/lib/integrity";
+import { useUiLang } from "@/components/ui-language";
+import { setsText } from "@/lib/text/sets";
 
 type Choice = { id: string; text: string };
 
@@ -33,6 +35,7 @@ export function AnswerForm({
   const action = submitAnswer.bind(null, questionId);
   const [state, formAction, pending] = useActionState(action, {});
   const { read, countPaste } = useIntegrityTracker(questionId);
+  const t = setsText[useUiLang()];
 
   useEffect(() => {
     if (state.result) onSubmitted(state.result);
@@ -71,15 +74,12 @@ export function AnswerForm({
             rows={3}
             autoComplete="off"
             spellCheck={false}
-            placeholder="Type your answer"
+            placeholder={t.typeYourAnswer}
             className="w-full resize-y rounded-lg border border-sky-100 px-3 py-2.5 text-gray-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
           />
           {/* Pasting is blocked across the whole card, so saying so here saves
               a student wondering why nothing happened. */}
-          <p className="text-xs text-gray-500">
-            Type your answer in your own words - pasting is turned off. Your teacher marks this
-            one, so it will not be graded straight away.
-          </p>
+          <p className="text-xs text-gray-500">{t.writtenHelp}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -99,7 +99,7 @@ export function AnswerForm({
         disabled={pending}
         className="self-start rounded-lg bg-sky-600 px-4 py-2 font-medium text-white shadow-sm hover:bg-sky-700 disabled:opacity-50"
       >
-        {pending ? "Submitting..." : "Submit answer"}
+        {pending ? t.submitting : t.submitAnswer}
       </button>
     </form>
   );

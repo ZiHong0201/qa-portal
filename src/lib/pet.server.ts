@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { currentStats, moodOf, type Stats } from "@/lib/pet";
 import { CLOTHING_ENABLED } from "@/lib/pet-art";
+import type { UiLang } from "@/lib/i18n";
 
 export type ShopItem = {
   id: string;
@@ -46,7 +47,10 @@ export async function petAccess(studentId: string): Promise<boolean> {
  * The whole game screen in one round trip. Returns null when the student has
  * not adopted yet, which the page turns into the adoption screen.
  */
-export async function getPetView(studentId: string): Promise<PetView | null> {
+export async function getPetView(
+  studentId: string,
+  lang: UiLang = "en"
+): Promise<PetView | null> {
   const pet = await prisma.pet.findUnique({
     where: { ownerId: studentId },
     include: { owned: { include: { item: true } } },
@@ -68,7 +72,7 @@ export async function getPetView(studentId: string): Promise<PetView | null> {
     name: pet.name,
     coat: pet.coat,
     stats,
-    mood: moodOf(stats, pet.name),
+    mood: moodOf(stats, pet.name, lang),
     adoptedAt: pet.adoptedAt,
     equippedKeys: pet.owned.filter((o) => o.equipped).map((o) => o.item.key),
     shop: items.map((item) => {

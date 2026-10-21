@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { SUSPENDED_ERROR, isSuspended } from "@/lib/suspension";
+import { isSuspended, suspendedError } from "@/lib/suspension";
+import { getUiLang } from "@/lib/i18n.server";
+import { homeText } from "@/lib/text/home";
 import { dayKey, previousDayKey, marksForStreak } from "@/lib/check-in";
 
 export type CheckInResult = {
@@ -12,13 +14,14 @@ export type CheckInResult = {
 };
 
 export async function claimDailyCheckIn(): Promise<CheckInResult> {
-  const session = await auth();
-  if (!session) return { error: "You need to be logged in to check in." };
+  const [session, lang] = await Promise.all([auth(), getUiLang()]);
+  const t = homeText[lang];
+  if (!session) return { error: t.checkInLoggedOut };
   if (session.user.role !== "STUDENT") {
-    return { error: "Check-ins are for students only." };
+    return { error: t.checkInStudentsOnly };
   }
   const studentId = session.user.id;
-  if (await isSuspended(studentId)) return { error: SUSPENDED_ERROR };
+  if (await isSuspended(studentId)) return { error: suspendedError(lang) };
 
   const today = dayKey();
   const yesterday = previousDayKey(today);
@@ -33,7 +36,7 @@ export async function claimDailyCheckIn(): Promise<CheckInResult> {
       select: { streak: true },
     }),
   ]);
-  if (alreadyToday) return { error: "You've already checked in today. Come back tomorrow!" };
+  if (alreadyToday) return { error: t.alreadyCheckedIn };
 
   const streak = (yesterdayRow?.streak ?? 0) + 1;
   const marks = marksForStreak(streak);
@@ -45,7 +48,7 @@ export async function claimDailyCheckIn(): Promise<CheckInResult> {
   } catch {
     // The unique constraint is the real guard - a double-click or two tabs can
     // both pass the check above before either insert lands.
-    return { error: "You've already checked in today. Come back tomorrow!" };
+    return { error: t.alreadyCheckedIn };
   }
 
   revalidatePath("/dashboard");

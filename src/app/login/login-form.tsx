@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { loginAction } from "@/lib/actions/auth";
+import type { UiLang } from "@/lib/i18n";
+import { authText } from "@/lib/text/auth";
 
 // Solid white rather than translucent: globals.css pins input backgrounds
 // with an unlayered rule, which outranks a Tailwind utility, so a bg-white/80
@@ -10,7 +12,12 @@ import { loginAction } from "@/lib/actions/auth";
 const FIELD_CLASS =
   "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100";
 
-export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
+/**
+ * The language comes from the page rather than useUiLang(), because the page
+ * pins English on the payment site whatever the cookie says.
+ */
+export function LoginForm({ callbackUrl, lang }: { callbackUrl: string; lang: UiLang }) {
+  const t = authText[lang];
   const [state, formAction, pending] = useActionState(loginAction, {});
 
   return (
@@ -23,7 +30,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
       )}
       <div>
         <label className="mb-1 block text-sm font-semibold text-slate-700" htmlFor="email">
-          Email
+          {t.email}
         </label>
         <input
           id="email"
@@ -38,10 +45,10 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
       <div>
         <div className="mb-1 flex items-baseline justify-between">
           <label className="block text-sm font-semibold text-slate-700" htmlFor="password">
-            Password
+            {t.password}
           </label>
           <Link href="/forgot-password" className="text-xs font-medium text-sky-700 hover:underline">
-            Forgot password?
+            {t.forgotPassword}
           </Link>
         </div>
         <input
@@ -59,7 +66,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         disabled={pending}
         className="mt-1 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2.5 font-semibold text-white shadow-md transition-all hover:from-sky-500 hover:to-indigo-500 hover:shadow-lg active:scale-[0.98] disabled:opacity-60"
       >
-        {pending ? "Logging in…" : "Log in"}
+        {pending ? t.loggingIn : t.logIn}
       </button>
     </form>
   );

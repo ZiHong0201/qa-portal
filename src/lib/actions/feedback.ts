@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { requireAdmin } from "@/lib/permissions";
-import { SUSPENDED_ERROR, isSuspended } from "@/lib/suspension";
+import { isSuspended, suspendedError } from "@/lib/suspension";
+import { getUiLang } from "@/lib/i18n.server";
+import { feedbackText } from "@/lib/text/feedback";
 import type { Result } from "@/lib/password.server";
 import {
   markAllFeedbackRead,
@@ -19,19 +21,25 @@ import {
 
 export async function sendMyFeedback(_prev: Result, formData: FormData): Promise<Result> {
   const session = await auth();
-  if (!session) return { error: "You need to be logged in to send feedback." };
-  if (session.user.role !== "STUDENT") return { error: "Feedback is for students only." };
-  if (await isSuspended(session.user.id)) return { error: SUSPENDED_ERROR };
+  const lang = await getUiLang();
+  const t = feedbackText[lang];
+  if (!session) return { error: t.needLogin };
+  if (session.user.role !== "STUDENT") return { error: t.studentsOnly };
+  if (await isSuspended(session.user.id)) return { error: suspendedError(lang) };
 
-  const result = await sendFeedback(session.user.id, {
-    kind: formData.get("kind"),
-    message: formData.get("message"),
-    mayQuote: formData.get("mayQuote") === "on",
-    credit: formData.get("credit"),
-    shortName: formData.get("shortName"),
-    rating: formData.get("rating"),
-    recommend: formData.get("recommend"),
-  });
+  const result = await sendFeedback(
+    session.user.id,
+    {
+      kind: formData.get("kind"),
+      message: formData.get("message"),
+      mayQuote: formData.get("mayQuote") === "on",
+      credit: formData.get("credit"),
+      shortName: formData.get("shortName"),
+      rating: formData.get("rating"),
+      recommend: formData.get("recommend"),
+    },
+    lang
+  );
   if (result.success) {
     revalidatePath("/dashboard/feedback");
     revalidatePath("/admin/feedback");

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useUiLang } from "@/components/ui-language";
+import { homeText } from "@/lib/text/home";
 
 // Chrome fires this so a site can offer its own install button instead of
 // relying on the browser's menu. It isn't in the DOM lib's type list.
@@ -166,11 +168,12 @@ function ShareIcon({
  * which buttons to press.
  */
 function IosInstructions({ onClose }: { onClose: () => void }) {
+  const t = homeText[useUiLang()];
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
       <button
         type="button"
-        aria-label="Close"
+        aria-label={t.close}
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-slate-900/40"
       />
@@ -183,8 +186,8 @@ function IosInstructions({ onClose }: { onClose: () => void }) {
             className="h-12 w-12 rounded-xl"
           />
           <div>
-            <p className="font-bold text-slate-900">Add to your iPhone</p>
-            <p className="text-xs text-slate-500">Three taps in Safari</p>
+            <p className="font-bold text-slate-900">{t.iosTitle}</p>
+            <p className="text-xs text-slate-500">{t.iosSub}</p>
           </div>
         </div>
 
@@ -194,7 +197,9 @@ function IosInstructions({ onClose }: { onClose: () => void }) {
               1
             </span>
             <span className="flex items-center gap-1.5">
-              Tap <ShareIcon className="text-sky-600" /> at the bottom of Safari
+              {t.iosStep1Before}
+              <ShareIcon className="text-sky-600" />
+              {t.iosStep1After}
             </span>
           </li>
           <li className="flex items-center gap-3">
@@ -202,8 +207,8 @@ function IosInstructions({ onClose }: { onClose: () => void }) {
               2
             </span>
             <span>
-              Scroll down and choose{" "}
-              <span className="font-semibold">Add to Home Screen</span>
+              {t.iosStep2Before}
+              <span className="font-semibold">{t.iosStep2Bold}</span>
             </span>
           </li>
           <li className="flex items-center gap-3">
@@ -211,14 +216,15 @@ function IosInstructions({ onClose }: { onClose: () => void }) {
               3
             </span>
             <span>
-              Tap <span className="font-semibold">Add</span> — done
+              {t.iosStep3Before}
+              <span className="font-semibold">{t.iosStep3Bold}</span>
+              {t.iosStep3After}
             </span>
           </li>
         </ol>
 
         <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          This only works in Safari. If you&apos;re in Chrome, open the site in
-          Safari first.
+          {t.iosSafariOnly}
         </p>
 
         <button
@@ -226,7 +232,7 @@ function IosInstructions({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           className="mt-5 w-full rounded-xl bg-sky-600 px-4 py-2.5 font-semibold text-white hover:bg-sky-700"
         >
-          Got it
+          {t.gotIt}
         </button>
       </div>
     </div>
@@ -240,6 +246,7 @@ function IosInstructions({ onClose }: { onClose: () => void }) {
  * no such API, so it opens the walkthrough instead.
  */
 export function InstallButton({ className }: { className?: string }) {
+  const t = homeText[useUiLang()];
   const { promptEvent, iosNeedsHint, installed, handheld, install } =
     useInstallState();
   const [showIos, setShowIos] = useState(false);
@@ -260,7 +267,7 @@ export function InstallButton({ className }: { className?: string }) {
         }
       >
         <ShareIcon size={16} />
-        Add to my phone
+        {t.addToPhone}
       </button>
       {showIos && <IosInstructions onClose={() => setShowIos(false)} />}
     </>
@@ -272,6 +279,7 @@ export function InstallButton({ className }: { className?: string }) {
  * from the front page.
  */
 export function InstallBanner() {
+  const t = homeText[useUiLang()];
   const { promptEvent, iosNeedsHint, installed, handheld, install } =
     useInstallState();
   const [dismissed, setDismissed] = useState(false);
@@ -308,13 +316,9 @@ export function InstallBanner() {
           className="h-10 w-10 shrink-0 rounded-lg"
         />
         <div className="min-w-0 flex-1 text-sm">
-          <p className="font-semibold text-sky-900">
-            Add the portal to your phone
-          </p>
+          <p className="font-semibold text-sky-900">{t.bannerTitle}</p>
           <p className="mt-0.5 text-sky-800/80">
-            {promptEvent
-              ? "One tap, and it gets its own icon like any other app."
-              : "Takes three taps in Safari — we'll show you."}
+            {promptEvent ? t.bannerOneTap : t.bannerIos}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -323,12 +327,12 @@ export function InstallBanner() {
             onClick={() => (promptEvent ? install() : setShowIos(true))}
             className="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-700"
           >
-            {promptEvent ? "Install" : "Show me"}
+            {promptEvent ? t.install : t.showMe}
           </button>
           <button
             type="button"
             onClick={dismiss}
-            aria-label="Dismiss"
+            aria-label={t.dismiss}
             className="rounded-lg px-2 py-1.5 text-sm text-sky-700 hover:bg-sky-100"
           >
             ✕

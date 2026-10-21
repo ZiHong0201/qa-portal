@@ -2,6 +2,8 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { themeFor } from "@/components/subject-art";
+import { getUiLang } from "@/lib/i18n.server";
+import { setsText } from "@/lib/text/sets";
 
 export default async function StudentSetsPage({
   searchParams,
@@ -11,6 +13,7 @@ export default async function StudentSetsPage({
   const { subject: subjectFilter } = await searchParams;
   const session = await auth();
   const userId = session!.user.id;
+  const t = setsText[await getUiLang()];
 
   const student = await prisma.user.findUnique({
     where: { id: userId },
@@ -21,11 +24,8 @@ export default async function StudentSetsPage({
   if (!student?.grade || subjectNames.length === 0) {
     return (
       <div>
-        <h1 className="mb-6 text-2xl font-bold">Question sets</h1>
-        <p className="text-gray-500">
-          Your grade and subjects haven&apos;t been set yet. Ask your teacher to set them before
-          you can see your question sets.
-        </p>
+        <h1 className="mb-6 text-2xl font-bold">{t.questionSets}</h1>
+        <p className="text-gray-500">{t.notSetUp}</p>
       </div>
     );
   }
@@ -58,13 +58,13 @@ export default async function StudentSetsPage({
         href="/dashboard"
         className="text-sm font-medium text-sky-600 hover:text-sky-800 hover:underline"
       >
-        &larr; Home
+        &larr; {t.backHome}
       </Link>
       <h1 className="mt-2 mb-1 text-2xl font-bold text-sky-950">
-        {activeSubject ?? "Question sets"}
+        {activeSubject ?? t.questionSets}
       </h1>
       <p className="mb-4 text-sm text-gray-500">
-        {student.grade} · {activeSubject ?? subjectNames.join(", ")}
+        {student.grade} · {activeSubject ?? t.joinSubjects(subjectNames)}
       </p>
 
       {subjectNames.length > 1 && (
@@ -77,7 +77,7 @@ export default async function StudentSetsPage({
                 : "border-sky-300 bg-sky-100 text-sky-800"
             }`}
           >
-            All
+            {t.all}
           </Link>
           {subjectNames.map((name) => {
             const theme = themeFor(name);
@@ -119,7 +119,7 @@ export default async function StudentSetsPage({
                   </Link>
                   {set.description && <p className="text-sm text-gray-500">{set.description}</p>}
                   <p className="text-sm text-gray-500">
-                    {total} question{total === 1 ? "" : "s"} · {totalMarks} marks total
+                    {t.setSummary(total, totalMarks)}
                   </p>
                 </div>
                 <span
@@ -132,8 +132,8 @@ export default async function StudentSetsPage({
                   }`}
                 >
                   {complete
-                    ? `${marksObtained} / ${totalMarks} marks`
-                    : `${answered} / ${total} answered`}
+                    ? t.marksOf(marksObtained, totalMarks)
+                    : t.answeredOf(answered, total)}
                 </span>
               </div>
               {answered > 0 && !complete && (
@@ -149,8 +149,7 @@ export default async function StudentSetsPage({
         })}
         {sets.length === 0 && (
           <p className="text-gray-500">
-            No question sets yet for {student.grade} {activeSubject ?? subjectNames.join(", ")}.
-            Check back soon.
+            {t.noSets(student.grade, activeSubject ?? t.joinSubjects(subjectNames))}
           </p>
         )}
       </ul>

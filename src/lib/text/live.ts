@@ -1,0 +1,150 @@
+import { defineText } from "@/lib/i18n";
+
+// The live quiz on a player's phone (/play): joining with a code and a name,
+// the game screens, and the errors the join and answer routes send back.
+// The question and its choices stay as written.
+
+/** "1st", "2nd", "23rd" - English only; Chinese says 第 n 名. */
+function ordinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
+}
+
+export const liveText = defineText({
+  en: {
+    metaJoin: "Join a quiz – Mr Tan",
+    metaLive: "Live quiz – Mr Tan",
+    joinHeading: "Join a quiz",
+    typeCode: "Type the code on the screen.",
+    footer: "Mr Tan · Exercise Portal",
+    codeLabel: "Quiz code",
+    enter: "Enter",
+
+    noQuiz: (code: string) => `No quiz with code ${code}`,
+    checkCode: "Check the code on the screen and try again.",
+    differentCode: "Enter a different code",
+    removedTitle: "You have been removed",
+    removedBody: "The host took you out of this game.",
+    joinDifferentName: "Join with a different name",
+    finishedTitle: "This quiz has finished",
+    answerFailed: "That answer did not go through.",
+    answerOffline: "No connection - tap your answer again.",
+
+    liveQuiz: "Live quiz",
+    lateJoin: "Already started - you will join from the next question.",
+    joinFailed: "Could not join.",
+    joinOffline: "No connection - try again.",
+    yourName: "Your name",
+    joining: "Joining…",
+    join: "Join",
+    playing: (n: number) => `${n} playing`,
+
+    youreIn: "You're in!",
+    lookForName: "Look for your name on the screen.",
+    waiting: (n: number) => `Waiting for the host to start · ${n} joined`,
+    questionOf: (i: number, n: number) => `Question ${i} of ${n}`,
+    getReady: "Get ready…",
+    answeredCount: (a: number, n: number) => `${a} / ${n} answered`,
+    diagramAlt: "Diagram for this question",
+    timeUpAnswered: "Time's up! Your answer is in.",
+    timeUp: "Time's up!",
+    answerIn: "Answer in. Tap another option to change it before time runs out.",
+
+    correct: "Correct!",
+    notThisTime: "Not this time",
+    noAnswer: "No answer",
+    answerWas: "The answer was",
+    rank: (n: number) => ordinal(n),
+    outOf: (n: number) => ` of ${n}`,
+    pts: "pts",
+    finalComing: "Final results coming up…",
+    nextComing: "Next question coming up…",
+
+    finalResults: "Final results",
+    place: (n: number) => `${ordinal(n)} place`,
+    players: (n: number) => `${n} players`,
+    allPlayers: (n: number) => `All ${n} players`,
+    thanks: "Thanks for playing!",
+
+    // From the join and answer routes.
+    errNoQuiz: "There is no quiz with that code.",
+    errTypeName: "Type a name to join.",
+    errNameLength: (max: number) => `Keep your name to ${max} characters.`,
+    errNameTaken: "Someone already has that name. Try another.",
+    errFinished: "This quiz has finished.",
+    errFull: "This quiz is full.",
+    errBadRequest: "Bad request.",
+    errNotIn: "You are not in this quiz.",
+    errRemoved: "The host removed you from this quiz.",
+    errClosed: "That question is closed.",
+    errNotOption: "That is not one of the options.",
+  },
+  zh: {
+    metaJoin: "加入测验 – Mr Tan",
+    metaLive: "现场测验 – Mr Tan",
+    joinHeading: "加入测验",
+    typeCode: "输入屏幕上的代码。",
+    footer: "Mr Tan · 练习平台",
+    codeLabel: "测验代码",
+    enter: "进入",
+
+    noQuiz: (code: string) => `找不到代码 ${code} 的测验`,
+    checkCode: "请核对屏幕上的代码，再试一次。",
+    differentCode: "输入其他代码",
+    removedTitle: "你已被移出",
+    removedBody: "主持人把你移出了这场测验。",
+    joinDifferentName: "换个名字加入",
+    finishedTitle: "这场测验已经结束",
+    answerFailed: "这个答案没有送出。",
+    answerOffline: "没有网络，请再点一次你的答案。",
+
+    liveQuiz: "现场测验",
+    lateJoin: "测验已经开始，你会从下一题开始参加。",
+    joinFailed: "无法加入。",
+    joinOffline: "没有网络，请再试一次。",
+    yourName: "你的名字",
+    joining: "正在加入…",
+    join: "加入",
+    playing: (n: number) => `${n} 人参与中`,
+
+    youreIn: "你已加入！",
+    lookForName: "在屏幕上找找你的名字吧。",
+    waiting: (n: number) => `等待主持人开始 · 已有 ${n} 人加入`,
+    questionOf: (i: number, n: number) => `第 ${i} 题 / 共 ${n} 题`,
+    getReady: "准备好…",
+    answeredCount: (a: number, n: number) => `已作答 ${a} / ${n}`,
+    diagramAlt: "本题附图",
+    timeUpAnswered: "时间到！你的答案已送出。",
+    timeUp: "时间到！",
+    answerIn: "已作答。时间结束前，可以点其他选项更改答案。",
+
+    correct: "正确！",
+    notThisTime: "这次没答对",
+    noAnswer: "没有作答",
+    answerWas: "正确答案是",
+    rank: (n: number) => `第 ${n} 名`,
+    outOf: (n: number) => ` / 共 ${n} 人`,
+    pts: "积分",
+    finalComing: "马上公布最终成绩…",
+    nextComing: "下一题马上来…",
+
+    finalResults: "最终成绩",
+    place: (n: number) => `第 ${n} 名`,
+    players: (n: number) => `共 ${n} 人`,
+    allPlayers: (n: number) => `全部 ${n} 人`,
+    thanks: "谢谢参与！",
+
+    errNoQuiz: "没有这个代码的测验。",
+    errTypeName: "输入名字才能加入。",
+    errNameLength: (max: number) => `名字最多 ${max} 个字。`,
+    errNameTaken: "这个名字已经有人用了，换一个吧。",
+    errFinished: "这场测验已经结束。",
+    errFull: "这场测验人数已满。",
+    errBadRequest: "请求无效。",
+    errNotIn: "你不在这场测验里。",
+    errRemoved: "主持人已把你移出这场测验。",
+    errClosed: "这一题已经截止。",
+    errNotOption: "这不是其中一个选项。",
+  },
+});

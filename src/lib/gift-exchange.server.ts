@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getStudentBalance } from "@/lib/points";
+import type { UiLang } from "@/lib/i18n";
+import { rewardsText } from "@/lib/text/rewards";
 
 /**
  * One student exchanging points for a gift.
@@ -19,10 +21,15 @@ export type ExchangeResult = {
   unlockedPet?: boolean;
 };
 
-export async function exchangeGift(studentId: string, itemId: string): Promise<ExchangeResult> {
+export async function exchangeGift(
+  studentId: string,
+  itemId: string,
+  lang: UiLang = "en"
+): Promise<ExchangeResult> {
+  const t = rewardsText[lang].gift;
   const item = await prisma.catalogueItem.findUnique({ where: { id: itemId } });
   if (!item || !item.isActive) {
-    return { error: "This item is no longer available." };
+    return { error: t.itemGone };
   }
 
   // Unlocking the cat is a one-off. Without this a student could pay for it
@@ -34,7 +41,7 @@ export async function exchangeGift(studentId: string, itemId: string): Promise<E
       select: { petEnabled: true, pet: { select: { id: true } } },
     });
     if (student?.petEnabled || student?.pet) {
-      return { error: "You have already unlocked the virtual cat." };
+      return { error: t.catAlreadyUnlocked };
     }
   }
 
@@ -54,9 +61,7 @@ export async function exchangeGift(studentId: string, itemId: string): Promise<E
         });
         if (already >= item.limitPerStudent) {
           throw new ExchangeRefused(
-            item.limitPerStudent === 1
-              ? "You have already exchanged this gift - it is one per student."
-              : `You have reached the limit of ${item.limitPerStudent} for this gift.`
+            item.limitPerStudent === 1 ? t.onePerStudent : t.limitHit(item.limitPerStudent)
           );
         }
       }
@@ -66,7 +71,7 @@ export async function exchangeGift(studentId: string, itemId: string): Promise<E
           where: { id: item.id, stock: { gt: 0 } },
           data: { stock: { decrement: 1 } },
         });
-        if (taken.count === 0) throw new ExchangeRefused("Sorry, this gift is out of stock.");
+        if (taken.count === 0) throw new ExchangeRefused(t.soldOut);
       }
 
       await tx.redemption.create({
@@ -81,7 +86,7 @@ export async function exchangeGift(studentId: string, itemId: string): Promise<E
       });
 
       const { balance } = await getStudentBalance(studentId, tx);
-      if (balance < 0) throw new ExchangeRefused("You don't have enough points for this gift.");
+      if (balance < 0) throw new ExchangeRefused(t.cannotAfford);
 
       if (item.grantsPet) {
         await tx.user.update({
@@ -96,11 +101,9 @@ export async function exchangeGift(studentId: string, itemId: string): Promise<E
   }
 
   if (item.grantsPet) {
-    return { success: `Unlocked! Head to "My Cat" to adopt your new friend.`, unlockedPet: true };
+    return { success: t.catUnlocked, unlockedPet: true };
   }
-  return {
-    success: `Exchanged "${item.name}" for ${item.cost} points. It will be delivered with the next material delivery.`,
-  };
+  return { success: t.exchanged(item.name, item.cost) };
 }
 
 /**

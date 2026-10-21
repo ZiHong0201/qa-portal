@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { LivePopupAd } from "@/lib/announcements.server";
+import { useUiLang } from "@/components/ui-language";
+import { homeText } from "@/lib/text/home";
 
 // Which ads this person has already dismissed, kept in sessionStorage so they
 // are shown once on arrival rather than on every page they open. Clearing when
@@ -44,6 +46,7 @@ function emit() {
 }
 
 export function PopupAds({ ads, userId }: { ads: LivePopupAd[]; userId: string }) {
+  const t = homeText[useUiLang()];
   // A string of one character per ad - "1" seen, "0" not. Read through
   // useSyncExternalStore so the server renders nothing and the client corrects
   // it after hydration, with no mismatch. Returning a plain string keeps the
@@ -94,7 +97,7 @@ export function PopupAds({ ads, userId }: { ads: LivePopupAd[]; userId: string }
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={ad.imageUrl}
-      alt={ad.title ?? "Announcement"}
+      alt={ad.title ?? t.announcement}
       className="block max-h-[70vh] w-full object-contain"
     />
   );
@@ -103,7 +106,7 @@ export function PopupAds({ ads, userId }: { ads: LivePopupAd[]; userId: string }
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={ad.title ?? "Announcement"}
+      aria-label={ad.title ?? t.announcement}
       className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={dismiss}
     >
@@ -116,7 +119,7 @@ export function PopupAds({ ads, userId }: { ads: LivePopupAd[]; userId: string }
         <button
           type="button"
           onClick={dismiss}
-          aria-label="Close"
+          aria-label={t.close}
           className="absolute top-2 right-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-xl leading-none text-white transition-colors hover:bg-black/70"
         >
           &times;

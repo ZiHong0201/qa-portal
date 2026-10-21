@@ -4,13 +4,13 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/permissions";
-import { type Result, resetLinkOrigin } from "@/lib/password.server";
+import { type Result, authLang, resetLinkOrigin } from "@/lib/password.server";
 import { approveAccountRequest, rejectAccountRequest, requestAccount } from "@/lib/account-request.server";
 
 const text = (v: FormDataEntryValue | null) => (typeof v === "string" ? v : "");
 
 export async function requestStudentAccount(_prev: Result, formData: FormData): Promise<Result> {
-  return requestAccount(text(formData.get("name")), text(formData.get("email")));
+  return requestAccount(text(formData.get("name")), text(formData.get("email")), await authLang());
 }
 
 export async function approveRequest(requestId: string, _prev: Result, formData: FormData): Promise<Result> {

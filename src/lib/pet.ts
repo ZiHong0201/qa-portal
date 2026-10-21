@@ -2,6 +2,9 @@
 // game screen can import the maths without pulling the database client into
 // the browser bundle. Queries live in pet.server.ts.
 
+import type { UiLang } from "@/lib/i18n";
+import { rewardsText } from "@/lib/text/rewards";
+
 export const MAX_STAT = 100;
 
 // Points per hour each stat falls by. Hunger empties from full in a little
@@ -83,17 +86,18 @@ export type Mood = {
  * One mood from both stats, worst-first so the cat asks for what it most
  * needs rather than averaging into a bland middle.
  */
-export function moodOf({ hunger, happiness }: Stats, name: string): Mood {
+export function moodOf({ hunger, happiness }: Stats, name: string, lang: UiLang = "en"): Mood {
+  const t = rewardsText[lang].pet;
   if (hunger < 30) {
-    return { key: "hungry", label: "Hungry", line: `${name} keeps looking at the food bowl.` };
+    return { key: "hungry", label: t.moodHungry, line: t.moodHungryLine(name) };
   }
   if (happiness < 30) {
-    return { key: "sad", label: "Lonely", line: `${name} would love a treat and some attention.` };
+    return { key: "sad", label: t.moodSad, line: t.moodSadLine(name) };
   }
   if (hunger > 70 && happiness > 70) {
-    return { key: "happy", label: "Delighted", line: `${name} is purring away happily.` };
+    return { key: "happy", label: t.moodHappy, line: t.moodHappyLine(name) };
   }
-  return { key: "content", label: "Content", line: `${name} is dozing comfortably.` };
+  return { key: "content", label: t.moodContent, line: t.moodContentLine(name) };
 }
 
 /** Bar colour, so a low stat is obvious without reading the number. */
@@ -108,10 +112,10 @@ export function hoursUntilEmpty(value: number, perHour: number) {
   return perHour <= 0 ? Infinity : value / perHour;
 }
 
-export function describeTimeLeft(hours: number): string {
+export function describeTimeLeft(hours: number, lang: UiLang = "en"): string {
+  const t = rewardsText[lang].pet;
   if (!Number.isFinite(hours)) return "";
-  if (hours < 1) return "less than an hour";
-  if (hours < 24) return `about ${Math.round(hours)} hour${Math.round(hours) === 1 ? "" : "s"}`;
-  const days = Math.round(hours / 24);
-  return `about ${days} day${days === 1 ? "" : "s"}`;
+  if (hours < 1) return t.lessThanHour;
+  if (hours < 24) return t.aboutHours(Math.round(hours));
+  return t.aboutDays(Math.round(hours / 24));
 }

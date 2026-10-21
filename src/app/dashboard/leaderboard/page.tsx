@@ -11,6 +11,12 @@ import {
 } from "@/lib/leaderboard";
 import { weekStartKey } from "@/lib/check-in";
 import { CelebratingCat } from "@/components/celebrating-cat";
+import { isStaff } from "@/lib/permissions";
+import { getUiLang } from "@/lib/i18n.server";
+import { dateLocale, type UiLang } from "@/lib/i18n";
+import { rewardsText } from "@/lib/text/rewards";
+
+type BoardText = (typeof rewardsText)["en"]["board"];
 
 const MEDAL_STYLES: Record<number, string> = {
   1: "bg-amber-100 text-amber-800 ring-amber-300",
@@ -32,10 +38,6 @@ function accuracyColor(accuracy: number) {
   return "text-rose-500";
 }
 
-function days(n: number) {
-  return `${n} day${n === 1 ? "" : "s"}`;
-}
-
 function boardHref(form: string | null, metric: LeaderboardMetric, period: LeaderboardPeriod) {
   const params = new URLSearchParams(form ? { form } : {});
   if (metric !== "points") params.set("by", metric);
@@ -45,8 +47,8 @@ function boardHref(form: string | null, metric: LeaderboardMetric, period: Leade
 }
 
 /** "Mon 28 Sep" - the day the current week began, for the description. */
-function weekLabel(day: string) {
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", {
+function weekLabel(day: string, lang: UiLang) {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString(dateLocale(lang), {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -74,18 +76,20 @@ function Score({
   student,
   metric,
   period,
+  t,
 }: {
   student: RankedStudent;
   metric: LeaderboardMetric;
   period: LeaderboardPeriod;
+  t: BoardText;
 }) {
   const accuracy =
     student.accuracy === null ? null : (
       <span
         className={`block text-xs font-medium ${accuracyColor(student.accuracy)}`}
-        title={`${student.correct} of ${student.graded} answers correct`}
+        title={t.correctOf(student.correct, student.graded)}
       >
-        {student.accuracy}% correct
+        {t.pctCorrect(student.accuracy)}
       </span>
     );
 
@@ -94,10 +98,10 @@ function Score({
       <span className="shrink-0 text-right">
         <span className="block">
           <span className="text-lg font-bold text-amber-600">{student.checkInDays}</span>
-          <span className="ml-1 text-xs text-gray-500">of 7 days</span>
+          <span className="ml-1 text-xs text-gray-500">{t.ofSevenDays}</span>
         </span>
         <span className="block text-xs text-gray-500">
-          {student.currentStreak > 0 ? `on a ${days(student.currentStreak)} run` : "run broken"}
+          {student.currentStreak > 0 ? t.onRun(student.currentStreak) : t.runBroken}
         </span>
       </span>
     );
@@ -112,16 +116,14 @@ function Score({
       <span className="shrink-0 text-right">
         <span className="block">
           <span className="text-lg font-bold text-amber-600">{student.longestStreak}</span>
-          <span className="ml-1 text-xs text-gray-500">
-            day{student.longestStreak === 1 ? "" : "s"}
-          </span>
+          <span className="ml-1 text-xs text-gray-500">{t.days(student.longestStreak)}</span>
         </span>
         <span className="block text-xs text-gray-500">
           {student.currentStreak === 0
-            ? "streak broken"
+            ? t.streakBroken
             : student.currentStreak === student.longestStreak
-              ? "still going"
-              : `now on ${days(student.currentStreak)}`}
+              ? t.stillGoing
+              : t.nowOn(student.currentStreak)}
         </span>
       </span>
     );
@@ -132,15 +134,15 @@ function Score({
       <span className="shrink-0 text-right">
         <span
           className="block"
-          title={`${student.correct} of ${student.graded} answers correct`}
+          title={t.correctOf(student.correct, student.graded)}
         >
           <span className={`text-lg font-bold ${accuracyColor(student.accuracy ?? 0)}`}>
             {student.accuracy}%
           </span>
-          <span className="ml-1 text-xs text-gray-500">correct</span>
+          <span className="ml-1 text-xs text-gray-500">{t.correct}</span>
         </span>
         <span className="block text-xs text-gray-500">
-          {student.points.toLocaleString()} pts · {student.graded} answered
+          {t.ptsAnswered(student.points.toLocaleString(), student.graded)}
         </span>
       </span>
     );
@@ -150,9 +152,9 @@ function Score({
     <span className="shrink-0 text-right">
       <span className="block">
         <span className="text-lg font-bold text-sky-700">{student.points.toLocaleString()}</span>
-        <span className="ml-1 text-xs text-gray-500">pts</span>
+        <span className="ml-1 text-xs text-gray-500">{t.pts}</span>
       </span>
-      {accuracy ?? <span className="block text-xs text-gray-400">not marked yet</span>}
+      {accuracy ?? <span className="block text-xs text-gray-400">{t.notMarked}</span>}
     </span>
   );
 }
@@ -165,6 +167,9 @@ export default async function LeaderboardPage({
   const { form: formParam, by, period: periodParam } = await searchParams;
   const session = await auth();
   const userId = session!.user.id;
+  // Staff reach this board from their own nav, and staff pages stay English.
+  const lang: UiLang = isStaff(session) ? "en" : await getUiLang();
+  const t = rewardsText[lang].board;
 
   const metric: LeaderboardMetric =
     by === "accuracy" ? "accuracy" : by === "streak" ? "streak" : "points";
@@ -213,48 +218,48 @@ export default async function LeaderboardPage({
     metric === "streak" &&
     (!myStats || (period === "week" ? myStats.checkInDays : myStats.longestStreak) === 0);
 
-  const heading = form ? `Scoreboard · ${form}` : "Scoreboard";
-  const scope = period === "week" ? `this week, since ${weekLabel(weekStart)}` : "of all time";
+  const heading = form ? t.titleForm(form) : t.title;
+  const scope = period === "week" ? t.scopeWeek(weekLabel(weekStart, lang)) : t.scopeAll;
 
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-1 text-2xl font-bold text-sky-950">{heading}</h1>
       <p className="mb-4 text-sm text-gray-500">
         {metric === "points"
-          ? `Top 10 by marks earned ${scope}. Equal marks are separated by accuracy.`
+          ? t.descPoints(scope)
           : metric === "streak"
             ? period === "week"
-              ? `Top 10 by days checked in ${scope}. Equal counts are separated by who is on the longer run.`
-              : "Top 10 by the longest run of daily check-ins ever reached. Equal runs are separated by whose streak is still going."
-            : `Top 10 by share of answers correct ${scope}, among students with at least ${MIN_GRADED_FOR_ACCURACY} marked answers.`}
+              ? t.descCheckIns(scope)
+              : t.descLongestStreak
+            : t.descAccuracy(scope, MIN_GRADED_FOR_ACCURACY)}
       </p>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Period</span>
+        <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">{t.period}</span>
         <Chip href={boardHref(form, metric, "week")} active={period === "week"}>
-          This week
+          {t.thisWeek}
         </Chip>
         <Chip href={boardHref(form, metric, "all")} active={period === "all"}>
-          All time
+          {t.allTime}
         </Chip>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Rank by</span>
+        <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">{t.rankBy}</span>
         <Chip href={boardHref(form, "points", period)} active={metric === "points"}>
-          Points
+          {t.points}
         </Chip>
         <Chip href={boardHref(form, "accuracy", period)} active={metric === "accuracy"}>
-          Accuracy
+          {t.accuracy}
         </Chip>
         <Chip href={boardHref(form, "streak", period)} active={metric === "streak"}>
-          {period === "week" ? "Check-ins" : "Longest streak"}
+          {period === "week" ? t.checkIns : t.longestStreak}
         </Chip>
       </div>
 
       {forms.length > 1 && (
         <div className="mb-6 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Form</span>
+          <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">{t.form}</span>
           {forms.map((f) => (
             <Chip key={f} href={boardHref(f, metric, period)} active={form === f}>
               {f}
@@ -265,15 +270,15 @@ export default async function LeaderboardPage({
 
       {top10.length === 0 ? (
         <div className="rounded-xl border border-sky-100 bg-white p-8 text-center">
-          <p className="font-medium text-gray-700">Nothing to show yet</p>
+          <p className="font-medium text-gray-700">{t.nothingYet}</p>
           <p className="mt-1 text-sm text-gray-500">
             {metric === "accuracy"
-              ? `No one here has ${MIN_GRADED_FOR_ACCURACY} marked answers${period === "week" ? " this week" : ""} yet.`
+              ? t.emptyAccuracy(MIN_GRADED_FOR_ACCURACY, period === "week")
               : metric === "streak"
-                ? `No one here has checked in${period === "week" ? " this week" : ""} yet. Claim your daily marks and you'll be the first on the board.`
+                ? t.emptyStreak(period === "week")
                 : period === "week"
-                  ? "A fresh week - nobody has scored yet. Answer a few questions and you'll be top of the board."
-                  : "Answer some questions and you'll be the first on the board."}
+                  ? t.emptyPointsWeek
+                  : t.emptyPointsAll}
           </p>
         </div>
       ) : (
@@ -300,9 +305,9 @@ export default async function LeaderboardPage({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-gray-900">
                     {student.name}
-                    {isMe && <span className="ml-2 text-xs font-normal text-sky-600">You</span>}
+                    {isMe && <span className="ml-2 text-xs font-normal text-sky-600">{t.you}</span>}
                   </p>
-                  <p className="text-xs text-gray-500">{student.grade ?? "No grade"}</p>
+                  <p className="text-xs text-gray-500">{student.grade ?? t.noGrade}</p>
                 </div>
 
                 {/* Wrapper carries the responsive visibility: CelebratingCat sets
@@ -313,7 +318,7 @@ export default async function LeaderboardPage({
                   </div>
                 )}
 
-                <Score student={student} metric={metric} period={period} />
+                <Score student={student} metric={metric} period={period} t={t} />
               </li>
             );
           })}
@@ -328,37 +333,35 @@ export default async function LeaderboardPage({
           <div className="min-w-0 flex-1">
             <p className="font-medium text-sky-900">
               {me.name}
-              <span className="ml-2 text-xs font-normal text-sky-600">You</span>
+              <span className="ml-2 text-xs font-normal text-sky-600">{t.you}</span>
             </p>
             <p className="text-xs text-sky-700/70">
               {metric === "points"
-                ? `${(tenth.points - me.points).toLocaleString()} pts behind 10th place`
+                ? t.behindPoints((tenth.points - me.points).toLocaleString())
                 : metric === "streak"
                   ? period === "week"
-                    ? `${days(tenth.checkInDays - me.checkInDays)} behind 10th place`
-                    : `${days(tenth.longestStreak - me.longestStreak)} behind 10th place`
-                  : `${(tenth.accuracy ?? 0) - (me.accuracy ?? 0)}% behind 10th place`}
+                    ? t.behindDays(tenth.checkInDays - me.checkInDays)
+                    : t.behindDays(tenth.longestStreak - me.longestStreak)
+                  : t.behindAccuracy((tenth.accuracy ?? 0) - (me.accuracy ?? 0))}
             </p>
           </div>
-          <Score student={me} metric={metric} period={period} />
+          <Score student={me} metric={metric} period={period} t={t} />
         </div>
       )}
 
       {excludedForAccuracy && (
         <p className="mt-4 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">
-          You need {MIN_GRADED_FOR_ACCURACY} marked answers
-          {period === "week" ? " this week" : ""} to appear on the accuracy board - you have{" "}
-          {myStats.graded}. Keep going!
+          {t.needMarked(MIN_GRADED_FOR_ACCURACY, period === "week", myStats.graded)}
         </p>
       )}
 
       {excludedForStreak && (
         <p className="mt-4 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">
-          Check in on the{" "}
+          {t.checkInBefore}
           <Link href="/dashboard" className="font-medium text-sky-700 hover:underline">
-            home page
-          </Link>{" "}
-          {period === "week" ? "to get on this week's board." : "to start a streak and get on this board."}
+            {t.homePage}
+          </Link>
+          {period === "week" ? t.checkInAfterWeek : t.checkInAfterAll}
         </p>
       )}
     </div>

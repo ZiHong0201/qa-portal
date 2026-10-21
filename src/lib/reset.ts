@@ -2,6 +2,8 @@
 // banner can import it without dragging the database client into the browser.
 
 import { LOCAL_UTC_OFFSET } from "@/lib/announcements";
+import { dateLocale, type UiLang } from "@/lib/i18n";
+import { shellText } from "@/lib/text/shell";
 
 /**
  * When the portal wipes itself back to zero.
@@ -31,8 +33,8 @@ export function daysUntilReset(now: Date = new Date()): number {
   return Math.max(0, Math.ceil((RESET_AT.getTime() - now.getTime()) / 86_400_000));
 }
 
-export function formatResetDate(): string {
-  return new Intl.DateTimeFormat("en-GB", {
+export function formatResetDate(lang: UiLang = "en"): string {
+  return new Intl.DateTimeFormat(dateLocale(lang), {
     timeZone: "Asia/Kuala_Lumpur",
     day: "numeric",
     month: "long",
@@ -41,10 +43,8 @@ export function formatResetDate(): string {
 }
 
 /** The sentence students see during the warning week. */
-export function resetWarningText(now: Date = new Date()): string {
+export function resetWarningText(now: Date = new Date(), lang: UiLang = "en"): string {
   const days = daysUntilReset(now);
-  if (days === 0) return `Marks and points are being reset today (${formatResetDate()}).`;
-  return `Heads up: all marks, points and streaks reset on ${formatResetDate()} - ${days} day${
-    days === 1 ? "" : "s"
-  } away. Spend your points before then.`;
+  const date = formatResetDate(lang);
+  return days === 0 ? shellText[lang].resetToday(date) : shellText[lang].resetSoon(date, days);
 }

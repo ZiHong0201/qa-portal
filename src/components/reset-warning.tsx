@@ -1,4 +1,5 @@
 import { resetPhase, resetWarningText } from "@/lib/reset";
+import type { UiLang } from "@/lib/i18n";
 
 /**
  * The week's notice before everything is wiped.
@@ -10,12 +11,12 @@ import { resetPhase, resetWarningText } from "@/lib/reset";
  * Amber rather than red on purpose: this is a scheduled, expected event that
  * students were told about from the start, not an emergency.
  */
-export function ResetWarning() {
+export function ResetWarning({ lang = "en" }: { lang?: UiLang }) {
   if (resetPhase() === "far-off") return null;
 
   return (
     <div className="border-b border-amber-300 bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-900">
-      {resetWarningText()}
+      {resetWarningText(new Date(), lang)}
     </div>
   );
 }

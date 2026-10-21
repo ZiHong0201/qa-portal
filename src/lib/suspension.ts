@@ -1,8 +1,16 @@
 import { prisma } from "@/lib/prisma";
+import type { UiLang } from "@/lib/i18n";
+import { shellText } from "@/lib/text/shell";
 
-/** What a refused action says, so it reads the same wherever it is hit. */
-export const SUSPENDED_ERROR =
-  "Your account is suspended. Please contact admin if you think this is a mistake.";
+/**
+ * What a refused action says, so it reads the same wherever it is hit. The
+ * words live in the shell text, which client components can import too.
+ */
+export const SUSPENDED_ERROR = shellText.en.suspended;
+
+export function suspendedError(lang: UiLang): string {
+  return shellText[lang].suspended;
+}
 
 /**
  * True when this account is currently suspended.

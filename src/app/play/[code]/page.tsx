@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getUiLang } from "@/lib/i18n.server";
+import { liveText } from "@/lib/text/live";
 import { PlayClient } from "./play-client";
 
-export const metadata: Metadata = { title: "Live quiz – Mr Tan" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: liveText[await getUiLang()].metaLive };
+}
 
 /** A game, reached by scanning the host's QR code or typing its code. Public. */
 export default async function PlayCodePage({ params }: PageProps<"/play/[code]">) {

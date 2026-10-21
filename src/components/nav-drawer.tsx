@@ -3,11 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useUiLang } from "@/components/ui-language";
+import { shellText } from "@/lib/text/shell";
 
 export type NavLink = { href: string; label: string };
 
-/** One small glyph per destination, so the drawer scans as a menu. */
-function LinkIcon({ label }: { label: string }) {
+/**
+ * One small glyph per destination, so the drawer scans as a menu. Chosen by
+ * address rather than label, since a student's labels may be in Chinese.
+ */
+function LinkIcon({ href }: { href: string }) {
   const common = {
     viewBox: "0 0 24 24",
     width: 18,
@@ -19,30 +24,31 @@ function LinkIcon({ label }: { label: string }) {
     strokeLinejoin: "round" as const,
     "aria-hidden": true,
   };
-  switch (label) {
-    case "Home":
+  switch (href) {
+    case "/dashboard":
       return (
         <svg {...common}>
           <path d="M3 10.5 12 3l9 7.5" />
           <path d="M5 10v10h14V10" />
         </svg>
       );
-    case "My Sets":
-    case "Sets":
+    case "/dashboard/sets":
+    case "/admin/sets":
       return (
         <svg {...common}>
           <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H19v16H5.5A1.5 1.5 0 0 1 4 18.5Z" />
           <path d="M8 4v16" />
         </svg>
       );
-    case "Gift Exchange":
+    case "/dashboard/catalogue":
+    case "/admin/catalogue":
       return (
         <svg {...common}>
           <path d="M3 8h18v12H3z" />
           <path d="M3 8l2-4h14l2 4M12 8v12" />
         </svg>
       );
-    case "Scoreboard":
+    case "/dashboard/leaderboard":
       return (
         <svg {...common}>
           <path d="M8 4h8v5a4 4 0 0 1-8 0z" />
@@ -50,7 +56,7 @@ function LinkIcon({ label }: { label: string }) {
           <path d="M12 13v4M9 20h6" />
         </svg>
       );
-    case "Students":
+    case "/admin/students":
       return (
         <svg {...common}>
           <circle cx="9" cy="8" r="3.2" />
@@ -58,15 +64,15 @@ function LinkIcon({ label }: { label: string }) {
           <path d="M16 6.5a3 3 0 0 1 0 5.5M17.5 19a5 5 0 0 0-2-4" />
         </svg>
       );
-    case "Review":
+    case "/admin/review":
       return (
         <svg {...common}>
           <path d="M4 5h16v11H8l-4 4z" />
           <path d="M9 10.5l2 2 4-4" />
         </svg>
       );
-    case "My Cat":
-    case "Virtual Cat":
+    case "/dashboard/pet":
+    case "/admin/pet":
       return (
         <svg {...common}>
           {/* ears and head, echoing the pet artwork */}
@@ -77,7 +83,7 @@ function LinkIcon({ label }: { label: string }) {
           <path d="M10.5 15 q 1.5 1.2 3 0" />
         </svg>
       );
-    case "Announcements":
+    case "/admin/announcements":
       return (
         <svg {...common}>
           <path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1Z" />
@@ -85,14 +91,15 @@ function LinkIcon({ label }: { label: string }) {
           <path d="M17 9a4 4 0 0 1 0 6" />
         </svg>
       );
-    case "Feedback":
+    case "/dashboard/feedback":
+    case "/admin/feedback":
       return (
         <svg {...common}>
           <path d="M4 5h16v11H9l-5 4z" />
           <path d="M12 7.5l1 2.1 2.3.3-1.7 1.6.4 2.3-2-1.1-2 1.1.4-2.3-1.7-1.6 2.3-.3z" />
         </svg>
       );
-    case "Change password":
+    case "/account":
       return (
         <svg {...common}>
           <circle cx="8" cy="15" r="4" />
@@ -135,6 +142,7 @@ export function NavDrawer({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const t = shellText[useUiLang()];
 
   // Close on navigation. Compared during render rather than in an effect:
   // the drawer lives in the layout, so it survives the route change and would
@@ -165,7 +173,7 @@ export function NavDrawer({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Open menu"
+        aria-label={t.openMenu}
         aria-expanded={open}
         className="-ml-1 rounded-lg p-2 text-sky-800 hover:bg-sky-50 active:scale-95 md:hidden"
       >
@@ -187,7 +195,7 @@ export function NavDrawer({
         <div className="fixed inset-0 z-50 md:hidden">
           <button
             type="button"
-            aria-label="Close menu"
+            aria-label={t.closeMenu}
             onClick={() => setOpen(false)}
             className="animate-fade-in absolute inset-0 cursor-default bg-slate-900/40"
           />
@@ -205,14 +213,14 @@ export function NavDrawer({
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{userName}</p>
                     <p className="text-xs text-sky-100">
-                      Mr Tan Exercise Portal
+                      {t.portalName}
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  aria-label="Close menu"
+                  aria-label={t.closeMenu}
                   className="-mt-1 -mr-2 rounded-lg p-2 text-white/80 hover:bg-white/10"
                 >
                   <svg
@@ -233,7 +241,7 @@ export function NavDrawer({
               {balance !== null && (
                 <p className="mt-4 inline-flex items-baseline gap-1 rounded-full bg-white/15 px-3 py-1 text-sm ring-1 ring-white/25">
                   <span className="font-bold">{balance.toLocaleString()}</span>
-                  <span className="text-xs text-sky-100">points</span>
+                  <span className="text-xs text-sky-100">{t.points}</span>
                 </p>
               )}
             </div>
@@ -259,7 +267,7 @@ export function NavDrawer({
                     <span
                       className={active ? "text-sky-600" : "text-slate-400"}
                     >
-                      <LinkIcon label={link.label} />
+                      <LinkIcon href={link.href} />
                     </span>
                     {link.label}
                   </Link>

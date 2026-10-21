@@ -1,8 +1,12 @@
 import { createHash, randomBytes } from "crypto";
+import { headers } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sendMail } from "@/lib/mailer";
 import { PORTAL_ORIGIN, isPaymentHost } from "@/lib/fees";
+import type { UiLang } from "@/lib/i18n";
+import { getUiLang } from "@/lib/i18n.server";
+import { authText } from "@/lib/text/auth";
 
 export type Result = { error?: string; success?: string };
 
@@ -14,10 +18,20 @@ const SITE_NAME = "Mr Tan Exercise Portal";
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
-function checkNew(password: string, confirm: string): string | null {
-  if (password.length < MIN_PASSWORD) return `The new password needs at least ${MIN_PASSWORD} characters.`;
-  if (password.length > 200) return "That password is too long.";
-  if (password !== confirm) return "The two new passwords do not match.";
+/**
+ * The language for the login page, its companions and their actions: the
+ * visitor's choice, except on the payment site, which is the admin's and
+ * stays in English.
+ */
+export async function authLang(): Promise<UiLang> {
+  return isPaymentHost((await headers()).get("host")) ? "en" : getUiLang();
+}
+
+function checkNew(password: string, confirm: string, lang: UiLang): string | null {
+  const t = authText[lang];
+  if (password.length < MIN_PASSWORD) return t.needsMin(MIN_PASSWORD);
+  if (password.length > 200) return t.passwordTooLong;
+  if (password !== confirm) return t.noMatch;
   return null;
 }
 
@@ -27,20 +41,22 @@ export async function changePassword(
   userId: string,
   current: string,
   password: string,
-  confirm: string
+  confirm: string,
+  lang: UiLang = "en"
 ): Promise<Result> {
+  const t = authText[lang];
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
-  if (!user) return { error: "Account not found." };
-  if (!(await bcrypt.compare(current, user.passwordHash))) return { error: "The current password is not right." };
-  const problem = checkNew(password, confirm);
+  if (!user) return { error: t.accountNotFound };
+  if (!(await bcrypt.compare(current, user.passwordHash))) return { error: t.currentWrong };
+  const problem = checkNew(password, confirm, lang);
   if (problem) return { error: problem };
   if (await bcrypt.compare(password, user.passwordHash)) {
-    return { error: "That is the password you have now. Choose a different one." };
+    return { error: t.samePassword };
   }
   await prisma.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(password, 10) } });
   // A reset link asked for earlier should not still work afterwards.
   await prisma.passwordResetToken.updateMany({ where: { userId, usedAt: null }, data: { usedAt: new Date() } });
-  return { success: "Password changed. Use the new one next time you log in." };
+  return { success: t.passwordChanged };
 }
 
 // ---- forgot password ----------------------------------------------------------
@@ -132,13 +148,19 @@ export async function checkResetToken(token: string): Promise<"ok" | "invalid" |
   return "ok";
 }
 
-export async function resetPassword(token: string, password: string, confirm: string): Promise<Result> {
-  const problem = checkNew(password, confirm);
+export async function resetPassword(
+  token: string,
+  password: string,
+  confirm: string,
+  lang: UiLang = "en"
+): Promise<Result> {
+  const t = authText[lang];
+  const problem = checkNew(password, confirm, lang);
   if (problem) return { error: problem };
   const state = await checkResetToken(token);
-  if (state === "used") return { error: "This link has already been used. Ask for a new one." };
-  if (state === "expired") return { error: "This link has expired. Ask for a new one." };
-  if (state !== "ok") return { error: "This link is not valid. Ask for a new one." };
+  if (state === "used") return { error: t.linkUsed };
+  if (state === "expired") return { error: t.linkExpired };
+  if (state !== "ok") return { error: t.linkInvalid };
 
   const passwordHash = await bcrypt.hash(password, 10);
   // Spending the token and setting the password together, and only if the
@@ -155,7 +177,5 @@ export async function resetPassword(token: string, password: string, confirm: st
     await tx.passwordResetToken.updateMany({ where: { userId: row.userId, usedAt: null }, data: { usedAt: new Date() } });
     return true;
   });
-  return done
-    ? { success: "Your password has been changed. You can log in with it now." }
-    : { error: "This link has already been used. Ask for a new one." };
+  return done ? { success: t.resetDone } : { error: t.linkUsed };
 }

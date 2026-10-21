@@ -3,12 +3,18 @@ import { auth, signOut } from "@/auth";
 import { getStudentNav } from "@/lib/points";
 import { SubmitButton } from "@/components/submit-button";
 import { NavDrawer, type NavLink } from "@/components/nav-drawer";
+import { LanguageToggle } from "@/components/ui-language";
+import { getUiLang } from "@/lib/i18n.server";
+import { shellText } from "@/lib/text/shell";
 
-const STUDENT_LINKS: NavLink[] = [
-  { href: "/dashboard", label: "Home" },
-  { href: "/dashboard/sets", label: "My Sets" },
-  { href: "/dashboard/catalogue", label: "Gift Exchange" },
-  { href: "/dashboard/leaderboard", label: "Scoreboard" },
+// Students read the bar in the language they picked; staff always in English,
+// since their pages are not translated.
+type ShellText = (typeof shellText)["en"];
+const studentLinks = (t: ShellText): NavLink[] => [
+  { href: "/dashboard", label: t.home },
+  { href: "/dashboard/sets", label: t.mySets },
+  { href: "/dashboard/catalogue", label: t.giftExchange },
+  { href: "/dashboard/leaderboard", label: t.scoreboard },
 ];
 
 // The teaching half of /admin: everything a teacher and an admin both use.
@@ -48,8 +54,10 @@ export async function Nav() {
   const isAdmin = role === "ADMIN";
   const isStaff = isAdmin || role === "TEACHER";
 
+  const t = shellText[isStaff ? "en" : await getUiLang()];
+
   let balance: number | null = null;
-  let links = isAdmin ? ADMIN_LINKS : isStaff ? STAFF_LINKS : STUDENT_LINKS;
+  let links = isAdmin ? ADMIN_LINKS : isStaff ? STAFF_LINKS : studentLinks(t);
   if (!isStaff) {
     // One round trip for the marks total and the pet flag together. The nav
     // renders on every page, so anything extra here is paid for everywhere.
@@ -57,17 +65,17 @@ export async function Nav() {
     balance = nav.balance.balance;
     // Feedback shows only while the admin has it switched on.
     if (nav.feedbackEnabled) {
-      links = [...links, { href: "/dashboard/feedback", label: "Feedback" }];
+      links = [...links, { href: "/dashboard/feedback", label: t.feedback }];
     }
     // The cat is opt-in, and a student who does not have it should not see a
     // link to it at all - the page itself redirects them away regardless.
     if (nav.petEnabled) {
-      links = [...links, { href: "/dashboard/pet", label: "My Cat" }];
+      links = [...links, { href: "/dashboard/pet", label: t.myCat }];
     }
   }
 
   // Everyone can change their own password; on a phone it is in the menu.
-  const drawerLinks = [...links, { href: "/account", label: "Change password" }];
+  const drawerLinks = [...links, { href: "/account", label: t.changePassword }];
 
   // The admin pages are laid out wider than the student ones, so the bar
   // matches whichever it sits above instead of ending short of the content.
@@ -81,10 +89,10 @@ export async function Nav() {
       }}
     >
       <SubmitButton
-        pendingText="Logging out…"
+        pendingText={t.loggingOut}
         className="w-full rounded-lg border border-sky-200 px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50 md:w-auto md:py-1.5"
       >
-        Log out
+        {t.logOut}
       </SubmitButton>
     </form>
   );
@@ -108,10 +116,10 @@ export async function Nav() {
           href={isStaff ? "/admin" : "/dashboard"}
           className="leading-tight font-semibold text-sky-950"
         >
-          Mr Tan
+          {t.brand}
           <br />
           <span className="text-xs font-normal text-gray-500">
-            Exercise Portal
+            {t.brandSub}
           </span>
         </Link>
 
@@ -119,9 +127,11 @@ export async function Nav() {
         {balance !== null && (
           <span className="ml-auto rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700 md:hidden">
             {balance.toLocaleString()}
-            <span className="ml-1 text-xs font-normal text-sky-500">pts</span>
+            <span className="ml-1 text-xs font-normal text-sky-500">{t.pts}</span>
           </span>
         )}
+        {/* Phone: the language switch sits at the right end of the bar. */}
+        {!isStaff && <LanguageToggle className={`md:hidden ${balance === null ? "ml-auto" : ""}`} />}
 
         {/* Desktop: the full horizontal bar, unchanged. */}
         <nav className="ml-auto hidden flex-wrap items-center gap-x-4 gap-y-1 text-sm md:flex">
@@ -132,13 +142,14 @@ export async function Nav() {
           ))}
           {balance !== null && (
             <span className="font-medium text-gray-700">
-              {balance.toLocaleString()} points
+              {balance.toLocaleString()} {t.points}
             </span>
           )}
-          <Link href="/account" className="text-gray-500 hover:underline" title="Change password">
+          <Link href="/account" className="text-gray-500 hover:underline" title={t.changePassword}>
             {session.user.name}
           </Link>
           {logOut}
+          {!isStaff && <LanguageToggle />}
         </nav>
       </div>
     </header>

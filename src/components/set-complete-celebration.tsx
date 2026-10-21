@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { CelebratingCat } from "./celebrating-cat";
+import { useUiLang } from "./ui-language";
+import { setsText } from "@/lib/text/sets";
 
 const CONFETTI_COLORS = ["#38bdf8", "#facc15", "#34d399", "#fb7185", "#a78bfa", "#fb923c"];
 
@@ -25,15 +27,6 @@ function makeConfetti(count: number): ConfettiPiece[] {
   }));
 }
 
-// Grading bands, so the message matches how the student actually did instead of
-// cheering identically for 10% and 100%.
-function praise(pct: number) {
-  if (pct === 100) return "Perfect score! Every single one correct.";
-  if (pct >= 80) return "Brilliant work — that's a strong result.";
-  if (pct >= 50) return "Nice going! Review the ones you missed and you'll climb higher.";
-  return "Set finished! Go over the answers you missed — that's where the marks are.";
-}
-
 export function SetCompleteCelebration({
   marksObtained,
   totalMarks,
@@ -43,6 +36,7 @@ export function SetCompleteCelebration({
   totalMarks: number;
   onClose: () => void;
 }) {
+  const t = setsText[useUiLang()];
   // Generated once so re-renders don't reshuffle confetti mid-fall.
   const [confetti] = useState(() => makeConfetti(34));
 
@@ -61,11 +55,11 @@ export function SetCompleteCelebration({
       className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Set complete"
+      aria-label={t.setComplete}
     >
       <button
         type="button"
-        aria-label="Close"
+        aria-label={t.close}
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-sky-950/40"
       />
@@ -95,15 +89,15 @@ export function SetCompleteCelebration({
           <CelebratingCat size="h-28 w-28" sparkleSize="text-2xl" />
         </div>
 
-        <h2 className="text-2xl font-bold text-sky-950">Set complete!</h2>
-        <p className="mt-1 text-sm text-gray-500">{praise(pct)}</p>
+        <h2 className="text-2xl font-bold text-sky-950">{t.setCompleteTitle}</h2>
+        <p className="mt-1 text-sm text-gray-500">{t.praise(pct)}</p>
 
         <div className="mt-4 rounded-2xl bg-sky-50 px-4 py-3">
           <p className="text-3xl font-bold text-sky-700">
             {marksObtained}
             <span className="text-lg font-medium text-sky-400"> / {totalMarks}</span>
           </p>
-          <p className="text-xs font-medium tracking-wide text-sky-500 uppercase">marks · {pct}%</p>
+          <p className="text-xs font-medium tracking-wide text-sky-500 uppercase">{t.marksPct(pct)}</p>
         </div>
 
         <button
@@ -112,7 +106,7 @@ export function SetCompleteCelebration({
           autoFocus
           className="mt-5 w-full rounded-xl bg-sky-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-sky-700 active:scale-[0.98]"
         >
-          Nice!
+          {t.nice}
         </button>
       </div>
     </div>

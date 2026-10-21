@@ -1,0 +1,139 @@
+import { defineText } from "@/lib/i18n";
+
+// The login page and its companions - forgot password, reset password,
+// change password, request an account - and the messages their actions send
+// back. Staff use these pages too, before we know who is logging in, so they
+// follow the visitor's choice; on the payment site they stay in English.
+// Emails sent from these flows stay in English.
+
+export const authText = defineText({
+  en: {
+    portalName: "Mr Tan Exercise Portal",
+    loginTagline: "Log in to pick up where you left off.",
+    noAccount: "No account yet?",
+    requestOne: "Request one",
+    email: "Email",
+    password: "Password",
+    forgotPassword: "Forgot password?",
+    logIn: "Log in",
+    loggingIn: "Logging in…",
+    invalidLogin: "Invalid email or password.",
+
+    changePasswordTitle: "Change password",
+    // Ends in a space where the language wants one before the name.
+    loggedInAs: "Logged in as ",
+    withEmail: (email: string) => ` (${email})`,
+    fullStop: ".",
+    back: "Back",
+    currentPassword: "Current password",
+    newPassword: "New password",
+    newPasswordAgain: "New password again",
+    minLength: "At least 8 characters.",
+    saving: "Saving…",
+    changePassword: "Change password",
+
+    forgotTitle: "Forgot password",
+    forgotHelp: "Enter the email you log in with, and we will email you a link to choose a new password.",
+    sending: "Sending…",
+    emailResetLink: "Email me a reset link",
+    backToLogin: "Back to log in",
+
+    resetTitle: "Choose a new password",
+    linkWhy: {
+      invalid: "This reset link is not valid. It may have been copied only in part.",
+      expired: "This reset link has expired - links last an hour.",
+      used: "This reset link has already been used, or a newer one has been sent since.",
+    } as Record<"invalid" | "expired" | "used", string>,
+    askNewLink: "Ask for a new link",
+    setNewPassword: "Set new password",
+
+    requestTitle: "Request an account",
+    requestHelp:
+      "Tell us who you are. Once your teacher approves the request, a password is made for you and emailed to this address.",
+    yourName: "Your name",
+    requestAccount: "Request an account",
+
+    // From the actions.
+    logInAgain: "Log in again, then change your password.",
+    resetSent:
+      "If that email belongs to an account, a link to reset the password is on its way. Check the inbox, and the spam folder too.",
+    needsMin: (n: number) => `The new password needs at least ${n} characters.`,
+    passwordTooLong: "That password is too long.",
+    noMatch: "The two new passwords do not match.",
+    accountNotFound: "Account not found.",
+    currentWrong: "The current password is not right.",
+    samePassword: "That is the password you have now. Choose a different one.",
+    passwordChanged: "Password changed. Use the new one next time you log in.",
+    linkUsed: "This link has already been used. Ask for a new one.",
+    linkExpired: "This link has expired. Ask for a new one.",
+    linkInvalid: "This link is not valid. Ask for a new one.",
+    resetDone: "Your password has been changed. You can log in with it now.",
+    enterName: "Enter your name.",
+    nameTooLong: "That name is too long.",
+    validEmail: "Enter a valid email.",
+    requestSent:
+      "Request sent. Once your teacher approves it, your password will be emailed to you - check the spam folder too.",
+  },
+  zh: {
+    portalName: "Mr Tan 练习平台",
+    loginTagline: "登录，继续上次的进度。",
+    noAccount: "还没有账号？",
+    requestOne: "申请账号",
+    email: "电邮",
+    password: "密码",
+    forgotPassword: "忘记密码？",
+    logIn: "登录",
+    loggingIn: "正在登录…",
+    invalidLogin: "电邮或密码不正确。",
+
+    changePasswordTitle: "修改密码",
+    loggedInAs: "已登录：",
+    withEmail: (email: string) => `（${email}）`,
+    fullStop: "",
+    back: "返回",
+    currentPassword: "当前密码",
+    newPassword: "新密码",
+    newPasswordAgain: "再次输入新密码",
+    minLength: "至少 8 个字符。",
+    saving: "正在保存…",
+    changePassword: "修改密码",
+
+    forgotTitle: "忘记密码",
+    forgotHelp: "输入你登录用的电邮，我们会寄一个链接给你设定新密码。",
+    sending: "正在发送…",
+    emailResetLink: "寄重设链接给我",
+    backToLogin: "返回登录",
+
+    resetTitle: "设定新密码",
+    linkWhy: {
+      invalid: "这个重设链接无效，可能只复制了一部分。",
+      expired: "这个重设链接已过期，链接只有一个小时有效。",
+      used: "这个重设链接已经用过了，或者之后又寄出了新的链接。",
+    },
+    askNewLink: "重新申请链接",
+    setNewPassword: "设定新密码",
+
+    requestTitle: "申请账号",
+    requestHelp: "告诉我们你是谁。老师批准申请后，系统会为你设定密码，并寄到这个电邮。",
+    yourName: "你的名字",
+    requestAccount: "申请账号",
+
+    logInAgain: "请重新登录，再修改密码。",
+    resetSent: "如果这个电邮有对应的账号，重设密码的链接已经寄出。请查看收件箱，也别忘了看看垃圾邮件。",
+    needsMin: (n: number) => `新密码至少需要 ${n} 个字符。`,
+    passwordTooLong: "这个密码太长了。",
+    noMatch: "两次输入的新密码不一样。",
+    accountNotFound: "找不到这个账号。",
+    currentWrong: "当前密码不正确。",
+    samePassword: "这就是你现在的密码，请换一个。",
+    passwordChanged: "密码已修改。下次登录请用新密码。",
+    linkUsed: "这个链接已经用过了，请重新申请。",
+    linkExpired: "这个链接已过期，请重新申请。",
+    linkInvalid: "这个链接无效，请重新申请。",
+    resetDone: "密码已修改，现在可以用新密码登录了。",
+    enterName: "请输入你的名字。",
+    nameTooLong: "这个名字太长了。",
+    validEmail: "请输入有效的电邮。",
+    requestSent: "申请已送出。老师批准后，密码会寄到你的电邮，也记得查看垃圾邮件。",
+  },
+});

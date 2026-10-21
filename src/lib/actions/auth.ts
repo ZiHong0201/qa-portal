@@ -2,6 +2,8 @@
 
 import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
+import { authLang } from "@/lib/password.server";
+import { authText } from "@/lib/text/auth";
 
 export type FormState = { error?: string };
 
@@ -21,7 +23,7 @@ export async function loginAction(
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: "Invalid email or password." };
+      return { error: authText[await authLang()].invalidLogin };
     }
     throw error;
   }

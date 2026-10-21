@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { SUSPENDED_ERROR, isSuspended } from "@/lib/suspension";
+import { isSuspended, suspendedError } from "@/lib/suspension";
+import { getUiLang } from "@/lib/i18n.server";
+import { setsText } from "@/lib/text/sets";
 import { Prisma } from "@/generated/prisma/client";
 import type { FormState } from "./auth";
 
@@ -70,9 +72,13 @@ export async function submitAnswer(
   _prevState: SubmitAnswerState,
   formData: FormData
 ): Promise<SubmitAnswerState> {
+  // Every message below is read by the student, so it comes back in the
+  // language they picked for the portal.
+  const lang = await getUiLang();
+  const t = setsText[lang];
   const session = await auth();
-  if (!session) return { error: "You must be logged in." };
-  if (await isSuspended(session.user.id)) return { error: SUSPENDED_ERROR };
+  if (!session) return { error: t.mustLogIn };
+  if (await isSuspended(session.user.id)) return { error: suspendedError(lang) };
 
   const signals = readSignals(formData);
 
@@ -81,16 +87,16 @@ export async function submitAnswer(
     include: { choices: true },
   });
   if (!question || !question.isActive) {
-    return { error: "This question is not available." };
+    return { error: t.questionUnavailable };
   }
 
   if (question.type === "MULTIPLE_CHOICE") {
     const choiceId = formData.get("choiceId");
     if (!choiceId || typeof choiceId !== "string") {
-      return { error: "Select an answer." };
+      return { error: t.selectAnswer };
     }
     const choice = question.choices.find((c) => c.id === choiceId);
-    if (!choice) return { error: "Invalid choice." };
+    if (!choice) return { error: t.invalidChoice };
 
     try {
       await prisma.submission.create({
@@ -105,7 +111,7 @@ export async function submitAnswer(
       });
     } catch (error) {
       if (isDuplicateSubmission(error)) {
-        return { error: "You have already answered this question." };
+        return { error: t.alreadyAnswered };
       }
       throw error;
     }
@@ -122,7 +128,7 @@ export async function submitAnswer(
 
   const answerText = formData.get("answerText");
   if (!answerText || typeof answerText !== "string" || answerText.trim().length === 0) {
-    return { error: "Enter an answer." };
+    return { error: t.enterAnswer };
   }
 
   try {
@@ -138,7 +144,7 @@ export async function submitAnswer(
     });
   } catch (error) {
     if (isDuplicateSubmission(error)) {
-      return { error: "You have already answered this question." };
+      return { error: t.alreadyAnswered };
     }
     throw error;
   }

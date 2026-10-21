@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isQuestionLanguage } from "@/lib/bilingual";
+import { getUiLang } from "@/lib/i18n.server";
+import { setsText } from "@/lib/text/sets";
 import { FlashcardDeck, type FlashcardQuestion } from "./flashcard-deck";
 
 export default async function StudentSetPage({
@@ -13,6 +15,7 @@ export default async function StudentSetPage({
   const { id } = await params;
   const session = await auth();
   const userId = session!.user.id;
+  const t = setsText[await getUiLang()];
 
   const student = await prisma.user.findUnique({
     where: { id: userId },
@@ -76,7 +79,7 @@ export default async function StudentSetPage({
         href={`/dashboard/sets?subject=${encodeURIComponent(set.subject)}`}
         className="text-sm font-medium text-sky-600 hover:text-sky-800 hover:underline"
       >
-        &larr; All {set.subject} sets
+        &larr; {t.allSubjectSets(set.subject)}
       </Link>
       <h1 className="mt-2 mb-1 text-2xl font-bold text-sky-950">{set.title}</h1>
       {set.description && <p className="mb-4 text-sky-700/80">{set.description}</p>}
@@ -84,7 +87,7 @@ export default async function StudentSetPage({
       {set.simulationUrl && (
         <div className="mb-6 overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm">
           <p className="border-b border-sky-100 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700">
-            Related simulation
+            {t.relatedSimulation}
           </p>
           <iframe
             src={set.simulationUrl}
@@ -107,7 +110,7 @@ export default async function StudentSetPage({
           }
         />
       ) : (
-        <p className="text-sky-700/70">No questions in this set yet.</p>
+        <p className="text-sky-700/70">{t.noQuestions}</p>
       )}
     </div>
   );

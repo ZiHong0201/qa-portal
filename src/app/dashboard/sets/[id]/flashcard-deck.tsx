@@ -9,12 +9,9 @@ import { SetCompleteCelebration } from "@/components/set-complete-celebration";
 import { useQuestionHint } from "@/components/question-hint-context";
 import type { SubmitAnswerState } from "@/lib/actions/submissions";
 import { setQuestionLanguage } from "@/lib/actions/language";
-import {
-  LANGUAGE_LABELS,
-  pickBody,
-  pickChoice,
-  type QuestionLanguage,
-} from "@/lib/bilingual";
+import { pickBody, pickChoice, type QuestionLanguage } from "@/lib/bilingual";
+import { useUiLang } from "@/components/ui-language";
+import { setsText } from "@/lib/text/sets";
 
 export type FlashcardChoice = { id: string; text: string };
 
@@ -31,22 +28,6 @@ export type FlashcardQuestion = {
   hints: string[];
 };
 
-const MESSAGES: Record<string, (points: number) => string> = {
-  PENDING: () => "Your answer has been submitted and is awaiting teacher review.",
-  CORRECT: (p) => `Correct! You earned ${p} marks.`,
-  INCORRECT: () => "That wasn't correct. No marks were awarded.",
-  APPROVED: (p) => `Approved! You earned ${p} marks.`,
-  REJECTED: () => "Your answer wasn't approved. No marks were awarded.",
-};
-
-/** Seconds as "1m 20s", or "45s" under a minute. */
-function humanTime(seconds: number) {
-  if (seconds < 60) return `${seconds}s`;
-  const m = Math.floor(seconds / 60);
-  const rem = seconds % 60;
-  return rem === 0 ? `${m}m` : `${m}m ${rem}s`;
-}
-
 /**
  * Shown only once every question is answered. Students see how long they took
  * per question afterwards, as something to reflect on - never while they are
@@ -56,6 +37,7 @@ function humanTime(seconds: number) {
  * left out of the average rather than counted as zero.
  */
 function TimingSummary({ cards }: { cards: FlashcardQuestion[] }) {
+  const t = setsText[useUiLang()];
   const timed = cards
     .map((c, i) => ({ n: i + 1, seconds: c.submission?.secondsTaken ?? null, card: c }))
     .filter((t): t is { n: number; seconds: number; card: FlashcardQuestion } => t.seconds !== null);
@@ -69,27 +51,26 @@ function TimingSummary({ cards }: { cards: FlashcardQuestion[] }) {
   return (
     <details className="mb-6 rounded-xl border border-sky-100 bg-white p-4">
       <summary className="cursor-pointer text-sm font-medium text-sky-900">
-        How long you took &middot; {humanTime(total)} in total, {humanTime(average)} on average
+        {t.timingSummary(t.humanTime(total), t.humanTime(average))}
       </summary>
 
       <p className="mt-2 text-xs text-gray-500">
-        Your slowest was question {slowest.n} at {humanTime(slowest.seconds)}. Taking longer is not
-        a bad thing - it usually means you were working it through.
+        {t.slowest(slowest.n, t.humanTime(slowest.seconds))}
       </p>
 
       <ul className="mt-3 flex flex-col gap-1">
-        {timed.map((t) => {
-          const status = t.card.submission!.status;
+        {timed.map((row) => {
+          const status = row.card.submission!.status;
           return (
-            <li key={t.card.id} className="flex items-center gap-2 text-xs">
-              <span className="w-8 shrink-0 text-gray-400">Q{t.n}</span>
+            <li key={row.card.id} className="flex items-center gap-2 text-xs">
+              <span className="w-8 shrink-0 text-gray-400">{t.questionShort(row.n)}</span>
               <span
                 className={`h-1.5 rounded-full ${BAR_COLOR(status)}`}
                 // Relative to the slowest answer, so the shape of the set is
                 // visible at a glance without reading every number.
-                style={{ width: `${Math.max(4, (t.seconds / slowest.seconds) * 60)}%` }}
+                style={{ width: `${Math.max(4, (row.seconds / slowest.seconds) * 60)}%` }}
               />
-              <span className="shrink-0 text-gray-500">{humanTime(t.seconds)}</span>
+              <span className="shrink-0 text-gray-500">{t.humanTime(row.seconds)}</span>
             </li>
           );
         })}
@@ -135,8 +116,9 @@ function LanguageSwitch({
   value: QuestionLanguage;
   onChange: (lang: QuestionLanguage) => void;
 }) {
+  const t = setsText[useUiLang()];
   return (
-    <div role="group" aria-label="Question language" className="inline-flex rounded-full bg-sky-50 p-0.5 text-xs">
+    <div role="group" aria-label={t.questionLanguage} className="inline-flex rounded-full bg-sky-50 p-0.5 text-xs">
       {(["ms", "en", "both"] as const).map((lang) => (
         <button
           key={lang}
@@ -147,7 +129,7 @@ function LanguageSwitch({
             value === lang ? "bg-sky-600 text-white" : "text-sky-700 hover:bg-sky-100"
           }`}
         >
-          {LANGUAGE_LABELS[lang]}
+          {t.questionLanguageLabels[lang]}
         </button>
       ))}
     </div>
@@ -163,6 +145,7 @@ export function FlashcardDeck({
   bilingual?: boolean;
   initialLanguage?: QuestionLanguage;
 }) {
+  const t = setsText[useUiLang()];
   const [cards, setCards] = useState(questions);
   const [language, setLanguage] = useState<QuestionLanguage>(bilingual ? initialLanguage : "both");
   const chooseLanguage = (lang: QuestionLanguage) => {
@@ -275,14 +258,14 @@ export function FlashcardDeck({
           <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
             {justCompleted && <CelebratingCat className="shrink-0" />}
             <p className="font-medium text-emerald-800">
-              You&apos;ve completed this set. Marks obtained: {marksObtained} / {totalMarks}
+              {t.setCompleted(marksObtained, totalMarks)}
             </p>
           </div>
           <TimingSummary cards={cards} />
         </>
       ) : (
         <p className="mb-6 inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-800">
-          {answered} / {total} answered
+          {t.answeredOf(answered, total)}
         </p>
       )}
 
@@ -294,7 +277,7 @@ export function FlashcardDeck({
       >
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
-            Card {safeIndex + 1} of {total} · {q.points} marks
+            {t.cardOf(safeIndex + 1, total, q.points)}
           </span>
           {bilingual && <LanguageSwitch value={language} onChange={chooseLanguage} />}
         </div>
@@ -304,7 +287,7 @@ export function FlashcardDeck({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={q.diagramUrl}
-            alt="Diagram for this question"
+            alt={t.diagramAlt}
             className="mb-3 max-w-full rounded-md border border-sky-200"
           />
         )}
@@ -316,19 +299,21 @@ export function FlashcardDeck({
                 <CatWink key={q.id} className="animate-cat-pop h-7 w-7 shrink-0" />
               )}
               <p className={`text-sm font-medium ${STATUS_TEXT_COLOR[submission.status]}`}>
-                {MESSAGES[submission.status](submission.pointsAwarded)}
+                {t.resultMessages[submission.status as keyof typeof t.resultMessages](
+                  submission.pointsAwarded
+                )}
               </p>
             </div>
             {submission.status !== "PENDING" && (
               <div className="mt-2 border-t border-sky-200 pt-2 text-sm text-sky-900/80">
                 <p>
-                  <span className="font-medium text-sky-950">Correct answer:</span>{" "}
+                  <span className="font-medium text-sky-950">{t.correctAnswer}</span>{" "}
                   {view.correctAnswerText ?? "—"}
                 </p>
                 {view.explanation && <p className="mt-1">{view.explanation}</p>}
                 {!isCorrect(submission.status) && safeIndex < total - 1 && (
                   <p className="mt-2 text-xs font-medium text-sky-600">
-                    Take your time reading this — press Next when you&apos;re ready.
+                    {t.takeYourTime}
                   </p>
                 )}
               </div>
@@ -375,7 +360,7 @@ export function FlashcardDeck({
           disabled={safeIndex === 0 || submitting}
           className="rounded-lg border border-sky-200 px-4 py-2 font-medium text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          &larr; Previous
+          &larr; {t.previous}
         </button>
         <button
           type="button"
@@ -385,10 +370,10 @@ export function FlashcardDeck({
             setIndex((i) => Math.min(total - 1, i + 1));
           }}
           disabled={safeIndex === total - 1 || !submission || submitting}
-          title={!submission ? "Answer this question before moving on" : undefined}
+          title={!submission ? t.answerFirst : undefined}
           className="rounded-lg border border-sky-200 px-4 py-2 font-medium text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Next &rarr;
+          {t.next} &rarr;
         </button>
       </div>
     </div>

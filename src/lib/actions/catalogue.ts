@@ -6,9 +6,11 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { SUSPENDED_ERROR, isSuspended } from "@/lib/suspension";
+import { isSuspended, suspendedError } from "@/lib/suspension";
 import { saveCatalogueImage, deleteCatalogueImage } from "@/lib/uploads";
 import { exchangeGift, rejectExchange } from "@/lib/gift-exchange.server";
+import { getUiLang } from "@/lib/i18n.server";
+import { rewardsText } from "@/lib/text/rewards";
 import type { FormState } from "./auth";
 
 
@@ -161,13 +163,17 @@ export async function redeemCatalogueItem(
   _formData: FormData
 ): Promise<RedeemState> {
   /* eslint-enable @typescript-eslint/no-unused-vars */
+  // The student sees these messages, so they come back in their language.
+  const lang = await getUiLang();
   const session = await auth();
   if (!session || session.user.role !== "STUDENT") {
-    return { error: "You must be logged in as a student." };
+    return { error: rewardsText[lang].gift.mustBeStudent };
   }
-  if (await isSuspended(session.user.id)) return { error: SUSPENDED_ERROR };
+  if (await isSuspended(session.user.id)) {
+    return { error: suspendedError(lang) };
+  }
 
-  const result = await exchangeGift(session.user.id, itemId);
+  const result = await exchangeGift(session.user.id, itemId, lang);
   if (result.success) {
     revalidatePath("/dashboard/catalogue");
     revalidatePath("/admin/catalogue");

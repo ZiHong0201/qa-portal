@@ -4,24 +4,8 @@ import { PetPic } from "@/components/pet-pic";
 
 import { useState } from "react";
 import { useQuestionHint } from "./question-hint-context";
-
-const TIPS = [
-  "Read the question twice before choosing an answer!",
-  "Eliminate the options you're sure are wrong first — it's easier from there.",
-  "Stuck on one? Skip it and come back later with fresh eyes.",
-  "Diagrams often hold the key — look closely before answering!",
-  "Watch for words like \"NOT\" or \"EXCEPT\" — they flip the whole question.",
-  "Double-check units — they're a classic trap in Physics questions.",
-  "A confident guess beats a blank answer. You've got this!",
-  "Take a deep breath. One question at a time.",
-  "After finishing a set, review what you got wrong — that's where the real learning happens.",
-  "Break big topics into small chunks instead of cramming it all at once.",
-  "If two options look almost identical, the difference between them is usually the trick.",
-  "Say the question out loud in your head — it helps catch details you might skim past.",
-  "You don't have to be fast. Being careful matters more.",
-  "Come back to flashcards you got wrong tomorrow — repetition is how it sticks.",
-  "Proud of you for practicing. Keep going!",
-];
+import { useUiLang } from "@/components/ui-language";
+import { homeText } from "@/lib/text/home";
 
 function pickIndex(poolLength: number, exclude?: number) {
   if (poolLength <= 1) return 0;
@@ -31,9 +15,12 @@ function pickIndex(poolLength: number, exclude?: number) {
 }
 
 export function CatCompanion() {
+  const t = homeText[useUiLang()];
   const { hint } = useQuestionHint();
   const isQuestionHint = !!hint && hint.hints.length > 0;
-  const pool = isQuestionHint ? hint.hints : TIPS;
+  // The question's own hints stay as the teacher wrote them; only the general
+  // tips follow the portal language.
+  const pool = isQuestionHint ? hint.hints : t.tips;
 
   const [open, setOpen] = useState(false);
   const [tipIndex, setTipIndex] = useState<number | null>(null);
@@ -57,14 +44,14 @@ export function CatCompanion() {
           <div className="mb-2 flex items-start justify-between gap-2">
             <div>
               <p className="mb-1 text-xs font-semibold text-sky-500">
-                {isQuestionHint ? "Hint for this question" : "Study tip"}
+                {isQuestionHint ? t.hintForQuestion : t.studyTip}
               </p>
               <p className="text-sm text-gray-700">{pool[tipIndex]}</p>
             </div>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              aria-label="Close"
+              aria-label={t.close}
               className="shrink-0 text-gray-400 hover:text-gray-600"
             >
               ✕
@@ -76,7 +63,7 @@ export function CatCompanion() {
               onClick={() => setTipIndex((i) => pickIndex(pool.length, i ?? undefined))}
               className="text-xs font-medium text-sky-600 hover:text-sky-800 hover:underline"
             >
-              {isQuestionHint ? "Other hint →" : "Another tip →"}
+              {isQuestionHint ? t.otherHint : t.anotherTip}
             </button>
           )}
         </div>
@@ -85,7 +72,7 @@ export function CatCompanion() {
       <button
         type="button"
         onClick={toggle}
-        aria-label={open ? "Hide study buddy" : "Get a study tip"}
+        aria-label={open ? t.hideStudyBuddy : t.getStudyTip}
         className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-100 shadow-md ring-2 ring-white transition-transform hover:scale-105 active:scale-95"
       >
         <CatFace />

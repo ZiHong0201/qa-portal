@@ -1,4 +1,6 @@
 import { coatOf, type Mood } from "@/lib/pet";
+import { useUiLang } from "@/components/ui-language";
+import { rewardsText } from "@/lib/text/rewards";
 
 /**
  * The adoptable cat, drawn on the same 100x100 grid as the existing cat
@@ -130,6 +132,9 @@ export function PetCat({
   className?: string;
 }) {
   const { fur, ear, stroke } = coatOf(coat);
+  // Only ever drawn inside client components (PetSprite, the admin item
+  // form), so the hook is safe; the admin layout keeps it in English there.
+  const t = rewardsText[useUiLang()].pet;
 
   const worn = SLOT_ORDER.flatMap((slot) =>
     equipped.filter((key) => CLOTHING[key]?.slot === slot).map((key) => ({ key, ...CLOTHING[key] }))
@@ -156,7 +161,7 @@ export function PetCat({
         ["--blink-speed" as string]: pace.blink,
       }}
       role="img"
-      aria-label="Your cat"
+      aria-label={t.catAlt}
     >
       {/* Tail, behind everything and swinging from where it meets the body. */}
       <g className="cat-part cat-tail">

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { PetCat } from "@/components/pet-cat";
 import { petSpriteSrc, poseForMood, type PetPose } from "@/lib/pet-art";
 import type { Mood } from "@/lib/pet";
+import { useUiLang } from "@/components/ui-language";
+import { rewardsText } from "@/lib/text/rewards";
 
 /**
  * The cat, as drawn artwork.
@@ -33,6 +35,7 @@ export function PetSprite({
   const [missing, setMissing] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const resolved: PetPose = pose ?? poseForMood(mood ?? "content");
+  const catAlt = rewardsText[useUiLang()].pet.catAlt;
 
   // onError alone is not enough. The image is requested during server render,
   // so a missing file 404s well before React hydrates and attaches the
@@ -56,7 +59,7 @@ export function PetSprite({
       ref={imgRef}
       key={`${coat}/${resolved}`}
       src={petSpriteSrc(coat, resolved)}
-      alt="Your cat"
+      alt={catAlt}
       className={className}
       loading={priority ? "eager" : "lazy"}
       onError={() => setMissing(true)}

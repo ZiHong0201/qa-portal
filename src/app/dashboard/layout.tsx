@@ -15,6 +15,8 @@ import { getPetAppearance } from "@/lib/pet.server";
 import { PetAppearanceProvider } from "@/components/pet-appearance";
 import { SuspendedNotice } from "@/components/suspended-notice";
 import { getStudentNav } from "@/lib/points";
+import { getUiLang } from "@/lib/i18n.server";
+import { UiLangProvider } from "@/components/ui-language";
 
 export default async function DashboardLayout({
   children,
@@ -25,9 +27,12 @@ export default async function DashboardLayout({
   // nothing and lets all three queries below go out together. Awaiting the
   // appearance after the others, as this did, added a whole extra round trip
   // to every page in the dashboard.
-  const session = await auth();
+  const [session, picked] = await Promise.all([auth(), getUiLang()]);
 
   const isStudent = session?.user.role === "STUDENT";
+  // Staff reach the scoreboard through here and read it in English, as they
+  // do the rest of their pages.
+  const lang = isStudent ? picked : "en";
   const [announcements, popupAds, petAppearance, nav] = await Promise.all([
     getLiveAnnouncements(),
     getLivePopupAds(),
@@ -47,25 +52,27 @@ export default async function DashboardLayout({
   }
 
   return (
-    <PetAppearanceProvider value={petAppearance}>
-      <QuestionHintProvider>
-        <div className="min-h-screen bg-gray-50">
-          {/* Above the sticky nav, so the ticker scrolls away once read rather
-            than holding a strip of every screen for the rest of the session. */}
-          <AnnouncementBar announcements={announcements} />
-          <Nav />
-          {/* Below the sticky bar, not inside it, so it does not eat viewport
-            height on a phone - it is still the first thing on every page. */}
-          <DevDisclaimerBar />
-          <ResetWarning />
-          <div className="mx-auto max-w-4xl px-4 py-8">
-            <InstallBanner />
-            {children}
+    <UiLangProvider lang={lang}>
+      <PetAppearanceProvider value={petAppearance}>
+        <QuestionHintProvider>
+          <div className="min-h-screen bg-gray-50">
+            {/* Above the sticky nav, so the ticker scrolls away once read rather
+              than holding a strip of every screen for the rest of the session. */}
+            <AnnouncementBar announcements={announcements} />
+            <Nav />
+            {/* Below the sticky bar, not inside it, so it does not eat viewport
+              height on a phone - it is still the first thing on every page. */}
+            <DevDisclaimerBar lang={lang} />
+            <ResetWarning lang={lang} />
+            <div className="mx-auto max-w-4xl px-4 py-8">
+              <InstallBanner />
+              {children}
+            </div>
+            <CatCompanion />
+            {session && <PopupAds ads={popupAds} userId={session.user.id} />}
           </div>
-          <CatCompanion />
-          {session && <PopupAds ads={popupAds} userId={session.user.id} />}
-        </div>
-      </QuestionHintProvider>
-    </PetAppearanceProvider>
+        </QuestionHintProvider>
+      </PetAppearanceProvider>
+    </UiLangProvider>
   );
 }

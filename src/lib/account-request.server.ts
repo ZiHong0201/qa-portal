@@ -4,6 +4,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { mailConfigured, sendMail } from "@/lib/mailer";
 import type { Result } from "@/lib/password.server";
+import type { UiLang } from "@/lib/i18n";
+import { authText } from "@/lib/text/auth";
 
 const SITE_NAME = "Mr Tan Exercise Portal";
 /** Waiting requests at once; past this the form quietly stops taking more. */
@@ -12,18 +14,22 @@ const MAX_PENDING = 100;
 const PASSWORD_ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const PASSWORD_LENGTH = 10;
 
-const requestSchema = z.object({
-  name: z.string().trim().min(1, "Enter your name.").max(100, "That name is too long."),
-  email: z.string().trim().toLowerCase().email("Enter a valid email."),
-});
+// One schema per language, so its messages come back in the visitor's.
+const requestSchemaIn = (t: (typeof authText)[UiLang]) =>
+  z.object({
+    name: z.string().trim().min(1, t.enterName).max(100, t.nameTooLong),
+    email: z.string().trim().toLowerCase().email(t.validEmail),
+  });
+const requestSchemas = { en: requestSchemaIn(authText.en), zh: requestSchemaIn(authText.zh) };
 
 /**
  * Records a request for a student account. The answer is the same whether
  * the email is new, already waiting, or already has an account, so the form
- * cannot be used to find out who studies here.
+ * cannot be used to find out who studies here. Messages are in `lang`,
+ * English unless told otherwise.
  */
-export async function requestAccount(nameInput: string, emailInput: string): Promise<Result> {
-  const parsed = requestSchema.safeParse({ name: nameInput, email: emailInput });
+export async function requestAccount(nameInput: string, emailInput: string, lang: UiLang = "en"): Promise<Result> {
+  const parsed = requestSchemas[lang].safeParse({ name: nameInput, email: emailInput });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { name, email } = parsed.data;
 
@@ -35,10 +41,7 @@ export async function requestAccount(nameInput: string, emailInput: string): Pro
     // Asking twice keeps the first request rather than failing on the unique email.
     await prisma.accountRequest.upsert({ where: { email }, create: { name, email }, update: {} });
   }
-  return {
-    success:
-      "Request sent. Once your teacher approves it, your password will be emailed to you - check the spam folder too.",
-  };
+  return { success: authText[lang].requestSent };
 }
 
 export function generatePassword(): string {

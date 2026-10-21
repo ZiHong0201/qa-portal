@@ -3,10 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { getStudentBalance } from "@/lib/points";
 import { RedeemButton } from "./redeem-button";
 import { PetPic } from "@/components/pet-pic";
+import { getUiLang } from "@/lib/i18n.server";
+import { dateLocale } from "@/lib/i18n";
+import { rewardsText } from "@/lib/text/rewards";
 
 export default async function GiftExchangePage() {
   const session = await auth();
   const userId = session!.user.id;
+  const lang = await getUiLang();
+  const t = rewardsText[lang].gift;
 
   const [balance, items, redemptions, student] = await Promise.all([
     getStudentBalance(userId),
@@ -37,10 +42,10 @@ export default async function GiftExchangePage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-1 text-2xl font-bold">Gift Exchange</h1>
-      <p className="mb-3 text-sm text-gray-500">You have {balance.balance} points to spend.</p>
+      <h1 className="mb-1 text-2xl font-bold">{t.title}</h1>
+      <p className="mb-3 text-sm text-gray-500">{t.youHave(balance.balance)}</p>
       <p className="mb-6 rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-sm text-sky-900">
-        🚚 Gift exchanged will be delivered on the next material delivery.
+        {t.deliveryNote}
       </p>
 
       <ul className="mb-8 flex flex-col gap-3">
@@ -70,19 +75,19 @@ export default async function GiftExchangePage() {
                       {item.name}
                       {item.grantsPet && (
                         <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
-                          Unlocks the cat
+                          {t.unlocksCat}
                         </span>
                       )}
                     </p>
                     {item.description && (
                       <p className="text-sm text-gray-600">{item.description}</p>
                     )}
-                    <p className="text-sm text-gray-500">{item.cost} points</p>
+                    <p className="text-sm text-gray-500">{t.cost(item.cost)}</p>
                     <p className="mt-1 flex flex-wrap gap-1.5 text-xs">
                       {item.stock !== null &&
                         (outOfStock ? (
                           <span className="rounded-full bg-rose-100 px-2 py-0.5 font-medium text-rose-700">
-                            Out of stock
+                            {t.outOfStock}
                           </span>
                         ) : (
                           <span
@@ -90,12 +95,12 @@ export default async function GiftExchangePage() {
                               item.stock <= 3 ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-600"
                             }`}
                           >
-                            {item.stock} left
+                            {t.stockLeft(item.stock)}
                           </span>
                         ))}
                       {item.limitPerStudent !== null && (
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-600">
-                          Limit {item.limitPerStudent} per student · you have {taken}
+                          {t.limit(item.limitPerStudent, taken)}
                         </span>
                       )}
                     </p>
@@ -103,13 +108,13 @@ export default async function GiftExchangePage() {
                 </div>
                 {item.grantsPet && petUnlocked ? (
                   <span className="shrink-0 self-start rounded-full bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700">
-                    Unlocked
+                    {t.unlocked}
                   </span>
                 ) : (
                   <RedeemButton
                     itemId={item.id}
                     canAfford={balance.balance >= item.cost}
-                    blocked={outOfStock ? "Out of stock" : atLimit ? "Limit reached" : null}
+                    blocked={outOfStock ? t.outOfStock : atLimit ? t.limitReached : null}
                   />
                 )}
               </div>
@@ -117,11 +122,11 @@ export default async function GiftExchangePage() {
           );
         })}
         {items.length === 0 && (
-          <p className="text-gray-500">No gifts available right now. Check back soon.</p>
+          <p className="text-gray-500">{t.noGifts}</p>
         )}
       </ul>
 
-      <h2 className="mb-3 font-medium">Your exchanges</h2>
+      <h2 className="mb-3 font-medium">{t.yourExchanges}</h2>
       <ul className="flex flex-col gap-2">
         {redemptions.map((r) => (
           <li
@@ -132,31 +137,31 @@ export default async function GiftExchangePage() {
               {r.catalogueItem.name}
               {r.rejectedAt ? (
                 <span className="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-700">
-                  Rejected · points refunded
+                  {t.rejected}
                 </span>
               ) : (
                 !r.catalogueItem.grantsPet &&
                 (r.deliveredAt ? (
                   <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                    Delivered
+                    {t.delivered}
                   </span>
                 ) : (
                   <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
-                    Coming with next material delivery
+                    {t.comingNext}
                   </span>
                 ))
               )}
               {r.rejectedAt && r.rejectionReason && (
-                <span className="mt-0.5 block text-xs text-rose-700">Reason: {r.rejectionReason}</span>
+                <span className="mt-0.5 block text-xs text-rose-700">{t.reason(r.rejectionReason)}</span>
               )}
             </span>
             <span className={`text-xs ${r.rejectedAt ? "text-gray-300 line-through" : "text-gray-400"}`}>
-              -{r.cost} pts · {r.createdAt.toLocaleDateString("en-GB")}
+              {t.spent(r.cost, r.createdAt.toLocaleDateString(dateLocale(lang)))}
             </span>
           </li>
         ))}
         {redemptions.length === 0 && (
-          <p className="text-sm text-gray-500">You haven&apos;t exchanged anything yet.</p>
+          <p className="text-sm text-gray-500">{t.noExchanges}</p>
         )}
       </ul>
     </div>
