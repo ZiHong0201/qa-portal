@@ -54,3 +54,6 @@ next-env.d.ts
 
 # Scratch crops from scripts/import-english-k1.mjs
 .english-crops/
+
+# local database from the README's file: setup
+/local.db

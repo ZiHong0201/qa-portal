@@ -1,9 +1,11 @@
 # Q&A Credit Portal
 
 Students log in and answer question sets (scoped to their grade + subject) to
-earn marks/points. Points can be spent in a gift catalogue. Teachers (admins)
-build the sets and questions, manage students and master data (grades,
-subjects), and run the catalogue.
+earn marks/points. Points can be spent in a gift catalogue. Staff come in two
+roles: **teachers** build the sets and questions (in the subjects an admin
+assigns them), grade, and manage students; **admins** can do all of that and
+also run the portal itself - the catalogue, announcements, master data
+(grades, subjects), staff accounts, feedback, the reset and fee receipts.
 
 ## Stack
 
@@ -27,6 +29,15 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+To work without touching the hosted database, point the same variables at a
+local file instead - libSQL reads SQLite files directly, and the migration
+script only needs the token to be non-empty:
+
+```bash
+export TURSO_DATABASE_URL=file:./local.db TURSO_AUTH_TOKEN=local
+node scripts/migrate-turso.mjs && npm run db:seed && npm run dev
+```
+
 The seed script creates an admin account:
 
 - Email: `admin@example.com`
@@ -37,9 +48,10 @@ Override these with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, and
 password (or create a new admin and remove this one) before using this in a
 real classroom.
 
-There's no self-service signup — student and admin accounts are both created
-by an admin (`/admin/students/new` for students; admins via the seed script
-or directly in the database).
+Students either get an account from staff (`/admin/students/new`) or ask for
+one at `/request-account`; staff approve the request at
+`/admin/students/requests` and the generated password is emailed to the
+student. Teacher and admin accounts are created by an admin at `/admin/staff`.
 
 ## Database
 
@@ -121,9 +133,14 @@ test uploads locally — image upload features will error without it.
 
 - `prisma/schema.prisma` — data model
 - `scripts/migrate-turso.mjs` — applies migrations to Turso (see Database above)
-- `src/auth.ts` — NextAuth config (Credentials provider, JWT sessions)
+- `src/auth.ts` — NextAuth config (Credentials provider, JWT sessions; the
+  account's role is re-read at most a minute after it changes, so revoking
+  or deleting staff takes effect without them logging out)
 - `src/proxy.ts` — route protection (`/dashboard/*` requires login,
-  `/admin/*` requires the ADMIN role)
+  `/admin/*` requires a staff role, admin-only sections and `/payment`
+  require ADMIN)
+- `src/lib/permissions.ts` — who may do what; every server action starts
+  with one of its guards
 - `src/lib/actions/` — server actions (auth, question sets, questions,
   submissions, students, master data, catalogue, point adjustments)
 - `src/lib/uploads.ts` — image file storage (questions + catalogue items)
@@ -131,10 +148,21 @@ test uploads locally — image upload features will error without it.
 - `src/app/dashboard/` — student-facing pages
 - `src/app/admin/` — admin-facing pages
 
+## Environment variables
+
+| Variable | Needed for | Without it |
+| --- | --- | --- |
+| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Everything (the database) | The app cannot start |
+| `AUTH_SECRET` | Signing login sessions | Logins fail |
+| `CRON_SECRET` | The daily jobs in `vercel.json` (integrity clean-up, scheduled reset) | Both jobs refuse to run (503) |
+| `BLOB_READ_WRITE_TOKEN` | Image uploads (diagrams, gifts, pop-ups) | Uploads error; set by Vercel when a Blob store is linked |
+| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | Password-reset emails, approved-account emails, receipts | Those emails are not sent |
+| `ANTHROPIC_API_KEY` | Exam paper import | Import is disabled; everything else works |
+| `PORTAL_ORIGIN` | Links in emails, redirects from the payment site | Defaults to the hosted portal's address |
+| `RECEIPT_COPY_TO` | The blind copy of every receipt | Defaults to the owner's address in `src/lib/mailer.ts` |
+
 ## Notes for production use
 
 - Set a real `AUTH_SECRET` for production (a fresh one is generated in
   `.env` locally — don't reuse it in production).
 - Add rate limiting to `/login`.
-- `ANTHROPIC_API_KEY` is optional — exam paper import is disabled without it,
-  everything else works fine.
