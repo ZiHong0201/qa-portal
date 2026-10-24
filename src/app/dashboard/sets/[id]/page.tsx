@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isQuestionLanguage } from "@/lib/bilingual";
+import { studentCanSeeSet } from "@/lib/set-visibility";
 import { getUiLang } from "@/lib/i18n.server";
 import { setsText } from "@/lib/text/sets";
 import { FlashcardDeck, type FlashcardQuestion } from "./flashcard-deck";
@@ -21,7 +22,6 @@ export default async function StudentSetPage({
     where: { id: userId },
     select: { grade: true, questionLanguage: true, subjects: { select: { subject: true } } },
   });
-  const subjectNames = student?.subjects.map((s) => s.subject) ?? [];
 
   const set = await prisma.questionSet.findUnique({
     where: { id },
@@ -37,14 +37,7 @@ export default async function StudentSetPage({
       grades: true,
     },
   });
-  if (
-    !set ||
-    !set.isActive ||
-    !student?.grade ||
-    !set.grades.some((g) => g.grade === student.grade) ||
-    !subjectNames.includes(set.subject)
-  )
-    notFound();
+  if (!set || !student || !studentCanSeeSet(set, student)) notFound();
 
   const cards: FlashcardQuestion[] = set.questions.map((q) => {
     const submission = q.submissions[0];

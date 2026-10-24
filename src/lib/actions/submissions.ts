@@ -5,6 +5,7 @@ import { requireStaff } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isSuspended, suspendedError } from "@/lib/suspension";
+import { studentCanSeeSet } from "@/lib/set-visibility";
 import { getUiLang } from "@/lib/i18n.server";
 import { setsText } from "@/lib/text/sets";
 import { Prisma } from "@/generated/prisma/client";
@@ -82,11 +83,22 @@ export async function submitAnswer(
 
   const signals = readSignals(formData);
 
-  const question = await prisma.question.findUnique({
-    where: { id: questionId },
-    include: { choices: true },
-  });
-  if (!question || !question.isActive) {
+  const [question, student] = await Promise.all([
+    prisma.question.findUnique({
+      where: { id: questionId },
+      include: {
+        choices: true,
+        questionSet: { select: { isActive: true, subject: true, grades: { select: { grade: true } } } },
+      },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { grade: true, subjects: { select: { subject: true } } },
+    }),
+  ]);
+  // The set page hides what the student may not see; this is what stops an
+  // answer posted to it anyway from earning points.
+  if (!question || !question.isActive || !studentCanSeeSet(question.questionSet, student)) {
     return { error: t.questionUnavailable };
   }
 
