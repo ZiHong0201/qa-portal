@@ -122,7 +122,7 @@ async function assertSubjectAccess(session: Session, subjects: string[]) {
   const refused = subjects.find((s) => !canEditSubject(editable, s));
   if (refused !== undefined) {
     throw new Error(
-      `You can't change ${refused} question sets. Ask an admin to add ${refused} to your subjects.`
+      `You can't change ${refused} question sets or simulations. Ask an admin to add ${refused} to your subjects.`
     );
   }
 }
@@ -147,4 +147,15 @@ export async function requireQuestionAccess(questionId: string) {
   });
   if (question) await assertSubjectAccess(session, [question.questionSet.subject]);
   return { session, question };
+}
+
+/**
+ * requireSubjectAccess for a library simulation, by its subject - a teacher
+ * looks after the simulations in their own subjects, as with question sets.
+ */
+export async function requireSimulationAccess(simulationId: string) {
+  const session = await requireStaff();
+  const simulation = await prisma.simulation.findUnique({ where: { id: simulationId } });
+  if (simulation) await assertSubjectAccess(session, [simulation.subject]);
+  return { session, simulation };
 }

@@ -13,6 +13,7 @@ type ShellText = (typeof shellText)["en"];
 const studentLinks = (t: ShellText): NavLink[] => [
   { href: "/dashboard", label: t.home },
   { href: "/dashboard/sets", label: t.mySets },
+  { href: "/dashboard/simulations", label: t.simulations },
   { href: "/dashboard/catalogue", label: t.giftExchange },
   { href: "/dashboard/leaderboard", label: t.scoreboard },
 ];
@@ -20,6 +21,7 @@ const studentLinks = (t: ShellText): NavLink[] => [
 // The teaching half of /admin: everything a teacher and an admin both use.
 const STAFF_LINKS: NavLink[] = [
   { href: "/admin/sets", label: "Sets" },
+  { href: "/admin/simulations", label: "Simulations" },
   { href: "/admin/students", label: "Students" },
   { href: "/admin/review", label: "Review" },
   { href: "/admin/integrity", label: "Integrity" },
@@ -32,6 +34,7 @@ const STAFF_LINKS: NavLink[] = [
 // concatenation of the other two.
 const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/sets", label: "Sets" },
+  { href: "/admin/simulations", label: "Simulations" },
   { href: "/admin/students", label: "Students" },
   { href: "/admin/catalogue", label: "Gift Exchange" },
   { href: "/admin/announcements", label: "Announcements" },

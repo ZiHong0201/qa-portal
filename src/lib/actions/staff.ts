@@ -179,7 +179,7 @@ export async function deleteStaff(staffId: string): Promise<{ error?: string }> 
     return {
       error:
         `This account has created ${authored} item${authored === 1 ? "" : "s"} ` +
-        `(sets, questions, catalogue entries, notices, point adjustments or markings) ` +
+        `(sets, simulations, questions, catalogue entries, notices, point adjustments or markings) ` +
         `and cannot be deleted without deleting those too. Revoke their access instead.`,
     };
   }
@@ -249,8 +249,9 @@ async function blockedFromLosingAdmin(
 }
 
 async function authoredCount(userId: string): Promise<number> {
-  const [sets, questions, items, adjustments, notices, popups, reviews] = await Promise.all([
+  const [sets, simulations, questions, items, adjustments, notices, popups, reviews] = await Promise.all([
     prisma.questionSet.count({ where: { createdById: userId } }),
+    prisma.simulation.count({ where: { createdById: userId } }),
     prisma.question.count({ where: { createdById: userId } }),
     prisma.catalogueItem.count({ where: { createdById: userId } }),
     prisma.pointAdjustment.count({ where: { createdById: userId } }),
@@ -261,5 +262,5 @@ async function authoredCount(userId: string): Promise<number> {
     // work. Counted with the rest so that never happens silently.
     prisma.submission.count({ where: { reviewerId: userId } }),
   ]);
-  return sets + questions + items + adjustments + notices + popups + reviews;
+  return sets + simulations + questions + items + adjustments + notices + popups + reviews;
 }
