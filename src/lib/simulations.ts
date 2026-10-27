@@ -9,12 +9,12 @@ export function phetUrl(slug: string): string {
 }
 
 /**
- * The Malay version. Built from the all-languages file rather than
- * `${slug}_ms.html`, because that file only exists once a sim has been
- * translated; this one falls back to English for any string that is not.
+ * The Malay build. Only exists once a sim has been translated - every one in
+ * PHET_PRESETS has been. For a sim that has not, the all-languages file with
+ * `?locale=ms` loads instead and shows English wherever Malay is missing.
  */
 export function phetUrlMs(slug: string): string {
-  return `${PHET_BASE}/${slug}/latest/${slug}_all.html?locale=ms`;
+  return `${PHET_BASE}/${slug}/latest/${slug}_ms.html`;
 }
 
 const PHET_SLUG = /^https:\/\/phet\.colorado\.edu\/sims\/html\/([a-z0-9-]+)\//;

@@ -211,7 +211,7 @@ export function SimulationForm({
           type="url"
           value={urlMs}
           onChange={(e) => setUrlMs(e.target.value)}
-          placeholder="https://phet.colorado.edu/sims/html/...?locale=ms"
+          placeholder="https://phet.colorado.edu/sims/html/..._ms.html"
           className="w-full rounded-md border border-gray-300 px-3 py-2"
         />
         <p className="mt-1 text-xs text-gray-500">
