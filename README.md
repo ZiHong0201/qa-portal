@@ -59,6 +59,11 @@ npm run db:migrate        # generates a new migration locally (uses local dev.db
 node scripts/migrate-turso.mjs   # applies any new migrations to Turso
 ```
 
+On Vercel, production builds run it automatically before `next build`
+(`scripts/migrate-on-deploy.mjs`, using the Turso variables Vercel already
+holds), so merging a schema change to `main` is enough. Preview and local
+builds skip it.
+
 `scripts/migrate-turso.mjs` reads `prisma/migrations/*/migration.sql` in
 order and applies whatever hasn't been applied yet (tracked in a
 `_prisma_migrations` table on Turso, same format Prisma itself uses), so
