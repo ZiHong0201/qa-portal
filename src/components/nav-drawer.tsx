@@ -40,6 +40,15 @@ function LinkIcon({ href }: { href: string }) {
           <path d="M8 4v16" />
         </svg>
       );
+    case "/dashboard/simulations":
+    case "/admin/simulations":
+      return (
+        <svg {...common}>
+          {/* a conical flask */}
+          <path d="M9.5 3h5M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3" />
+          <path d="M7.5 15h9" />
+        </svg>
+      );
     case "/dashboard/catalogue":
     case "/admin/catalogue":
       return (

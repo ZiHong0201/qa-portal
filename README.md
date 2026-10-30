@@ -91,6 +91,14 @@ it's safe to run repeatedly.
 - **Students** see their grade+subject's question sets on `/dashboard`,
   answer every question on one page (auto-graded instantly), and see a
   "marks obtained" summary once a set is complete.
+- **Simulations**: a library of interactive experiments (PhET sims, or any
+  embeddable https:// page), modelled on Pandai's simulation pages. Staff
+  add them at `/admin/simulations` (a teacher only in their own subjects),
+  tagged with grades, a subject, a chapter and an optional topic, with an
+  English link and an optional BM one; the form can fill both in from a
+  list of KSSM-relevant PhET sims. Students browse theirs by subject and
+  chapter at `/dashboard/simulations` and open each on its own page, with
+  an English/BM switch and full screen.
 - **Points/catalogue**: a student's spendable balance = marks earned from
   quizzes + admin adjustments − catalogue redemptions (computed live from
   the underlying records, not a mutable counter). Admins manage catalogue

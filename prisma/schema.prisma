@@ -81,6 +81,7 @@ model User {
   questionLanguage String?
 
   createdQuestionSets QuestionSet[] @relation("QuestionSetCreator")
+  createdSimulations  Simulation[]  @relation("SimulationCreator")
   createdQuestions    Question[]    @relation("QuestionCreator")
   submissions         Submission[]  @relation("SubmissionStudent")
   reviewedSubmissions Submission[]  @relation("SubmissionReviewer")
@@ -323,6 +324,48 @@ model QuestionSetGrade {
   createdAt     DateTime    @default(now())
 
   @@unique([questionSetId, grade])
+}
+
+// An interactive simulation in the library (a PhET sim, usually), apart from
+// any question set. Students see the ones tagged with their grade and one of
+// their subjects, grouped by chapter, and open each on a page of its own.
+// A set's own simulationUrl above is a separate, older thing: one sim shown
+// above that set's questions.
+model Simulation {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  subject     String // matches Subject master data, like QuestionSet.subject
+  // Free text, as the textbook names it ("Bab 5 Jirim / Chapter 5 Matter").
+  // The library is grouped under it, with chapter numbers in numeric order.
+  chapter     String?
+  // The syllabus learning standard this covers, e.g. "5.1.2". Shown, not
+  // used for anything.
+  topicCode   String?
+  url         String // the English version
+  urlMs       String? // the Malay version, when there is one
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy   User   @relation("SimulationCreator", fields: [createdById], references: [id])
+  createdById String
+
+  grades SimulationGrade[]
+
+  // The student library filters on these on every visit.
+  @@index([subject, isActive])
+}
+
+// A grade a simulation is shown to - same pattern as QuestionSetGrade.
+model SimulationGrade {
+  id           String     @id @default(cuid())
+  simulation   Simulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+  simulationId String
+  grade        String
+  createdAt    DateTime   @default(now())
+
+  @@unique([simulationId, grade])
 }
 
 model Question {
