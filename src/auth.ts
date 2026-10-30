@@ -17,7 +17,7 @@ import type { Role } from "@/generated/prisma/client";
  */
 const ACCOUNT_RECHECK_MS = 60 * 1000;
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
@@ -47,15 +47,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.checkedAt = Date.now();
         return token;
       }
+      // "update" is unstable_update after the person edits their own profile:
+      // read the account now, so a new name shows on the very next page.
       const checkedAt = typeof token.checkedAt === "number" ? token.checkedAt : 0;
-      if (Date.now() - checkedAt < ACCOUNT_RECHECK_MS) return token;
+      if (trigger !== "update" && Date.now() - checkedAt < ACCOUNT_RECHECK_MS) return token;
 
       const current = await prisma.user.findUnique({
         where: { id: token.id as string },

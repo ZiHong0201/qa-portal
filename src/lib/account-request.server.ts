@@ -135,7 +135,7 @@ export async function rejectAccountRequest(requestId: string): Promise<void> {
 
 async function sendAccountEmail(to: string, name: string, password: string, origin: string) {
   const link = `${origin}/login`;
-  const changeLink = `${origin}/account`;
+  const changeLink = `${origin}/account/password`;
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   await sendMail({
     to,

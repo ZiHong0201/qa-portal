@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { changeMyPassword, forgotPassword, resetForgottenPassword } from "@/lib/actions/password";
 import { requestStudentAccount } from "@/lib/actions/account-requests";
+import { changeMyName } from "@/lib/actions/profile";
 import type { UiLang } from "@/lib/i18n";
 import { authText } from "@/lib/text/auth";
 
@@ -99,6 +100,22 @@ export function ChangePasswordForm({ lang }: { lang: UiLang }) {
       <p className="-mt-2 text-xs text-slate-500">{t.minLength}</p>
       <button disabled={pending} className={BUTTON}>
         {pending ? t.saving : t.changePassword}
+      </button>
+    </form>
+  );
+}
+
+export function EditNameForm({ lang, initialName }: { lang: UiLang; initialName: string }) {
+  const t = authText[lang];
+  const [name, setName] = useState(initialName);
+  // Success redirects back to the profile, so only an error ever comes back.
+  const [state, action, pending] = useActionState(changeMyName, {});
+  return (
+    <form action={action} className="flex flex-col gap-4">
+      <Notice state={state} />
+      <Field label={t.nameLabel} name="name" value={name} onChange={setName} autoComplete="name" type="text" />
+      <button disabled={pending} className={BUTTON}>
+        {pending ? t.saving : t.saveName}
       </button>
     </form>
   );

@@ -111,10 +111,8 @@ function LinkIcon({ href }: { href: string }) {
     case "/account":
       return (
         <svg {...common}>
-          <circle cx="8" cy="15" r="4" />
-          <path d="m10.8 12.2 9.2-9.2" />
-          <path d="m17 6 3 3" />
-          <path d="m14.5 8.5 2 2" />
+          <circle cx="12" cy="8" r="3.5" />
+          <path d="M5 20a7 7 0 0 1 14 0" />
         </svg>
       );
     default:
@@ -219,12 +217,13 @@ export function NavDrawer({
                     alt=""
                     className="h-11 w-11 rounded-xl ring-2 ring-white/40"
                   />
-                  <div className="min-w-0">
+                  {/* The name opens the profile, as it does in the desktop bar. */}
+                  <Link href="/account" onClick={() => setOpen(false)} className="min-w-0 hover:underline">
                     <p className="truncate font-semibold">{userName}</p>
                     <p className="text-xs text-sky-100">
                       {t.portalName}
                     </p>
-                  </div>
+                  </Link>
                 </div>
                 <button
                   type="button"

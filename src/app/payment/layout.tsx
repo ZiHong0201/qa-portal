@@ -45,7 +45,7 @@ export default async function PaymentLayout({ children }: { children: React.Reac
             <a href={portalHref("/admin")} className="text-teal-100 hover:text-white hover:underline">
               Exercise portal &#8599;
             </a>
-            <Link href="/account" className="text-teal-200 hover:text-white hover:underline" title="Change password">
+            <Link href="/account" className="text-teal-200 hover:text-white hover:underline" title="My profile">
               {session.user.name}
             </Link>
             <form

@@ -77,8 +77,9 @@ export async function Nav() {
     }
   }
 
-  // Everyone can change their own password; on a phone it is in the menu.
-  const drawerLinks = [...links, { href: "/account", label: t.changePassword }];
+  // Everyone has a profile, where they change their name or password; on a
+  // phone it is in the menu as well as behind their name.
+  const drawerLinks = [...links, { href: "/account", label: t.myProfile }];
 
   // The admin pages are laid out wider than the student ones, so the bar
   // matches whichever it sits above instead of ending short of the content.
@@ -148,7 +149,17 @@ export async function Nav() {
               {balance.toLocaleString()} {t.points}
             </span>
           )}
-          <Link href="/account" className="text-gray-500 hover:underline" title={t.changePassword}>
+          <Link
+            href="/account"
+            title={t.myProfile}
+            className="flex items-center gap-1.5 rounded-full py-0.5 pr-2.5 pl-0.5 text-gray-600 ring-1 ring-sky-100 hover:bg-sky-50 hover:text-sky-800"
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-xs font-bold text-white"
+            >
+              {(session.user.name ?? "").trim().charAt(0).toUpperCase() || "?"}
+            </span>
             {session.user.name}
           </Link>
           {logOut}
