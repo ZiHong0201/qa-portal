@@ -16,7 +16,8 @@ import {
   type FeedbackFilter,
   type FeedbackView,
 } from "@/lib/feedback.server";
-import { FEEDBACK_KINDS, KIND_LABELS, stars, type FeedbackKind } from "@/lib/feedback";
+import { allQuestions } from "@/lib/feedback-questions.server";
+import { parseChoices, stars } from "@/lib/feedback";
 
 const VIEWS: { value: FeedbackView; label: string }[] = [
   { value: "inbox", label: "Inbox" },
@@ -34,20 +35,34 @@ const sentAt = (d: Date) =>
     timeZone: "Asia/Kuala_Lumpur",
   });
 
-const SMALL_BUTTON = "rounded-md border border-gray-300 px-2.5 py-1 text-xs hover:bg-gray-50";
+/** An answer as the admin reads it: stars drawn, yes/no capitalised. */
+function shown(a: { value: string; question: { type: string } | null }) {
+  if (a.question?.type === "STARS") return stars(Number(a.value));
+  if (a.question?.type === "YES_NO") return a.value === "yes" ? "Yes" : "No";
+  return a.value;
+}
+
+const SMALL_BUTTON ="rounded-md border border-gray-300 px-2.5 py-1 text-xs hover:bg-gray-50";
 
 /** Students' ideas, suggestions and feedback, newest first. */
 export default async function FeedbackAdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; kind?: string; quote?: string }>;
+  searchParams: Promise<{ view?: string; q?: string; a?: string; quote?: string }>;
 }) {
   const params = await searchParams;
+  const questions = await allQuestions();
+  // A filter on each multiple-choice question that students are being asked.
+  const choiceQuestions = questions
+    .filter((q) => q.type === "CHOICE" && !q.hidden)
+    .map((q) => ({ id: q.id, label: q.labelEn, options: parseChoices(q.choices).map((c) => c.en) }));
+  const filtered = choiceQuestions.find((q) => q.id === params.q);
+
   // Anything unrecognised in the URL falls back to "no filter" rather than
   // to an empty list that looks like there is no feedback.
   const filter: FeedbackFilter = {
     view: VIEWS.some((v) => v.value === params.view) ? (params.view as FeedbackView) : "inbox",
-    kind: FEEDBACK_KINDS.includes(params.kind as FeedbackKind) ? (params.kind as FeedbackKind) : null,
+    answer: filtered && params.a && filtered.options.includes(params.a) ? { questionId: filtered.id, value: params.a } : null,
     quote: params.quote === "yes" ? true : params.quote === "no" ? false : null,
   };
 
@@ -59,11 +74,12 @@ export default async function FeedbackAdminPage({
     ratingSummary(),
   ]);
 
-  // Each filter link keeps the other two filters as they are.
-  const href = (change: Partial<Record<"view" | "kind" | "quote", string | null>>) => {
+  // Each filter link keeps the other filters as they are.
+  const href = (change: Partial<Record<"view" | "q" | "a" | "quote", string | null>>) => {
     const next = {
       view: filter.view === "inbox" ? null : filter.view,
-      kind: filter.kind,
+      q: filter.answer?.questionId ?? null,
+      a: filter.answer?.value ?? null,
       quote: filter.quote === null ? null : filter.quote ? "yes" : "no",
       ...change,
     };
@@ -90,9 +106,25 @@ export default async function FeedbackAdminPage({
         )}
       </div>
       <p className="mb-4 text-sm text-gray-500">
-        Star the good ones to use as testimonials on the website. Only messages the student allowed us to quote can be
-        starred, and they are credited exactly as the student chose.
+        Star the good ones to use as testimonials on the website. They are credited exactly as the student chose, and
+        a message the student asked us not to quote cannot be starred.
       </p>
+
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4">
+        <div>
+          <p className="text-sm font-medium text-gray-800">Questions on the form</p>
+          <p className="mt-1 text-xs text-gray-500">
+            {questions.filter((q) => !q.hidden).length} asked:{" "}
+            {questions
+              .filter((q) => !q.hidden)
+              .map((q) => q.labelEn)
+              .join(" · ")}
+          </p>
+        </div>
+        <Link href="/admin/feedback/questions" className={SMALL_BUTTON}>
+          Edit questions
+        </Link>
+      </div>
 
       {(summary.ratings > 0 || summary.recommendAnswered > 0) && (
         <div className="mb-3 grid grid-cols-2 gap-3">
@@ -178,17 +210,24 @@ export default async function FeedbackAdminPage({
             </Link>
           ))}
         </div>
+        {choiceQuestions.map((q) => {
+          const on = filter.answer?.questionId === q.id;
+          return (
+            <div key={q.id} className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-gray-500">{q.label}</span>
+              <Link href={href({ q: null, a: null })} className={pill(!on)}>
+                All
+              </Link>
+              {q.options.map((o) => (
+                <Link key={o} href={href({ q: q.id, a: o })} className={pill(on && filter.answer?.value === o)}>
+                  {o}
+                </Link>
+              ))}
+            </div>
+          );
+        })}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-gray-500">Type:</span>
-          <Link href={href({ kind: null })} className={pill(filter.kind === null)}>
-            All
-          </Link>
-          {FEEDBACK_KINDS.map((k) => (
-            <Link key={k} href={href({ kind: k })} className={pill(filter.kind === k)}>
-              {KIND_LABELS[k]}
-            </Link>
-          ))}
-          <span className="ml-2 text-xs text-gray-500">Quoting:</span>
+          <span className="text-xs text-gray-500">Quoting:</span>
           <Link href={href({ quote: null })} className={pill(filter.quote === null)}>
             Any
           </Link>
@@ -212,9 +251,13 @@ export default async function FeedbackAdminPage({
             >
               <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
                 {!f.readAt && <span className="rounded-full bg-sky-600 px-2 py-0.5 font-medium text-white">New</span>}
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-700">
-                  {KIND_LABELS[f.kind]}
-                </span>
+                {f.answers
+                  .filter((a) => a.question?.type === "CHOICE")
+                  .map((a, i) => (
+                    <span key={i} className="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-700">
+                      {a.value}
+                    </span>
+                  ))}
                 {f.starredAt && (
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">★ Testimonial</span>
                 )}
@@ -231,6 +274,14 @@ export default async function FeedbackAdminPage({
                 <span className="text-gray-400">{sentAt(f.createdAt)}</span>
               </div>
               <p className="whitespace-pre-wrap text-sm text-gray-800">{f.message}</p>
+              {f.answers
+                .filter((a) => a.question?.type !== "CHOICE")
+                .map((a, i) => (
+                  <p key={i} className="mt-1 text-xs text-gray-600">
+                    <span className="text-gray-500">{a.label}:</span>{" "}
+                    <span className="whitespace-pre-wrap">{shown(a)}</span>
+                  </p>
+                ))}
               {(f.rating !== null || f.wouldRecommend !== null) && (
                 <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-gray-500">
                   {f.rating !== null && <span className="text-amber-500">{stars(f.rating)}</span>}

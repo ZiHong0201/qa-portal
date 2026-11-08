@@ -868,10 +868,60 @@ model AccountRequest {
   createdAt DateTime @default(now())
 }
 
-enum FeedbackKind {
-  IDEA
-  SUGGESTION
-  FEEDBACK
+enum FeedbackQuestionType {
+  LONG_TEXT
+  SHORT_TEXT
+  STARS // 1 to 5
+  YES_NO
+  CHOICE // one of `choices`
+}
+
+// A question on the student Feedback form. The admin writes, orders, hides
+// and removes them at /admin/feedback/questions.
+//
+// `role` gives a question a job beyond the form, and its answer a column on
+// Feedback that the rest of the feature reads:
+//   QUOTE      the message - Feedback.message, the words a testimonial quotes.
+//              Always there, always long text and required, never hidden.
+//   RATING     a STARS question - Feedback.rating, for the average and export.
+//   RECOMMEND  a YES_NO question - Feedback.wouldRecommend.
+// At most one question holds each role. Every other answer is a FeedbackAnswer.
+//
+// choices is JSON, [{ "en": "Idea", "zh": "想法" }, ...], for CHOICE only.
+// The Chinese wording is optional throughout and falls back to the English.
+model FeedbackQuestion {
+  id        String               @id @default(cuid())
+  order     Int                  @default(0)
+  type      FeedbackQuestionType
+  role      String?              @unique
+  labelEn   String
+  labelZh   String?
+  hintEn    String?
+  hintZh    String?
+  choices   String?
+  required  Boolean              @default(false)
+  hidden    Boolean              @default(false)
+  createdAt DateTime             @default(now())
+
+  answers FeedbackAnswer[]
+}
+
+// A student's answer to a question without a role. label is the question's
+// English wording when it was answered and value is what they gave - the
+// text, or the chosen option's English wording - so a message still reads
+// properly after the admin rewords or deletes the question.
+model FeedbackAnswer {
+  id         String            @id @default(cuid())
+  feedback   Feedback          @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  feedbackId String
+  question   FeedbackQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  questionId String?
+  label      String
+  value      String
+  order      Int               @default(0)
+
+  @@index([feedbackId])
+  @@index([questionId, value])
 }
 
 // How a student agreed to be named if their words are quoted on the website.
@@ -881,10 +931,11 @@ enum FeedbackCredit {
   ANONYMOUS
 }
 
-// An idea, suggestion or piece of feedback a student sent from
-// /dashboard/feedback, read by the admin at /admin/feedback. The admin can
-// star the good ones as testimonials for the public website, but only those
-// the student allowed to be quoted.
+// A message a student sent from /dashboard/feedback, read by the admin at
+// /admin/feedback. The admin can star the good ones as testimonials for the
+// public website, unless the student took back permission to quote it.
+// Answers to the admin's own questions are in `answers`; message, rating and
+// wouldRecommend hold the answers to the questions with those roles.
 //
 // creditLine is the name exactly as it would appear under the quote, written
 // when the student sends it - so a later change of name or grade on the
@@ -901,13 +952,14 @@ model Feedback {
   studentId    String?
   studentName  String
   studentGrade String?
-  kind         FeedbackKind
   message      String
 
-  // Optional, answered with the message: 1 to 5 stars for Mr Tan, and whether
-  // they would recommend him to a friend. Null when skipped.
+  // 1 to 5 stars for Mr Tan, and whether they would recommend him to a
+  // friend. Null when skipped, or when no question asks it.
   rating         Int?
   wouldRecommend Boolean?
+
+  answers FeedbackAnswer[]
 
   mayQuote   Boolean         @default(false)
   credit     FeedbackCredit?

@@ -6,40 +6,36 @@ import { dayKey } from "@/lib/check-in";
 import {
   FEEDBACK_CREDITS,
   FEEDBACK_ENABLED_KEY,
-  FEEDBACK_KINDS,
   FEEDBACK_PER_DAY,
   MAX_MESSAGE,
+  MAX_SHORT_ANSWER,
   MAX_SHORT_NAME,
   MIN_MESSAGE,
   creditLine,
-  type FeedbackKind,
+  inLang,
+  parseChoices,
   type Testimonial,
 } from "@/lib/feedback";
+import { formQuestions } from "@/lib/feedback-questions.server";
 import type { UiLang } from "@/lib/i18n";
 import { feedbackText } from "@/lib/text/feedback";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// One schema per language, so its messages come back in the student's.
-const sendSchemaIn = (t: (typeof feedbackText)[UiLang]) =>
+// One schema per language, so its messages come back in the student's. The
+// answers to the admin's questions are checked one by one in sendFeedback,
+// since the questions are only known once read from the database.
+const creditSchemaIn = (t: (typeof feedbackText)[UiLang]) =>
   z
     .object({
-      kind: z.enum(FEEDBACK_KINDS, t.chooseKind),
-      message: z
-        .string()
-        .trim()
-        .min(MIN_MESSAGE, t.minMessage(MIN_MESSAGE))
-        .max(MAX_MESSAGE, t.maxMessage(MAX_MESSAGE)),
       mayQuote: z.boolean(),
       credit: z.enum(FEEDBACK_CREDITS).nullable(),
       shortName: z.string().trim().max(MAX_SHORT_NAME, t.nameTooLong),
-      rating: z.number(t.chooseStars).int().min(1, t.chooseStars).max(5, t.chooseStars).nullable(),
-      wouldRecommend: z.boolean(t.yesOrNo).nullable(),
     })
     .refine((v) => !v.mayQuote || v.credit !== null, t.chooseCredit)
     .refine((v) => !v.mayQuote || v.credit !== "FIRST_NAME_GRADE" || v.shortName.length > 0, t.typeShortName);
 
-const sendSchemas = { en: sendSchemaIn(feedbackText.en), zh: sendSchemaIn(feedbackText.zh) };
+const creditSchemas = { en: creditSchemaIn(feedbackText.en), zh: creditSchemaIn(feedbackText.zh) };
 
 /**
  * Whether students can send feedback. Open unless an admin has closed it, so
@@ -60,50 +56,40 @@ export async function setFeedbackEnabled(enabled: boolean): Promise<void> {
 }
 
 /**
- * Records a message from a student. Quoting is off unless the student ticked
- * it, and the credit is only kept when they did - an unticked box with a
- * credit still picked in the form (they ticked, chose, then unticked) leaves
- * nothing behind that could be mistaken for permission.
+ * Records a message from a student: their answers to the questions on the
+ * form now, and how they would like to be named if it is quoted. Quoting is
+ * off unless mayQuote, and the credit is only kept when it is on - a credit
+ * left over in the form leaves nothing behind that could be mistaken for
+ * permission.
+ *
+ * `answers` is keyed by question id. Questions hidden or deleted since the
+ * form was loaded are ignored; one added since is checked like any other,
+ * so a required question the student never saw sends them back to fill it in.
  *
  * Errors are in `lang`, English unless told otherwise. The stored credit line
- * is not: it is what the website prints, whatever language the form was in.
+ * and answers are not: the website prints them, and the admin reads English.
  */
 export async function sendFeedback(
   studentId: string,
   input: {
-    kind: unknown;
-    message: unknown;
+    answers: Record<string, unknown>;
     mayQuote: boolean;
     credit: unknown;
     shortName: unknown;
-    rating?: unknown;
-    recommend?: unknown;
   },
   lang: UiLang = "en"
 ): Promise<Result> {
   const t = feedbackText[lang];
-  // Both questions are optional: nothing sent means skipped. Anything else
-  // that is not a real answer is passed through for the schema to refuse.
-  const skipped = (v: unknown) => v === null || v === undefined || v === "";
-  const parsed = sendSchemas[lang].safeParse({
-    kind: input.kind,
-    message: input.message,
+  const parsed = creditSchemas[lang].safeParse({
     mayQuote: input.mayQuote,
     credit: input.mayQuote ? (input.credit ?? null) : null,
-    shortName: input.shortName ?? "",
-    rating: skipped(input.rating) ? null : Number(input.rating),
-    wouldRecommend: skipped(input.recommend)
-      ? null
-      : input.recommend === "yes"
-        ? true
-        : input.recommend === "no"
-          ? false
-          : input.recommend,
+    shortName: typeof input.shortName === "string" ? input.shortName : "",
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const { kind, message, mayQuote, credit, shortName, rating, wouldRecommend } = parsed.data;
+  const { mayQuote, credit, shortName } = parsed.data;
 
-  const [student, left, open] = await Promise.all([
+  const [questions, student, left, open] = await Promise.all([
+    formQuestions(),
     prisma.user.findFirst({ where: { id: studentId, role: "STUDENT" }, select: { name: true, grade: true } }),
     feedbackLeftToday(studentId),
     isFeedbackEnabled(),
@@ -116,19 +102,59 @@ export async function sendFeedback(
   if (left <= 0) {
     return { error: t.dailyLimit(FEEDBACK_PER_DAY) };
   }
+  if (!questions.some((q) => q.role === "QUOTE")) return { error: t.notReady };
+
+  let message = "";
+  let rating: number | null = null;
+  let wouldRecommend: boolean | null = null;
+  const answers: { questionId: string; label: string; value: string; order: number }[] = [];
+
+  for (const [order, q] of questions.entries()) {
+    const label = inLang(q.labelEn, q.labelZh, lang);
+    const raw = input.answers[q.id];
+    const given = typeof raw === "string" ? raw.trim() : "";
+    if (!given) {
+      if (q.role === "QUOTE" || q.required) return { error: t.answerRequired(label) };
+      continue;
+    }
+
+    let value: string;
+    if (q.type === "LONG_TEXT" || q.type === "SHORT_TEXT") {
+      const max = q.type === "LONG_TEXT" ? MAX_MESSAGE : MAX_SHORT_ANSWER;
+      if (given.length > max) return { error: t.answerTooLong(label, max) };
+      if (q.role === "QUOTE" && given.length < MIN_MESSAGE) return { error: t.minMessage(MIN_MESSAGE) };
+      value = given;
+    } else if (q.type === "STARS") {
+      const n = Number(given);
+      if (!Number.isInteger(n) || n < 1 || n > 5) return { error: t.chooseStars };
+      value = String(n);
+    } else if (q.type === "YES_NO") {
+      if (given !== "yes" && given !== "no") return { error: t.yesOrNo };
+      value = given;
+    } else {
+      const choice = parseChoices(q.choices).find((c) => c.en === given);
+      if (!choice) return { error: t.chooseOne(label) };
+      value = choice.en;
+    }
+
+    if (q.role === "QUOTE") message = value;
+    else if (q.role === "RATING") rating = Number(value);
+    else if (q.role === "RECOMMEND") wouldRecommend = value === "yes";
+    else answers.push({ questionId: q.id, label: q.labelEn, value, order });
+  }
 
   await prisma.feedback.create({
     data: {
       studentId,
       studentName: student.name,
       studentGrade: student.grade,
-      kind,
       message,
       rating,
       wouldRecommend,
       mayQuote,
       credit: mayQuote ? credit : null,
       creditLine: mayQuote && credit ? creditLine(credit, student, shortName) : null,
+      answers: { create: answers },
     },
   });
   return { success: t.sent };
@@ -155,8 +181,15 @@ export function myFeedback(studentId: string) {
     take: 50,
     select: {
       id: true,
-      kind: true,
       message: true,
+      answers: {
+        orderBy: { order: "asc" },
+        select: {
+          label: true,
+          value: true,
+          question: { select: { type: true, labelEn: true, labelZh: true, choices: true } },
+        },
+      },
       rating: true,
       wouldRecommend: true,
       mayQuote: true,
@@ -187,7 +220,8 @@ export type FeedbackView = "inbox" | "starred" | "archived";
 
 export type FeedbackFilter = {
   view: FeedbackView;
-  kind: FeedbackKind | null;
+  /** Only messages that gave this answer to a multiple-choice question. */
+  answer: { questionId: string; value: string } | null;
   /** true: only those the student allowed quoting; false: only those they didn't. */
   quote: boolean | null;
 };
@@ -196,13 +230,19 @@ export function listFeedback(filter: FeedbackFilter) {
   const where: Prisma.FeedbackWhereInput = {
     archivedAt: filter.view === "archived" ? { not: null } : null,
     ...(filter.view === "starred" ? { starredAt: { not: null } } : {}),
-    ...(filter.kind ? { kind: filter.kind } : {}),
+    ...(filter.answer ? { answers: { some: filter.answer } } : {}),
     ...(filter.quote !== null ? { mayQuote: filter.quote } : {}),
   };
   return prisma.feedback.findMany({
     where,
     orderBy: { createdAt: "desc" },
     take: 200,
+    include: {
+      answers: {
+        orderBy: { order: "asc" },
+        select: { label: true, value: true, question: { select: { type: true } } },
+      },
+    },
   });
 }
 

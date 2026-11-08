@@ -1,13 +1,13 @@
 import { defineText } from "@/lib/i18n";
-import { FEEDBACK_CLOSED_ERROR, KIND_LABELS, type FeedbackKind } from "@/lib/feedback";
+import { FEEDBACK_CLOSED_ERROR } from "@/lib/feedback";
 
 // The student's feedback page (/dashboard/feedback): the form, the list of
 // what they have sent, and the messages sending can come back with.
 //
 // The credit line ("Aisyah, Form 2", "Anonymous student") is what the public
 // website and the admin's export print, so it stays as stored in both
-// languages - only the words around it are translated here. The English kind
-// labels come from KIND_LABELS, which the (English) admin page uses too.
+// languages - only the words around it are translated here. The questions
+// themselves are the admin's, worded in both languages on each question.
 
 export const feedbackText = defineText({
   en: {
@@ -22,23 +22,12 @@ export const feedbackText = defineText({
     mayBeQuoted: (credit: string) => `May be quoted on the website as “${credit}”`,
     notForWebsite: "Not for the website",
 
-    kindLabels: KIND_LABELS,
-    kindHints: {
-      IDEA: "Something new you'd like to see",
-      SUGGESTION: "Something we could do better",
-      FEEDBACK: "How the classes or portal are going for you",
-    } as Record<FeedbackKind, string>,
-    whatIsIt: "What is it?",
-    yourMessage: "Your message",
     optional: "(optional)",
-    rate: "Rate Mr Tan",
     starsLabel: (n: number) => `${n} star${n === 1 ? "" : "s"}`,
-    recommendQuestion: "Will you recommend Mr Tan to your friends?",
     yes: "Yes",
     no: "No",
-    mayQuote: "You may quote this on the Mr Tan website",
-    mayQuoteHelp:
-      "Anyone can read the website. Leave this off to keep your message between you and Mr Tan. Not sure? Ask a parent first. You can change your mind later on this page.",
+    quoteNotice:
+      "Mr Tan may share messages on his website, which anyone can read. Choose below how you'd like to be named. Changed your mind? Press \"Don't quote this\" next to the message on this page.",
     howName: "How should we name you?",
     fullName: "My full name",
     nameIGoBy: (withGrade: boolean) => `The name I go by${withGrade ? " and my grade" : ""}`,
@@ -56,9 +45,11 @@ export const feedbackText = defineText({
     // Sending: the action and sendFeedback's checks.
     needLogin: "You need to be logged in to send feedback.",
     studentsOnly: "Feedback is for students only.",
-    chooseKind: "Choose idea, suggestion or feedback.",
-    minMessage: (n: number) => `Write at least ${n} characters.`,
-    maxMessage: (n: number) => `Keep it under ${n} characters.`,
+    notReady: "The feedback form isn't ready yet. Please check back later.",
+    answerRequired: (question: string) => `Please answer “${question}”.`,
+    answerTooLong: (question: string, n: number) => `Keep your answer to “${question}” under ${n} characters.`,
+    chooseOne: (question: string) => `Choose one of the options for “${question}”.`,
+    minMessage: (n: number) => `Write at least ${n} characters in your message.`,
     nameTooLong: "That name is too long.",
     chooseStars: "Choose 1 to 5 stars.",
     yesOrNo: "Answer yes or no.",
@@ -80,23 +71,11 @@ export const feedbackText = defineText({
     mayBeQuoted: (credit: string) => `可在网站上引用，署名为“${credit}”`,
     notForWebsite: "不公开到网站",
 
-    kindLabels: { IDEA: "想法", SUGGESTION: "建议", FEEDBACK: "反馈" },
-    kindHints: {
-      IDEA: "希望看到的新东西",
-      SUGGESTION: "我们可以做得更好的地方",
-      FEEDBACK: "你觉得课堂或平台怎么样",
-    },
-    whatIsIt: "是哪一种？",
-    yourMessage: "你的留言",
     optional: "（可选）",
-    rate: "给老师评分",
     starsLabel: (n: number) => `${n} 星`,
-    recommendQuestion: "你会把 Mr Tan 推荐给朋友吗？",
-    yes: "会",
-    no: "不会",
-    mayQuote: "可以把这段话引用在 Mr Tan 网站上",
-    mayQuoteHelp:
-      "网站是公开的，任何人都看得到。不勾选的话，你的留言只有你和老师知道。不确定？先问问爸妈。之后也可以在这个页面改变主意。",
+    yes: "是",
+    no: "否",
+    quoteNotice: "老师可能会把留言分享在他的网站上，网站是公开的，任何人都看得到。请在下面选择要怎么署名。改变主意了？在这个页面按留言旁边的“不要引用”就可以。",
     howName: "要怎么署名？",
     fullName: "我的全名",
     nameIGoBy: (withGrade: boolean) => (withGrade ? "我常用的名字和年级" : "我常用的名字"),
@@ -113,12 +92,14 @@ export const feedbackText = defineText({
 
     needLogin: "请先登录，再发送意见反馈。",
     studentsOnly: "意见反馈只限学生使用。",
-    chooseKind: "请选择想法、建议或反馈。",
-    minMessage: (n: number) => `请至少写 ${n} 个字。`,
-    maxMessage: (n: number) => `请不要超过 ${n} 个字。`,
+    notReady: "意见反馈还没准备好，请稍后再来看看。",
+    answerRequired: (question: string) => `请回答“${question}”。`,
+    answerTooLong: (question: string, n: number) => `“${question}”的回答请不要超过 ${n} 个字。`,
+    chooseOne: (question: string) => `请为“${question}”选择一个选项。`,
+    minMessage: (n: number) => `留言请至少写 ${n} 个字。`,
     nameTooLong: "这个名字太长了。",
     chooseStars: "请选择 1 到 5 星。",
-    yesOrNo: "请回答会或不会。",
+    yesOrNo: "请回答是或否。",
     chooseCredit: "请选择要怎么署名。",
     typeShortName: "请输入要显示的名字。",
     dailyLimit: (n: number) => `你在过去 24 小时内已经发送了 ${n} 条留言，谢谢你！下一条请明天再发送。`,
