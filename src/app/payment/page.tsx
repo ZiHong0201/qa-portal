@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Form from "next/form";
 import { isMonthKey, monthKey, monthLabel, periodLabel, rm, shiftMonth } from "@/lib/fees";
 import { getReceipts } from "@/lib/fees.server";
 import { mailConfigured } from "@/lib/mailer";
@@ -72,7 +73,7 @@ export default async function ReceiptsPage({
         <Stat label="Not emailed yet" value={String(unsent)} tone={unsent ? "text-amber-700" : undefined} />
       </div>
 
-      <form className="mb-3 flex flex-wrap items-center gap-2">
+      <Form action="/payment" className="mb-3 flex flex-wrap items-center gap-2">
         <input type="hidden" name="month" value={month} />
         <input
           name="q"
@@ -87,7 +88,7 @@ export default async function ReceiptsPage({
             Clear
           </Link>
         )}
-      </form>
+      </Form>
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
         <table className="min-w-full text-sm">

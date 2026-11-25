@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { isAdmin } from "@/lib/permissions";
+import { SubmitButton } from "@/components/submit-button";
 import { PAYMENT_SITE_NAME, portalHref } from "@/lib/fees";
 
 export const metadata: Metadata = {
@@ -54,7 +55,9 @@ export default async function PaymentLayout({ children }: { children: React.Reac
                 await signOut({ redirectTo: "/login" });
               }}
             >
-              <button className="rounded-md border border-teal-500 px-2.5 py-1 hover:bg-teal-700">Log out</button>
+              <SubmitButton pendingText="Logging out…" className="rounded-md border border-teal-500 px-2.5 py-1 hover:bg-teal-700">
+                Log out
+              </SubmitButton>
             </form>
           </div>
         </div>

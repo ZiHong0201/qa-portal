@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegistrar } from "@/components/pwa";
+import { NavigationProgress } from "@/components/navigation-progress";
 import { UiLangProvider } from "@/components/ui-language";
 import { getUiLang } from "@/lib/i18n.server";
 
@@ -41,6 +43,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegistrar />
+        {/* Reads the search params, so it needs its own boundary or every
+          page would wait on them. */}
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <UiLangProvider lang={lang}>{children}</UiLangProvider>
       </body>
     </html>

@@ -1,4 +1,6 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 
 export type LiveAnnouncement = { id: string; message: string };
 
@@ -9,41 +11,62 @@ export type LivePopupAd = {
   linkUrl: string | null;
 };
 
-// Switched on, started, and not yet expired - the same window test both the
-// ticker and the pop-ups use.
-function liveWindow(now: Date) {
-  return {
-    isActive: true,
-    AND: [
-      { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
-      { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
-    ],
-  };
+// A start or end time as milliseconds, so it survives the data cache, which
+// stores results as JSON and would hand a Date back as a string.
+type Window = { startsAt: number | null; endsAt: number | null };
+
+const toMs = (d: Date | null) => (d ? d.getTime() : null);
+
+// Started and not yet expired. A null start or end means that side of the
+// window is open. Checked on every request rather than in the query, so a
+// cached list still switches a notice on or off at the minute it was set to.
+function isLive(row: Window, now: number) {
+  return (row.startsAt === null || row.startsAt <= now) && (row.endsAt === null || row.endsAt >= now);
 }
 
-/**
- * The pop-up ads running right now, newest first so the most recent campaign
- * is the first thing a student sees after logging in.
- */
+// Every switched-on notice and pop-up, whatever its window, kept in the data
+// cache because both layouts read them on every page. Admins change them a
+// few times a week, and the announcement actions drop the cached copy when
+// they do; the hour is only a backstop.
+const getSwitchedOn = unstable_cache(
+  async () => {
+    const [announcements, popupAds] = await Promise.all([
+      prisma.announcement.findMany({
+        where: { isActive: true },
+        // Oldest first so the ticker reads in the order the notices were
+        // written, rather than reshuffling as new ones are added.
+        orderBy: { createdAt: "asc" },
+        select: { id: true, message: true, startsAt: true, endsAt: true },
+      }),
+      prisma.popupAd.findMany({
+        where: { isActive: true },
+        // Newest first so the most recent campaign is the first thing a
+        // student sees after logging in.
+        orderBy: { createdAt: "desc" },
+        select: { id: true, title: true, imageUrl: true, linkUrl: true, startsAt: true, endsAt: true },
+      }),
+    ]);
+    return {
+      announcements: announcements.map((a) => ({ ...a, startsAt: toMs(a.startsAt), endsAt: toMs(a.endsAt) })),
+      popupAds: popupAds.map((p) => ({ ...p, startsAt: toMs(p.startsAt), endsAt: toMs(p.endsAt) })),
+    };
+  },
+  ["switched-on-announcements"],
+  { tags: [CACHE_TAGS.announcements], revalidate: 3600 }
+);
+
+/** The pop-up ads running right now, newest first. */
 export async function getLivePopupAds(): Promise<LivePopupAd[]> {
-  return prisma.popupAd.findMany({
-    where: liveWindow(new Date()),
-    orderBy: { createdAt: "desc" },
-    select: { id: true, title: true, imageUrl: true, linkUrl: true },
-  });
+  const now = Date.now();
+  const { popupAds } = await getSwitchedOn();
+  return popupAds
+    .filter((p) => isLive(p, now))
+    .map(({ id, title, imageUrl, linkUrl }) => ({ id, title, imageUrl, linkUrl }));
 }
 
-/**
- * The notices on screen right now: switched on, started, and not yet expired.
- * A null start or end means that side of the window is open.
- *
- * Ordered oldest first so the ticker reads in the order the notices were
- * written, rather than reshuffling as new ones are added.
- */
+/** The notices on screen right now, oldest first. */
 export async function getLiveAnnouncements(): Promise<LiveAnnouncement[]> {
-  return prisma.announcement.findMany({
-    where: liveWindow(new Date()),
-    orderBy: { createdAt: "asc" },
-    select: { id: true, message: true },
-  });
+  const now = Date.now();
+  const { announcements } = await getSwitchedOn();
+  return announcements.filter((a) => isLive(a, now)).map(({ id, message }) => ({ id, message }));
 }

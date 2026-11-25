@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Form from "next/form";
 import { prisma } from "@/lib/prisma";
 import { GradeEditor } from "./grade-editor";
 import { SubjectEditor } from "./subject-editor";
@@ -101,7 +102,7 @@ export default async function AdminStudentsPage({
         </p>
       )}
 
-      <form className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white p-4">
+      <Form action="/admin/students" className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white p-4">
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-500" htmlFor="q">
             Search
@@ -161,7 +162,7 @@ export default async function AdminStudentsPage({
             Clear filters
           </Link>
         )}
-      </form>
+      </Form>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="w-full min-w-max text-left text-sm">

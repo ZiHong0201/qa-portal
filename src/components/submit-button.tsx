@@ -25,3 +25,26 @@ export function SubmitButton({
     </button>
   );
 }
+
+// For forms that save themselves as soon as a field changes (a select or
+// checkboxes calling requestSubmit), so there is no button to show progress
+// on. Holds the fields still while the save runs, so a second change cannot
+// race the first, and says it is saving. Takes the layout classes the form
+// itself would have had.
+export function AutoSaveFields({
+  children,
+  className = "",
+  pendingText = "Saving…",
+}: {
+  children: React.ReactNode;
+  className?: string;
+  pendingText?: string;
+}) {
+  const { pending } = useFormStatus();
+  return (
+    <fieldset disabled={pending} aria-busy={pending} className={`${className} disabled:cursor-wait`}>
+      {children}
+      {pending && <span className="text-xs text-gray-400">{pendingText}</span>}
+    </fieldset>
+  );
+}

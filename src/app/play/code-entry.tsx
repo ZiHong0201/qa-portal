@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useUiLang } from "@/components/ui-language";
 import { liveText } from "@/lib/text/live";
@@ -10,13 +10,16 @@ export function CodeEntry() {
   const router = useRouter();
   const [code, setCode] = useState("");
   const ready = code.length === 6;
+  // Finding the quiz takes a trip to the server, so the button says so
+  // rather than sitting there looking as if the tap missed.
+  const [opening, startOpening] = useTransition();
 
   return (
     <form
       className="mt-5 flex flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault();
-        if (ready) router.push(`/play/${code}`);
+        if (ready) startOpening(() => router.push(`/play/${code}`));
       }}
     >
       <input
@@ -33,10 +36,10 @@ export function CodeEntry() {
       />
       <button
         type="submit"
-        disabled={!ready}
+        disabled={!ready || opening}
         className="rounded-2xl bg-sky-600 py-3 text-lg font-semibold text-white shadow-sm transition-colors hover:bg-sky-700 disabled:opacity-40"
       >
-        {t.enter}
+        {opening ? t.joining : t.enter}
       </button>
     </form>
   );

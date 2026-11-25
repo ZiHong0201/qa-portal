@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { requireAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "./auth";
@@ -25,6 +26,7 @@ export async function createGrade(_prevState: FormState, formData: FormData): Pr
   const count = await prisma.grade.count();
   await prisma.grade.create({ data: { name: parsed.data, order: count } });
 
+  updateTag(CACHE_TAGS.masterData);
   revalidatePath("/admin/master-data");
   return {};
 }
@@ -46,6 +48,7 @@ export async function deleteGrade(gradeId: string) {
   }
 
   await prisma.grade.delete({ where: { id: gradeId } });
+  updateTag(CACHE_TAGS.masterData);
   revalidatePath("/admin/master-data");
 }
 
@@ -67,6 +70,7 @@ export async function createSubject(
 
   await prisma.subject.create({ data: { name: parsed.data } });
 
+  updateTag(CACHE_TAGS.masterData);
   revalidatePath("/admin/master-data");
   return {};
 }
@@ -93,5 +97,6 @@ export async function deleteSubject(subjectId: string) {
     prisma.teacherSubject.deleteMany({ where: { subject: subject.name } }),
     prisma.subject.delete({ where: { id: subjectId } }),
   ]);
+  updateTag(CACHE_TAGS.masterData);
   revalidatePath("/admin/master-data");
 }

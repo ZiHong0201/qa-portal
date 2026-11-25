@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -76,6 +77,7 @@ export async function createAnnouncement(
     },
   });
 
+  updateTag(CACHE_TAGS.announcements);
   revalidatePath("/admin/announcements");
   redirect("/admin/announcements");
 }
@@ -105,6 +107,7 @@ export async function updateAnnouncement(
     },
   });
 
+  updateTag(CACHE_TAGS.announcements);
   revalidatePath("/admin/announcements");
   redirect("/admin/announcements");
 }
@@ -112,12 +115,14 @@ export async function updateAnnouncement(
 export async function toggleAnnouncementActive(id: string, isActive: boolean) {
   await requireAdmin();
   await prisma.announcement.update({ where: { id }, data: { isActive } });
+  updateTag(CACHE_TAGS.announcements);
   revalidatePath("/admin/announcements");
 }
 
 export async function deleteAnnouncement(id: string) {
   await requireAdmin();
   await prisma.announcement.delete({ where: { id } });
+  updateTag(CACHE_TAGS.announcements);
   revalidatePath("/admin/announcements");
 }
 
@@ -179,6 +184,7 @@ export async function createPopupAd(
     },
   });
 
+  updateTag(CACHE_TAGS.announcements);
   revalidatePath("/admin/announcements");
   redirect("/admin/announcements");
 }
@@ -221,6 +227,7 @@ export async function updatePopupAd(
     },
   });
 
+  updateTag(CACHE_TAGS.announcements);
   revalidatePath("/admin/announcements");
   redirect("/admin/announcements");
 }
@@ -228,6 +235,7 @@ export async function updatePopupAd(
 export async function togglePopupAdActive(id: string, isActive: boolean) {
   await requireAdmin();
   await prisma.popupAd.update({ where: { id }, data: { isActive } });
+  updateTag(CACHE_TAGS.announcements);
   revalidatePath("/admin/announcements");
 }
 
@@ -239,5 +247,6 @@ export async function deletePopupAd(id: string) {
 
   await prisma.popupAd.delete({ where: { id } });
   await deletePopupImage(ad.imageUrl);
+  updateTag(CACHE_TAGS.announcements);
   revalidatePath("/admin/announcements");
 }
