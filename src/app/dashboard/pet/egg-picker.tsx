@@ -50,7 +50,6 @@ export function EggPicker() {
                     className="h-24 w-24"
                   />
                   <span className="mt-1 font-semibold text-sky-950">{info.name}</span>
-                  <span className="mt-0.5 text-xs leading-snug text-gray-500">{info.blurb}</span>
                 </label>
               );
             })}
