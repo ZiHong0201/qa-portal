@@ -114,7 +114,7 @@ export async function approveAccountRequest(
   }
 
   try {
-    await sendAccountEmail(request.email, name, password, portalOrigin);
+    await sendAccountEmail(request.email, name, password, portalOrigin, request.createdAt);
   } catch (e) {
     const why = e instanceof Error ? e.message : String(e);
     console.error("account approval email failed:", why);
@@ -133,38 +133,45 @@ export async function rejectAccountRequest(requestId: string): Promise<void> {
   await prisma.accountRequest.deleteMany({ where: { id: requestId } });
 }
 
-async function sendAccountEmail(to: string, name: string, password: string, origin: string) {
+/**
+ * The email with the new password. Written to look like a note from a person
+ * rather than a sign-up template: a password plus a big "log in" button in a
+ * styled card is what phishing looks like, and spam filters treat it so. So
+ * the layout is plain paragraphs, the student's name is in the subject, the
+ * link is shown as the address it goes to, and it says when they asked.
+ */
+async function sendAccountEmail(to: string, name: string, password: string, origin: string, askedAt: Date) {
   const link = `${origin}/login`;
   const changeLink = `${origin}/account`;
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const asked = askedAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Asia/Kuala_Lumpur" });
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const p = (html: string) => `<p style="margin:0 0 14px">${html}</p>`;
   await sendMail({
     to,
     fromName: SITE_NAME,
-    subject: "Your account is ready",
+    subject: `${name}, your ${SITE_NAME} account`,
     text: [
       `Hi ${name},`,
       "",
-      `Your account on ${SITE_NAME} has been approved. Log in with:`,
+      `You asked for an account on ${SITE_NAME} on ${asked}. Mr Tan has set it up for you.`,
       "",
+      `Log in at: ${link}`,
       `Email: ${to}`,
       `Password: ${password}`,
       "",
-      `Portal: ${link}`,
+      `Please change this password to one of your own after you log in: click your name at the top of the page, or go to ${changeLink}`,
       "",
-      `This password was made up by the computer. Please change it to your own as soon as you log in: open your name at the top of the page, or go to ${changeLink}.`,
+      "If you did not ask for this account, you can ignore this email.",
+      "",
+      SITE_NAME,
     ].join("\n"),
-    html: `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f4;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:#fff;border:1px solid #e7e5e4;border-radius:12px">
-<tr><td style="padding:24px">
-  <p style="margin:0 0 12px">Hi ${esc(name)},</p>
-  <p style="margin:0 0 16px">Your account on ${SITE_NAME} has been approved. Log in with:</p>
-  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;background:#f5f5f4;border-radius:8px">
-    <tr><td style="padding:10px 14px 4px;color:#555">Email</td><td style="padding:10px 14px 4px">${esc(to)}</td></tr>
-    <tr><td style="padding:4px 14px 10px;color:#555">Password</td><td style="padding:4px 14px 10px;font-family:Consolas,Menlo,monospace;font-size:16px;font-weight:bold;letter-spacing:1px">${esc(password)}</td></tr>
-  </table>
-  <p style="margin:0 0 16px"><a href="${link}" style="display:inline-block;background:#0284c7;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:bold">Open the portal</a></p>
-  <p style="margin:0 0 16px;font-size:12px;color:#555">Or copy this link into your browser:<br><span style="word-break:break-all">${link}</span></p>
-  <p style="margin:0;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;color:#78350f"><b>Please change this password</b> to your own as soon as you log in: open your name at the top of the page, or go to <a href="${changeLink}" style="color:#0369a1">${changeLink}</a>.</p>
-</td></tr></table></body></html>`,
+    html: `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111">
+${p(`Hi ${esc(name)},`)}
+${p(`You asked for an account on ${SITE_NAME} on ${esc(asked)}. Mr Tan has set it up for you.`)}
+${p(`Log in at: <a href="${esc(link)}">${esc(link)}</a><br>Email: ${esc(to)}<br>Password: <span style="font-family:Consolas,Menlo,monospace">${esc(password)}</span>`)}
+${p(`Please change this password to one of your own after you log in: click your name at the top of the page, or go to <a href="${esc(changeLink)}">${esc(changeLink)}</a>`)}
+${p("If you did not ask for this account, you can ignore this email.")}
+<p style="margin:0">${SITE_NAME}</p>
+</body></html>`,
   });
 }

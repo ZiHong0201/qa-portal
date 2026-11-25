@@ -37,6 +37,9 @@ export default async function AccountRequestsPage({
       {approved && (
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
           Student account created. Their password and a link to the portal have been emailed to them.
+          <br />
+          <b>Tell the student to check their Spam folder</b> if the email is not in their inbox, and to mark it
+          &ldquo;Not spam&rdquo; - that teaches their mail to let the next one through.
         </p>
       )}
       <p className="mb-4 text-sm text-gray-600">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState } from "react";
 import { approveRequest, rejectRequest } from "@/lib/actions/account-requests";
 import { SubmitButton } from "@/components/submit-button";
 
@@ -37,7 +37,18 @@ export function RequestRow({
         </form>
       </div>
 
-      <form action={formAction} className="flex flex-col gap-3">
+      {/* Sent from onSubmit rather than action={...}: React resets a form after
+          its action returns, which on an error put the grade back to the first
+          and unticked every subject, so trying again started from scratch. On
+          success the row leaves the list anyway. */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const data = new FormData(e.currentTarget);
+          startTransition(() => formAction(data));
+        }}
+        className="flex flex-col gap-3"
+      >
         {state.error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
         <div className="flex flex-wrap gap-3">
           <div className="min-w-48 flex-1">
