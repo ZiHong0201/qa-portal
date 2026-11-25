@@ -44,8 +44,8 @@ export default async function AdminStaffPage({
       <p className="mb-6 max-w-2xl text-sm text-gray-600">
         Teachers write and mark question sets, manage students and their points, and see
         integrity signals. Each teacher changes only the sets in the subjects you give them. Admins
-        do all of that in every subject, and also hold the gift exchange, announcements, the virtual
-        cat, master data, these staff accounts, and the portal reset.
+        do all of that in every subject, and also hold the gift exchange, announcements, master
+        data, these staff accounts, and the portal reset.
       </p>
 
       {created && (

@@ -34,9 +34,7 @@ export default async function AdminGiftExchangePage() {
       },
     }),
     prisma.redemption.findMany({
-      // The cat unlock is marked delivered the moment it is exchanged; it
-      // was never on the list, so it does not belong among the deliveries.
-      where: { deliveredAt: { not: null }, catalogueItem: { grantsPet: false } },
+      where: { deliveredAt: { not: null } },
       orderBy: { deliveredAt: "desc" },
       take: 10,
       select: {
@@ -173,7 +171,7 @@ export default async function AdminGiftExchangePage() {
                     </form>
                   )}
                 </div>
-                {!item.grantsPet && <AddStockForm itemId={item.id} />}
+                <AddStockForm itemId={item.id} />
               </div>
             </div>
           </li>

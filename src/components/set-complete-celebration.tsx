@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CelebratingCat } from "./celebrating-cat";
+import { CelebratingPet } from "./pet-decor";
 import { useUiLang } from "./ui-language";
 import { setsText } from "@/lib/text/sets";
 
@@ -86,7 +86,7 @@ export function SetCompleteCelebration({
 
       <div className="animate-pop-in relative w-full max-w-sm rounded-3xl border border-sky-100 bg-white p-6 text-center shadow-2xl">
         <div className="mb-2 flex justify-center">
-          <CelebratingCat size="h-28 w-28" sparkleSize="text-2xl" />
+          <CelebratingPet size="h-28 w-28" sparkleSize="text-2xl" />
         </div>
 
         <h2 className="text-2xl font-bold text-sky-950">{t.setCompleteTitle}</h2>

@@ -6,7 +6,7 @@ import { getRankedStudents } from "@/lib/leaderboard";
 import { getStudentNav } from "@/lib/points";
 import { CheckInCard } from "@/components/check-in-card";
 import { SubjectArt, themeFor } from "@/components/subject-art";
-import { CelebratingCat } from "@/components/celebrating-cat";
+import { CelebratingPet } from "@/components/pet-decor";
 import { getUiLang } from "@/lib/i18n.server";
 import { dateLocale } from "@/lib/i18n";
 import { homeText } from "@/lib/text/home";
@@ -142,10 +142,10 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* Wrapper carries the responsive visibility: CelebratingCat sets its
+          {/* Wrapper carries the responsive visibility: CelebratingPet sets its
               own display class, which would otherwise win over ours. */}
           <div className="hidden shrink-0 sm:block">
-            <CelebratingCat size="h-24 w-24" sparkleSize="text-lg" />
+            <CelebratingPet size="h-24 w-24" sparkleSize="text-lg" />
           </div>
         </div>
       </section>

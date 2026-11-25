@@ -15,7 +15,7 @@ export { canEditSubject };
  *
  * TEACHER covers the academic work - question sets, grading, students and
  * their points, and the integrity signals. ADMIN keeps the portal's own
- * configuration: the catalogue, announcements, the virtual cat, master data,
+ * configuration: the catalogue, announcements, master data,
  * the reset, and creating staff accounts. The division is roughly "teaching"
  * against "running the service".
  *
@@ -52,7 +52,6 @@ export function isAdmin(session: Session | null): session is Session {
 export const ADMIN_ONLY_PREFIXES = [
   "/admin/catalogue",
   "/admin/announcements",
-  "/admin/pet",
   "/admin/master-data",
   "/admin/reset",
   "/admin/staff",

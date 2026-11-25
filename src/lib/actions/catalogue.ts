@@ -19,7 +19,6 @@ const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
   description: z.string().trim().max(2000).optional(),
   cost: z.coerce.number().int().min(1, "Cost must be at least 1 point").max(1_000_000),
-  grantsPet: z.coerce.boolean().optional(),
   // Blank means "not counted" / "no limit", so both are optional numbers.
   stock: z.coerce.number().int().min(0, "Stock cannot be negative").max(100_000).optional(),
   limitPerStudent: z.coerce
@@ -40,8 +39,6 @@ function readItemForm(formData: FormData) {
     name: formData.get("name"),
     description: formData.get("description") || undefined,
     cost: formData.get("cost"),
-    // An unticked checkbox submits nothing at all, which coerces to false.
-    grantsPet: formData.get("grantsPet") ?? false,
     stock: optionalNumber("stock"),
     limitPerStudent: optionalNumber("limitPerStudent"),
   });
@@ -78,7 +75,6 @@ export async function createCatalogueItem(
       name: parsed.data.name,
       description: parsed.data.description || null,
       cost: parsed.data.cost,
-      grantsPet: parsed.data.grantsPet ?? false,
       stock: parsed.data.stock ?? null,
       limitPerStudent: parsed.data.limitPerStudent ?? null,
       imageUrl: image.url,
@@ -115,7 +111,6 @@ export async function updateCatalogueItem(
       name: parsed.data.name,
       description: parsed.data.description || null,
       cost: parsed.data.cost,
-      grantsPet: parsed.data.grantsPet ?? false,
       // The form shows the current count, so saving it unchanged is a no-op
       // and editing it is a stock-take correction. Topping up during the day
       // is the list's "Add stock", which adds rather than overwrites.
@@ -177,9 +172,6 @@ export async function redeemCatalogueItem(
   if (result.success) {
     revalidatePath("/dashboard/catalogue");
     revalidatePath("/admin/catalogue");
-    // The nav gains a "My Cat" link the moment the cat unlocks, so the
-    // layout has to be rebuilt too, not just this page.
-    if (result.unlockedPet) revalidatePath("/dashboard", "layout");
   }
   return { error: result.error, success: result.success };
 }

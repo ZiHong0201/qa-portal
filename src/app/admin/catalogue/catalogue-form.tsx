@@ -8,7 +8,6 @@ type InitialItem = {
   description: string | null;
   cost: number;
   imageUrl: string | null;
-  grantsPet: boolean;
   stock: number | null;
   limitPerStudent: number | null;
 };
@@ -23,10 +22,6 @@ export function CatalogueForm({
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
-  // Controlled, unlike the rest of this form: React clears a form once its
-  // action returns, and an unlocking item silently reverting to an ordinary
-  // gift after a validation error would be easy to miss.
-  const [grantsPet, setGrantsPet] = useState(initial?.grantsPet ?? false);
   // Held as text so "blank" (no stock kept / no limit) survives a failed save.
   const [stock, setStock] = useState(initial?.stock == null ? "" : String(initial.stock));
   const [limit, setLimit] = useState(
@@ -124,24 +119,6 @@ export function CatalogueForm({
           </p>
         </div>
       </div>
-
-      <label className="flex items-start gap-2 rounded-md border border-gray-200 p-3 text-sm">
-        <input
-          type="checkbox"
-          name="grantsPet"
-          value="true"
-          checked={grantsPet}
-          onChange={(e) => setGrantsPet(e.target.checked)}
-          className="mt-0.5 h-4 w-4"
-        />
-        <span>
-          Unlocks the virtual cat
-          <span className="mt-0.5 block text-xs text-gray-500">
-            Redeeming this turns the cat on for that student instead of handing over a gift. They
-            can only buy it once.
-          </span>
-        </span>
-      </label>
 
       <button
         type="submit"

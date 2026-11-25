@@ -1,7 +1,7 @@
 import { defineText } from "@/lib/i18n";
 
 // The student home page and what sits around it on every dashboard page: the
-// check-in card, the suspended notice, the cat's study tips, the pop-up ad
+// check-in card, the suspended notice, the pet's study tips, the pop-up ad
 // chrome and the "add to my phone" offers. The install offers are shared with
 // the admin pages, which pin the language to English.
 export const homeText = defineText({
@@ -73,7 +73,7 @@ export const homeText = defineText({
     announcement: "Announcement",
     close: "Close",
 
-    // Cat companion
+    // Pet companion
     hintForQuestion: "Hint for this question",
     studyTip: "Study tip",
     otherHint: "Other hint →",
@@ -183,7 +183,7 @@ export const homeText = defineText({
     announcement: "公告",
     close: "关闭",
 
-    // Cat companion
+    // Pet companion
     hintForQuestion: "本题提示",
     studyTip: "学习小贴士",
     otherHint: "换个提示 →",

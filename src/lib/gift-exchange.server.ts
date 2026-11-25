@@ -17,8 +17,6 @@ class ExchangeRefused extends Error {}
 export type ExchangeResult = {
   error?: string;
   success?: string;
-  /** True when this exchange unlocked the cat - the nav changes too. */
-  unlockedPet?: boolean;
 };
 
 export async function exchangeGift(
@@ -30,19 +28,6 @@ export async function exchangeGift(
   const item = await prisma.catalogueItem.findUnique({ where: { id: itemId } });
   if (!item || !item.isActive) {
     return { error: t.itemGone };
-  }
-
-  // Unlocking the cat is a one-off. Without this a student could pay for it
-  // again and again, since there is nothing physical to hand over that would
-  // make the duplicate obvious.
-  if (item.grantsPet) {
-    const student = await prisma.user.findUnique({
-      where: { id: studentId },
-      select: { petEnabled: true, pet: { select: { id: true } } },
-    });
-    if (student?.petEnabled || student?.pet) {
-      return { error: t.catAlreadyUnlocked };
-    }
   }
 
   // Everything that can say no is checked inside one transaction, after
@@ -79,30 +64,17 @@ export async function exchangeGift(
           studentId: studentId,
           catalogueItemId: item.id,
           cost: item.cost,
-          // Unlocking the cat happens on the spot; there is nothing to hand
-          // over, so it never joins the list of gifts to prepare.
-          deliveredAt: item.grantsPet ? new Date() : null,
         },
       });
 
       const { balance } = await getStudentBalance(studentId, tx);
       if (balance < 0) throw new ExchangeRefused(t.cannotAfford);
-
-      if (item.grantsPet) {
-        await tx.user.update({
-          where: { id: studentId },
-          data: { petEnabled: true },
-        });
-      }
     });
   } catch (e) {
     if (e instanceof ExchangeRefused) return { error: e.message };
     throw e;
   }
 
-  if (item.grantsPet) {
-    return { success: t.catUnlocked, unlockedPet: true };
-  }
   return { success: t.exchanged(item.name, item.cost) };
 }
 

@@ -105,7 +105,7 @@ export function CheckInCard({ state }: { state: CheckInState }) {
               type="button"
               onClick={claim}
               disabled={pending}
-              className="animate-cat-pop rounded-xl bg-white px-6 py-3 font-bold text-sky-700 shadow-sm hover:bg-sky-50 active:scale-95 disabled:opacity-60"
+              className="animate-pet-pop rounded-xl bg-white px-6 py-3 font-bold text-sky-700 shadow-sm hover:bg-sky-50 active:scale-95 disabled:opacity-60"
             >
               {pending ? t.checkingIn : t.checkInButton(state.marksAvailable)}
             </button>

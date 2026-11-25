@@ -16,7 +16,7 @@ export type SuspendState = { error?: string; savedAt?: number };
  *
  * Nothing about the student is deleted or changed besides these three
  * columns. Lifting a suspension puts them back exactly where they were -
- * marks, points, cat and all.
+ * marks, points, pet and all.
  */
 
 const reasonSchema = z

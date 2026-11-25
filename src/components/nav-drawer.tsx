@@ -81,10 +81,9 @@ function LinkIcon({ href }: { href: string }) {
         </svg>
       );
     case "/dashboard/pet":
-    case "/admin/pet":
       return (
         <svg {...common}>
-          {/* ears and head, echoing the pet artwork */}
+          {/* horns and a round head, echoing the study pet */}
           <path d="M7 9 L5.5 4 L10 6.5 Z" />
           <path d="M17 9 L18.5 4 L14 6.5 Z" />
           <ellipse cx="12" cy="12" rx="7" ry="6" />

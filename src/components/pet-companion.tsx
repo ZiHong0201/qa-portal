@@ -1,6 +1,7 @@
 "use client";
 
-import { PetPic } from "@/components/pet-pic";
+import { PetArt } from "@/components/pet-art";
+import { usePetLook } from "@/components/pet-look";
 
 import { useState } from "react";
 import { useQuestionHint } from "./question-hint-context";
@@ -14,7 +15,11 @@ function pickIndex(poolLength: number, exclude?: number) {
   return i;
 }
 
-export function CatCompanion() {
+/**
+ * The student's own pet in the corner of every page, handing out study tips -
+ * or, on a question, that question's hints.
+ */
+export function PetCompanion() {
   const t = homeText[useUiLang()];
   const { hint } = useQuestionHint();
   const isQuestionHint = !!hint && hint.hints.length > 0;
@@ -75,14 +80,14 @@ export function CatCompanion() {
         aria-label={open ? t.hideStudyBuddy : t.getStudyTip}
         className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-100 shadow-md ring-2 ring-white transition-transform hover:scale-105 active:scale-95"
       >
-        <CatFace />
+        <PetFace />
       </button>
     </div>
   );
 }
 
 // The floating button is 44px, so this is the face crop rather than the whole
-// cat - see prepare-pet-face.mjs for why.
-function CatFace() {
-  return <PetPic face className="h-11 w-11 object-contain" />;
+// pet: at that size a whole pet is an unreadable smudge.
+function PetFace() {
+  return <PetArt look={usePetLook()} face className="h-11 w-11" />;
 }
