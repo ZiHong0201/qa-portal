@@ -9,12 +9,12 @@ export const petText = {
   alt: "Your pet",
 
   elements: {
-    earth: { name: "Earth", blurb: "Steady and stubborn. Grows moss when you're not looking." },
-    water: { name: "Water", blurb: "Calm, curious, always slightly damp." },
-    fire: { name: "Fire", blurb: "Warm, loud, impossible to ignore." },
-    electricity: { name: "Electricity", blurb: "Fast, fizzy, never sits still." },
-    gravity: { name: "Gravity", blurb: "Quiet. Small things orbit it anyway." },
-  } satisfies Record<Element, { name: string; blurb: string }>,
+    earth: { name: "Earth" },
+    water: { name: "Water" },
+    fire: { name: "Fire" },
+    electricity: { name: "Electricity" },
+    gravity: { name: "Gravity" },
+  } satisfies Record<Element, { name: string }>,
 
   stages: {
     egg: "Egg",
