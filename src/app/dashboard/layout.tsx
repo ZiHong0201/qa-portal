@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { Nav } from "@/components/nav";
-import { CatCompanion } from "@/components/cat-companion";
+import { PetCompanion } from "@/components/pet-companion";
 import { InstallBanner } from "@/components/pwa";
 import { QuestionHintProvider } from "@/components/question-hint-context";
 import { DevDisclaimerBar } from "@/components/dev-disclaimer";
@@ -11,8 +11,7 @@ import {
   getLiveAnnouncements,
   getLivePopupAds,
 } from "@/lib/announcements.server";
-import { getPetAppearance } from "@/lib/pet.server";
-import { PetAppearanceProvider } from "@/components/pet-appearance";
+import { PetLookProvider } from "@/components/pet-look";
 import { SuspendedNotice } from "@/components/suspended-notice";
 import { getStudentNav } from "@/lib/points";
 import { getUiLang } from "@/lib/i18n.server";
@@ -24,22 +23,19 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   // auth() reads the JWT and touches no database, so resolving it first costs
-  // nothing and lets all three queries below go out together. Awaiting the
-  // appearance after the others, as this did, added a whole extra round trip
-  // to every page in the dashboard.
+  // nothing and lets the queries below go out together.
   const [session, picked] = await Promise.all([auth(), getUiLang()]);
 
   const isStudent = session?.user.role === "STUDENT";
   // Staff reach the scoreboard through here and read it in English, as they
   // do the rest of their pages.
   const lang = isStudent ? picked : "en";
-  const [announcements, popupAds, petAppearance, nav] = await Promise.all([
+  const [announcements, popupAds, nav] = await Promise.all([
     getLiveAnnouncements(),
     getLivePopupAds(),
-    // Null for anyone without a cat, which leaves every decorative cat grey.
-    session ? getPetAppearance(session.user.id) : Promise.resolve(null),
     // The same cached query the nav makes, so checking for a suspension here
-    // costs nothing extra: the nav below reuses this result.
+    // costs nothing extra: the nav below reuses this result. It also carries
+    // the student's pet, which every decorative pet on the page draws.
     session && isStudent ? getStudentNav(session.user.id) : Promise.resolve(null),
   ]);
 
@@ -53,7 +49,7 @@ export default async function DashboardLayout({
 
   return (
     <UiLangProvider lang={lang}>
-      <PetAppearanceProvider value={petAppearance}>
+      <PetLookProvider value={nav?.pet ?? null}>
         <QuestionHintProvider>
           <div className="min-h-screen bg-gray-50">
             {/* Above the sticky nav, so the ticker scrolls away once read rather
@@ -68,11 +64,11 @@ export default async function DashboardLayout({
               <InstallBanner />
               {children}
             </div>
-            <CatCompanion />
+            <PetCompanion />
             {session && <PopupAds ads={popupAds} userId={session.user.id} />}
           </div>
         </QuestionHintProvider>
-      </PetAppearanceProvider>
+      </PetLookProvider>
     </UiLangProvider>
   );
 }

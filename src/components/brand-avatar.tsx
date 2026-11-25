@@ -1,6 +1,6 @@
 /**
  * Mr Tan's portrait, used as the mark on the signed-out pages and as the app
- * icon. The cat stays as the mascot inside the app - this is the face students
+ * icon. The study pet is the mascot inside the app - this is the face students
  * should recognise before they log in.
  *
  * Sized with width/height attributes as well as classes so it reserves the

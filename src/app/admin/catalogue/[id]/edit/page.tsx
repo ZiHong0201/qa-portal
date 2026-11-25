@@ -25,7 +25,6 @@ export default async function EditCatalogueItemPage({
           description: item.description,
           cost: item.cost,
           imageUrl: item.imageUrl,
-          grantsPet: item.grantsPet,
           stock: item.stock,
           limitPerStudent: item.limitPerStudent,
         }}

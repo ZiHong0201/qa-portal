@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AnswerForm } from "./answer-form";
-import { RunningCat } from "@/components/running-cat";
-import { CelebratingCat } from "@/components/celebrating-cat";
-import { CatWink } from "@/components/cat-wink";
+import { CelebratingPet, PetFace } from "@/components/pet-decor";
 import { SetCompleteCelebration } from "@/components/set-complete-celebration";
 import { useQuestionHint } from "@/components/question-hint-context";
 import type { SubmitAnswerState } from "@/lib/actions/submissions";
@@ -256,7 +254,7 @@ export function FlashcardDeck({
       {complete ? (
         <>
           <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-            {justCompleted && <CelebratingCat className="shrink-0" />}
+            {justCompleted && <CelebratingPet className="shrink-0" />}
             <p className="font-medium text-emerald-800">
               {t.setCompleted(marksObtained, totalMarks)}
             </p>
@@ -296,7 +294,7 @@ export function FlashcardDeck({
           <div className="rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2">
             <div className="flex items-center gap-2">
               {(submission.status === "CORRECT" || submission.status === "APPROVED") && (
-                <CatWink key={q.id} className="animate-cat-pop h-7 w-7 shrink-0" />
+                <PetFace key={q.id} className="animate-pet-pop h-7 w-7 shrink-0" />
               )}
               <p className={`text-sm font-medium ${STATUS_TEXT_COLOR[submission.status]}`}>
                 {t.resultMessages[submission.status as keyof typeof t.resultMessages](
@@ -342,7 +340,7 @@ export function FlashcardDeck({
           style={{ left: `${progressPct}%` }}
         >
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md ring-2 ring-sky-300">
-            <RunningCat className="h-6 w-6 animate-bounce" />
+            <PetFace className="h-6 w-6 animate-bounce" />
           </div>
         </div>
       </div>

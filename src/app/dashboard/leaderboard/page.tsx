@@ -10,7 +10,7 @@ import {
   type LeaderboardPeriod,
 } from "@/lib/leaderboard";
 import { weekStartKey } from "@/lib/check-in";
-import { CelebratingCat } from "@/components/celebrating-cat";
+import { CelebratingPet } from "@/components/pet-decor";
 import { isStaff } from "@/lib/permissions";
 import { getUiLang } from "@/lib/i18n.server";
 import { dateLocale, type UiLang } from "@/lib/i18n";
@@ -310,11 +310,11 @@ export default async function LeaderboardPage({
                   <p className="text-xs text-gray-500">{student.grade ?? t.noGrade}</p>
                 </div>
 
-                {/* Wrapper carries the responsive visibility: CelebratingCat sets
+                {/* Wrapper carries the responsive visibility: CelebratingPet sets
                     its own display class, which would otherwise win over ours. */}
                 {student.rank === 1 && (
                   <div className="hidden shrink-0 sm:block">
-                    <CelebratingCat />
+                    <CelebratingPet />
                   </div>
                 )}
 

@@ -2,7 +2,6 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getStudentBalance } from "@/lib/points";
 import { RedeemButton } from "./redeem-button";
-import { PetPic } from "@/components/pet-pic";
 import { getUiLang } from "@/lib/i18n.server";
 import { dateLocale } from "@/lib/i18n";
 import { rewardsText } from "@/lib/text/rewards";
@@ -13,7 +12,7 @@ export default async function GiftExchangePage() {
   const lang = await getUiLang();
   const t = rewardsText[lang].gift;
 
-  const [balance, items, redemptions, student] = await Promise.all([
+  const [balance, items, redemptions] = await Promise.all([
     getStudentBalance(userId),
     prisma.catalogueItem.findMany({
       where: { isActive: true },
@@ -22,17 +21,9 @@ export default async function GiftExchangePage() {
     prisma.redemption.findMany({
       where: { studentId: userId },
       orderBy: { createdAt: "desc" },
-      include: { catalogueItem: { select: { name: true, grantsPet: true } } },
-    }),
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { petEnabled: true, pet: { select: { id: true } } },
+      include: { catalogueItem: { select: { name: true } } },
     }),
   ]);
-
-  // An unlocking item is a one-off, so once it is theirs the row says so
-  // rather than offering to sell it again.
-  const petUnlocked = !!student?.petEnabled || !!student?.pet;
 
   // Rejected exchanges were refunded and do not use up a limit.
   const mine = new Map<string, number>();
@@ -65,20 +56,8 @@ export default async function GiftExchangePage() {
                       className="h-20 w-20 shrink-0 rounded-md border border-gray-200 object-cover"
                     />
                   )}
-                  {/* An unlocking item has no photograph to show, so the cat
-                      itself stands in for one. */}
-                  {item.grantsPet && !item.imageUrl && (
-                    <PetPic pose="happy" className="h-20 w-20 shrink-0 object-contain" />
-                  )}
                   <div>
-                    <p className="font-medium">
-                      {item.name}
-                      {item.grantsPet && (
-                        <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
-                          {t.unlocksCat}
-                        </span>
-                      )}
-                    </p>
+                    <p className="font-medium">{item.name}</p>
                     {item.description && (
                       <p className="text-sm text-gray-600">{item.description}</p>
                     )}
@@ -106,17 +85,11 @@ export default async function GiftExchangePage() {
                     </p>
                   </div>
                 </div>
-                {item.grantsPet && petUnlocked ? (
-                  <span className="shrink-0 self-start rounded-full bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700">
-                    {t.unlocked}
-                  </span>
-                ) : (
-                  <RedeemButton
-                    itemId={item.id}
-                    canAfford={balance.balance >= item.cost}
-                    blocked={outOfStock ? t.outOfStock : atLimit ? t.limitReached : null}
-                  />
-                )}
+                <RedeemButton
+                  itemId={item.id}
+                  canAfford={balance.balance >= item.cost}
+                  blocked={outOfStock ? t.outOfStock : atLimit ? t.limitReached : null}
+                />
               </div>
             </li>
           );
@@ -140,8 +113,7 @@ export default async function GiftExchangePage() {
                   {t.rejected}
                 </span>
               ) : (
-                !r.catalogueItem.grantsPet &&
-                (r.deliveredAt ? (
+                r.deliveredAt ? (
                   <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
                     {t.delivered}
                   </span>
@@ -149,7 +121,7 @@ export default async function GiftExchangePage() {
                   <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
                     {t.comingNext}
                   </span>
-                ))
+                )
               )}
               {r.rejectedAt && r.rejectionReason && (
                 <span className="mt-0.5 block text-xs text-rose-700">{t.reason(r.rejectionReason)}</span>

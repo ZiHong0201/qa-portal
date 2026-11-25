@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireStaff } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +9,7 @@ import { isSuspended, suspendedError } from "@/lib/suspension";
 import { getUiLang } from "@/lib/i18n.server";
 import { setsText } from "@/lib/text/sets";
 import { Prisma } from "@/generated/prisma/client";
+import { recordCorrectAnswer } from "@/lib/study-pet.server";
 import type { FormState } from "./auth";
 
 /**
@@ -116,6 +118,14 @@ export async function submitAnswer(
       throw error;
     }
 
+    // Growing the pet waits until the answer has gone back, so a correct
+    // answer is not one database round trip slower than a wrong one. Only
+    // students have pets; staff trying a set grow nothing.
+    if (choice.isCorrect && session.user.role === "STUDENT") {
+      const studentId = session.user.id;
+      after(() => recordCorrectAnswer(studentId));
+    }
+
     return {
       result: {
         status: choice.isCorrect ? "CORRECT" : "INCORRECT",
@@ -185,6 +195,12 @@ export async function reviewSubmission(submissionId: string, formData: FormData)
       reviewerId: session.user.id,
     },
   });
+
+  // An approved answer grows the pet on the day it is marked, which is the
+  // day the student learns it counted.
+  if (decision === "APPROVED") {
+    after(() => recordCorrectAnswer(submission.studentId));
+  }
 
   revalidatePath("/admin/review");
   revalidatePath("/dashboard");

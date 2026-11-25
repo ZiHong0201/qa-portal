@@ -45,7 +45,7 @@ select {
   color: var(--foreground);
 }
 
-@keyframes cat-hop {
+@keyframes pet-hop {
   0%,
   100% {
     transform: translateY(0) rotate(0deg);
@@ -55,7 +55,7 @@ select {
   }
 }
 
-@keyframes cat-pop {
+@keyframes pet-pop {
   0% {
     transform: scale(0) rotate(-8deg);
     opacity: 0;
@@ -97,12 +97,12 @@ select {
   }
 }
 
-.animate-cat-hop {
-  animation: cat-hop 0.6s ease-in-out 3;
+.animate-pet-hop {
+  animation: pet-hop 0.6s ease-in-out 3;
 }
 
-.animate-cat-pop {
-  animation: cat-pop 0.45s ease-out;
+.animate-pet-pop {
+  animation: pet-pop 0.45s ease-out;
 }
 
 .animate-sparkle {
@@ -351,219 +351,179 @@ select {
   }
 }
 
-/* Idle breathing for the virtual cat (src/components/pet-cat.tsx).
-   Deliberately starts AND ends at scale(1). The cat is the centrepiece of its
-   page, so it has to stay visible even if the animation never runs - a browser
-   with animations disabled, or a tab that never became visible. That rules out
-   reusing cat-pop here, which begins at scale(0) and opacity 0 and would leave
-   an empty box in exactly those cases. */
-@keyframes cat-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.03);
-  }
-}
-
-.animate-cat-breathe {
-  animation: cat-breathe 3.5s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-cat-breathe {
-    animation: none;
-  }
-}
-
-/* Feeding and fussing the virtual cat (src/app/dashboard/pet/pet-screen.tsx).
-   Both overlay the cat briefly and then clear themselves. */
-
-/* The treat rises from below the cat, hangs a moment while it is eaten, then
-   shrinks away. Starts and ends invisible, which is fine here: unlike the cat
-   itself this element is meant to disappear, and it is removed from the DOM
-   once the animation finishes. */
-@keyframes treat-nom {
-  0% {
-    transform: translateY(28px) scale(0.5);
-    opacity: 0;
-  }
-  20% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
-  55% {
-    transform: translateY(-2px) scale(1.06);
-    opacity: 1;
-  }
-  75% {
-    transform: translateY(-6px) scale(0.92);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-18px) scale(0.25);
-    opacity: 0;
-  }
-}
-
-.animate-treat-nom {
-  animation: treat-nom 1.6s ease-in-out forwards;
-}
-
-/* Hearts drifting up when the cat is fussed. Each one is offset by an inline
-   animation-delay so they stagger rather than moving as a block. */
-@keyframes fuss-heart {
-  0% {
-    transform: translate(0, 0) scale(0.4);
-    opacity: 0;
-  }
-  25% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(var(--drift, 0px), -46px) scale(1);
-    opacity: 0;
-  }
-}
-
-.animate-fuss-heart {
-  animation: fuss-heart 1.4s ease-out forwards;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-treat-nom,
-  .animate-fuss-heart {
-    animation-duration: 0.01ms;
-  }
-}
-
 /* ---------------------------------------------------------------------------
-   Virtual cat rig (src/components/pet-cat.tsx).
+   Study pet (src/components/pet-art.tsx).
 
-   Each body part is its own group so it can move independently - tail, ears,
-   head, eyes, paws - which is what makes the cat feel alive rather than a
-   picture that scales. Head-slot clothing lives INSIDE the head group, so a
-   hat tilts along with the head instead of floating free of it.
+   Every animation moves or fades a whole group - transform and opacity only -
+   which the browser can do without repainting, because a copy of the pet sits
+   in the corner of every student page and has to cost next to nothing on a
+   cheap phone. Each one starts and ends at rest, so a pet whose animation
+   never runs still looks right.
+   --------------------------------------------------------------------------- */
 
-   transform-box: fill-box is essential: without it an SVG transform-origin is
-   measured from the origin of the whole viewBox, so "rotate about the base of
-   the tail" would swing the tail around the corner of the image instead.
---------------------------------------------------------------------------- */
-.cat-part {
+.pet-bob,
+.pet-bob-slow,
+.pet-wobble,
+.pet-blink,
+.pet-float,
+.pet-flicker {
   transform-box: fill-box;
 }
 
-/* Tail: a lazy swish from where it joins the body. */
-@keyframes cat-tail {
+/* Breathing: a slow rise and settle. */
+@keyframes pet-bob {
   0%,
   100% {
-    transform: rotate(-4deg);
+    transform: translateY(0);
   }
   50% {
-    transform: rotate(7deg);
+    transform: translateY(-2.5px);
   }
 }
-
-.cat-tail {
-  transform-origin: 10% 90%;
-  animation: cat-tail var(--tail-speed, 3.2s) ease-in-out infinite;
+.pet-bob {
+  animation: pet-bob 3.2s ease-in-out infinite;
+}
+.pet-bob-slow {
+  animation: pet-bob 4.5s ease-in-out infinite;
 }
 
-/* Head: a small drift, slower than the tail so the two never look locked. */
-@keyframes cat-head {
-  0%,
-  100% {
-    transform: rotate(-1.6deg) translateY(0);
-  }
-  50% {
-    transform: rotate(1.6deg) translateY(-1px);
-  }
-}
-
-.cat-head {
-  transform-origin: 50% 95%;
-  animation: cat-head var(--head-speed, 4.6s) ease-in-out infinite;
-}
-
-/* Blink: shut for a fraction of the cycle, so it reads as a blink rather than
-   a slow wink. Squashed vertically from the middle of the eye. */
-@keyframes cat-blink {
+/* Blink: shut for a sliver of the cycle, so it reads as a blink. */
+@keyframes pet-blink {
   0%,
   92%,
   100% {
     transform: scaleY(1);
   }
-  95%,
-  97% {
-    transform: scaleY(0.08);
+  95% {
+    transform: scaleY(0.1);
   }
 }
-
-.cat-eyes {
-  transform-origin: 50% 50%;
-  animation: cat-blink var(--blink-speed, 5.4s) ease-in-out infinite;
+.pet-blink {
+  transform-origin: center;
+  animation: pet-blink 5.5s ease-in-out infinite;
 }
 
-/* Ears flick occasionally, and only briefly - most of the cycle is still. */
-@keyframes cat-ear {
-  0%,
-  86%,
-  100% {
-    transform: rotate(0deg);
-  }
-  90% {
-    transform: rotate(-7deg);
-  }
-  94% {
-    transform: rotate(3deg);
-  }
-}
-
-.cat-ear {
-  transform-origin: 50% 100%;
-  animation: cat-ear 6.8s ease-in-out infinite;
-}
-
-/* Breathing lives on the body now rather than the whole drawing, so the head
-   and tail keep their own motion instead of the lot pulsing together. */
-@keyframes cat-breathe-body {
+/* Runes, sparks and embers breathing light. */
+@keyframes pet-glow {
   0%,
   100% {
-    transform: scale(1);
+    opacity: 0.45;
   }
   50% {
-    transform: scale(1.02);
+    opacity: 0.8;
   }
 }
-
-.cat-body {
-  transform-origin: 50% 100%;
-  animation: cat-breathe-body 3.6s ease-in-out infinite;
+.pet-glow {
+  animation: pet-glow 2.6s ease-in-out infinite;
 }
 
-/* Chewing, played while a treat is being eaten. */
-@keyframes cat-chew {
+/* Droplets and moons drifting above the head. */
+@keyframes pet-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+.pet-float {
+  animation: pet-float 3.8s ease-in-out infinite;
+}
+
+/* Flames: a quick, uneven stretch from the base. */
+@keyframes pet-flicker {
   0%,
   100% {
     transform: scaleY(1);
   }
-  50% {
-    transform: scaleY(0.9) translateY(1px);
+  30% {
+    transform: scaleY(1.08);
+  }
+  60% {
+    transform: scaleY(0.95);
   }
 }
-
-.cat-chewing .cat-head {
-  animation: cat-chew 0.22s ease-in-out 7;
+.pet-flicker {
+  transform-origin: bottom center;
+  animation: pet-flicker 1.4s ease-in-out infinite;
 }
 
+/* An egg about to hatch: still most of the time, then a little shake. */
+@keyframes pet-wobble {
+  0%,
+  70%,
+  100% {
+    transform: rotate(0deg);
+  }
+  76% {
+    transform: rotate(-5deg);
+  }
+  82% {
+    transform: rotate(5deg);
+  }
+  88% {
+    transform: rotate(-3deg);
+  }
+  94% {
+    transform: rotate(2deg);
+  }
+}
+.pet-wobble {
+  transform-origin: bottom center;
+  animation: pet-wobble 2.8s ease-in-out infinite;
+}
+
+/* Zs drifting up off a sleeping pet. */
+@keyframes pet-zz {
+  0% {
+    transform: translateY(0);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-6px);
+    opacity: 0.2;
+  }
+}
+.pet-zz {
+  animation: pet-zz 2.4s ease-in-out infinite alternate;
+}
+
+/* The moment of hatching on the pet page. */
+@keyframes pet-hatch {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.animate-pet-hatch {
+  animation: pet-hatch 0.7s ease-out;
+}
+
+/* A pet drawn 'still' - the companion button, which animates as a whole -
+   and anyone who asked for less motion get no idle animation at all. */
+.pet-still *,
+.pet-still {
+  animation: none !important;
+}
 @media (prefers-reduced-motion: reduce) {
-  .cat-tail,
-  .cat-head,
-  .cat-eyes,
-  .cat-ear,
-  .cat-body,
-  .cat-chewing .cat-head {
+  .pet-bob,
+  .pet-bob-slow,
+  .pet-blink,
+  .pet-glow,
+  .pet-float,
+  .pet-flicker,
+  .pet-wobble,
+  .pet-zz,
+  .animate-pet-hatch {
     animation: none;
   }
 }

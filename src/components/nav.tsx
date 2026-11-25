@@ -38,7 +38,6 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/students", label: "Students" },
   { href: "/admin/catalogue", label: "Gift Exchange" },
   { href: "/admin/announcements", label: "Announcements" },
-  { href: "/admin/pet", label: "Virtual Cat" },
   { href: "/admin/review", label: "Review" },
   { href: "/admin/integrity", label: "Integrity" },
   { href: "/admin/live", label: "Live Quiz" },
@@ -62,19 +61,16 @@ export async function Nav() {
   let balance: number | null = null;
   let links = isAdmin ? ADMIN_LINKS : isStaff ? STAFF_LINKS : studentLinks(t);
   if (!isStaff) {
-    // One round trip for the marks total and the pet flag together. The nav
-    // renders on every page, so anything extra here is paid for everywhere.
+    // One round trip for the marks total and everything else the bar needs.
+    // The nav renders on every page, so anything extra is paid everywhere.
     const nav = await getStudentNav(session.user.id);
     balance = nav.balance.balance;
     // Feedback shows only while the admin has it switched on.
     if (nav.feedbackEnabled) {
       links = [...links, { href: "/dashboard/feedback", label: t.feedback }];
     }
-    // The cat is opt-in, and a student who does not have it should not see a
-    // link to it at all - the page itself redirects them away regardless.
-    if (nav.petEnabled) {
-      links = [...links, { href: "/dashboard/pet", label: t.myCat }];
-    }
+    // Every student has a pet, so the link is always there.
+    links = [...links, { href: "/dashboard/pet", label: t.myPet }];
   }
 
   // Everyone can change their own password; on a phone it is in the menu.

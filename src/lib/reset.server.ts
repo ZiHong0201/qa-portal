@@ -5,17 +5,17 @@ import { RESET_AT } from "@/lib/reset";
 /**
  * Wipes every student's progress and spending back to zero.
  *
- * What goes: submissions, check-ins, admin adjustments, catalogue redemptions
- * and cat purchases. Those five move together by necessity rather than choice
- * - the points balance is derived from all of them, so clearing what a student
+ * What goes: submissions, check-ins, admin adjustments and catalogue
+ * redemptions. Those four move together by necessity rather than choice - the
+ * points balance is derived from all of them, so clearing what a student
  * earned without clearing what they spent would leave them owing points they
  * can never repay.
  *
- * What stays: accounts, enrolments, question sets, questions, catalogue items,
- * shop items - and the cats. A cat is a companion rather than a score, so
- * nobody loses the animal they raised because the term ended. Clothes already
- * bought stay on it; the purchase records that paid for them do not, which
- * makes those items effectively a gift from the old term.
+ * What stays: accounts, enrolments, question sets, questions, catalogue items
+ * - and the study pets. A pet is a companion rather than a score, so nobody
+ * loses the pet they raised because the term ended. Its growth is stored on
+ * the pet itself rather than worked out from submissions, so clearing the
+ * answers does not shrink it.
  */
 
 export type ResetCounts = {
@@ -23,19 +23,17 @@ export type ResetCounts = {
   checkIns: number;
   adjustments: number;
   redemptions: number;
-  petPurchases: number;
 };
 
 /** What a reset would destroy right now, without destroying it. */
 export async function previewReset(): Promise<ResetCounts> {
-  const [submissions, checkIns, adjustments, redemptions, petPurchases] = await Promise.all([
+  const [submissions, checkIns, adjustments, redemptions] = await Promise.all([
     prisma.submission.count(),
     prisma.checkIn.count(),
     prisma.pointAdjustment.count(),
     prisma.redemption.count(),
-    prisma.petPurchase.count(),
   ]);
-  return { submissions, checkIns, adjustments, redemptions, petPurchases };
+  return { submissions, checkIns, adjustments, redemptions };
 }
 
 /**
@@ -46,13 +44,12 @@ export async function previewReset(): Promise<ResetCounts> {
  * were that the database itself went wrong.
  */
 export async function exportSnapshot(): Promise<string> {
-  const [submissions, checkIns, adjustments, redemptions, petPurchases, students] =
+  const [submissions, checkIns, adjustments, redemptions, students] =
     await Promise.all([
       prisma.submission.findMany(),
       prisma.checkIn.findMany(),
       prisma.pointAdjustment.findMany(),
       prisma.redemption.findMany(),
-      prisma.petPurchase.findMany(),
       // Names and forms, so a restored snapshot is readable without having to
       // cross-reference ids against a database that has since changed.
       //
@@ -74,7 +71,6 @@ export async function exportSnapshot(): Promise<string> {
     checkIns,
     adjustments,
     redemptions,
-    petPurchases,
   };
 
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -111,7 +107,6 @@ export async function runReset(options: {
     prisma.checkIn.deleteMany({}),
     prisma.pointAdjustment.deleteMany({}),
     prisma.redemption.deleteMany({}),
-    prisma.petPurchase.deleteMany({}),
     prisma.portalReset.create({
       data: {
         scheduledFor: options.scheduledFor ?? null,
@@ -121,7 +116,6 @@ export async function runReset(options: {
         checkInsCleared: counts.checkIns,
         adjustmentsCleared: counts.adjustments,
         redemptionsCleared: counts.redemptions,
-        petPurchasesCleared: counts.petPurchases,
       },
     }),
   ]);
