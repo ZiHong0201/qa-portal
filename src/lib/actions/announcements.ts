@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { savePopupImage, deletePopupImage } from "@/lib/uploads";
 import { localInputToDate, ANNOUNCEMENT_MAX_LENGTH } from "@/lib/announcements";
 import type { FormState } from "./auth";
+import { parseCentreIds } from "@/lib/centres";
 
 
 // The ticker and the pop-ups share a scheduling window, so they share this.
@@ -66,6 +67,8 @@ export async function createAnnouncement(
   if (!raw.success) return { error: raw.error.issues[0].message };
   const parsed = parseWindow(raw.data);
   if ("error" in parsed) return { error: parsed.error };
+  const centres = await parseCentreIds(formData);
+  if ("error" in centres) return { error: centres.error };
 
   await prisma.announcement.create({
     data: {
@@ -74,6 +77,7 @@ export async function createAnnouncement(
       endsAt: parsed.endsAt,
       isActive: parsed.isActive,
       createdById: session.user.id,
+      centres: { create: centres.centreIds.map((centreId) => ({ centreId })) },
     },
   });
 
@@ -96,6 +100,8 @@ export async function updateAnnouncement(
   if (!raw.success) return { error: raw.error.issues[0].message };
   const parsed = parseWindow(raw.data);
   if ("error" in parsed) return { error: parsed.error };
+  const centres = await parseCentreIds(formData);
+  if ("error" in centres) return { error: centres.error };
 
   await prisma.announcement.update({
     where: { id },
@@ -104,6 +110,7 @@ export async function updateAnnouncement(
       startsAt: parsed.startsAt,
       endsAt: parsed.endsAt,
       isActive: parsed.isActive,
+      centres: { deleteMany: {}, create: centres.centreIds.map((centreId) => ({ centreId })) },
     },
   });
 
@@ -165,6 +172,8 @@ export async function createPopupAd(
   if (!raw.success) return { error: raw.error.issues[0].message };
   const parsed = parseWindow(raw.data);
   if ("error" in parsed) return { error: parsed.error };
+  const centres = await parseCentreIds(formData);
+  if ("error" in centres) return { error: centres.error };
 
   // The image is the whole point of a pop-up, so unlike the catalogue this one
   // is required rather than optional.
@@ -181,6 +190,7 @@ export async function createPopupAd(
       endsAt: parsed.endsAt,
       isActive: parsed.isActive,
       createdById: session.user.id,
+      centres: { create: centres.centreIds.map((centreId) => ({ centreId })) },
     },
   });
 
@@ -209,6 +219,8 @@ export async function updatePopupAd(
   if (!raw.success) return { error: raw.error.issues[0].message };
   const parsed = parseWindow(raw.data);
   if ("error" in parsed) return { error: parsed.error };
+  const centres = await parseCentreIds(formData);
+  if ("error" in centres) return { error: centres.error };
 
   const image = await parseImage(formData);
   if (image.error) return { error: image.error };
@@ -224,6 +236,7 @@ export async function updatePopupAd(
       startsAt: parsed.startsAt,
       endsAt: parsed.endsAt,
       isActive: parsed.isActive,
+      centres: { deleteMany: {}, create: centres.centreIds.map((centreId) => ({ centreId })) },
     },
   });
 

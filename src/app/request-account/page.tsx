@@ -4,6 +4,7 @@ import { RequestAccountForm } from "@/components/password-forms";
 import { isPaymentHost } from "@/lib/fees";
 import { getUiLang } from "@/lib/i18n.server";
 import { authText } from "@/lib/text/auth";
+import { getCentres } from "@/lib/centres";
 
 export default async function RequestAccountPage() {
   // Not linked from the payment site, but reachable there; English if so.
@@ -11,7 +12,7 @@ export default async function RequestAccountPage() {
   const lang = onPaymentSite ? "en" : await getUiLang();
   return (
     <AuthCard title={authText[lang].requestTitle} showLanguage={!onPaymentSite}>
-      <RequestAccountForm lang={lang} />
+      <RequestAccountForm lang={lang} centres={await getCentres()} />
     </AuthCard>
   );
 }

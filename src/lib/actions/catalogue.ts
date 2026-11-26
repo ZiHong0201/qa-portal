@@ -12,6 +12,7 @@ import { exchangeGift, rejectExchange } from "@/lib/gift-exchange.server";
 import { getUiLang } from "@/lib/i18n.server";
 import { rewardsText } from "@/lib/text/rewards";
 import type { FormState } from "./auth";
+import { parseCentreIds } from "@/lib/centres";
 
 
 
@@ -66,6 +67,9 @@ export async function createCatalogueItem(
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
+  // Before the image, so a refused form does not leave an upload behind.
+  const centres = await parseCentreIds(formData);
+  if ("error" in centres) return { error: centres.error };
 
   const image = await parseImage(formData);
   if (image.error) return { error: image.error };
@@ -79,6 +83,7 @@ export async function createCatalogueItem(
       limitPerStudent: parsed.data.limitPerStudent ?? null,
       imageUrl: image.url,
       createdById: session.user.id,
+      centres: { create: centres.centreIds.map((centreId) => ({ centreId })) },
     },
   });
 
@@ -100,6 +105,8 @@ export async function updateCatalogueItem(
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
+  const centres = await parseCentreIds(formData);
+  if ("error" in centres) return { error: centres.error };
 
   const image = await parseImage(formData);
   if (image.error) return { error: image.error };
@@ -117,6 +124,10 @@ export async function updateCatalogueItem(
       stock: parsed.data.stock ?? null,
       limitPerStudent: parsed.data.limitPerStudent ?? null,
       imageUrl: image.url ?? existing.imageUrl,
+      centres: {
+        deleteMany: {},
+        create: centres.centreIds.map((centreId) => ({ centreId })),
+      },
     },
   });
 

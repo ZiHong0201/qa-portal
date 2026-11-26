@@ -7,7 +7,7 @@ import { DeleteStudentButton } from "./delete-student-button";
 import { ClearAnswersButton } from "./clear-answers-button";
 import { SuspensionPanel } from "./suspension-panel";
 import { auth } from "@/auth";
-import { isAdmin } from "@/lib/permissions";
+import { currentVisibleStudentsWhere, isAdmin } from "@/lib/permissions";
 
 export default async function AdminStudentDetailPage({
   params,
@@ -16,9 +16,11 @@ export default async function AdminStudentDetailPage({
 }) {
   const { id } = await params;
 
+  // A teacher opening a student of another centre gets the same 404 as a
+  // student who does not exist.
   const student = await prisma.user.findFirst({
-    where: { id, role: "STUDENT" },
-    include: { subjects: true },
+    where: { AND: [{ id }, await currentVisibleStudentsWhere()] },
+    include: { subjects: true, centre: { select: { name: true } } },
   });
   if (!student) notFound();
 
@@ -123,7 +125,7 @@ export default async function AdminStudentDetailPage({
         </Link>
       </div>
       <p className="mb-6 text-sm text-gray-500">
-        {student.email} · {student.grade ?? "No grade"} ·{" "}
+        {student.email} · {student.centre?.name ?? "No centre"} · {student.grade ?? "No grade"} ·{" "}
         {student.subjects.length > 0
           ? student.subjects.map((s) => s.subject).join(", ")
           : "No subjects"}

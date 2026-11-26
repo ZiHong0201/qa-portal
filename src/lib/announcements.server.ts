@@ -4,6 +4,19 @@ import { CACHE_TAGS } from "@/lib/cache-tags";
 
 export type LiveAnnouncement = { id: string; message: string };
 
+/**
+ * Whose notices to show: one centre's students (null: a student with no
+ * centre yet, who sees only what goes to every centre), or "all" for staff,
+ * who see everything that is running anywhere.
+ */
+export type NoticeViewer = { centreId: string | null } | "all";
+
+// A notice with no centre rows goes to every centre.
+function shownTo(viewer: NoticeViewer, centreIds: string[]) {
+  if (viewer === "all" || centreIds.length === 0) return true;
+  return viewer.centreId !== null && centreIds.includes(viewer.centreId);
+}
+
 export type LivePopupAd = {
   id: string;
   title: string | null;
@@ -36,37 +49,57 @@ const getSwitchedOn = unstable_cache(
         // Oldest first so the ticker reads in the order the notices were
         // written, rather than reshuffling as new ones are added.
         orderBy: { createdAt: "asc" },
-        select: { id: true, message: true, startsAt: true, endsAt: true },
+        select: { id: true, message: true, startsAt: true, endsAt: true, centres: { select: { centreId: true } } },
       }),
       prisma.popupAd.findMany({
         where: { isActive: true },
         // Newest first so the most recent campaign is the first thing a
         // student sees after logging in.
         orderBy: { createdAt: "desc" },
-        select: { id: true, title: true, imageUrl: true, linkUrl: true, startsAt: true, endsAt: true },
+        select: {
+          id: true,
+          title: true,
+          imageUrl: true,
+          linkUrl: true,
+          startsAt: true,
+          endsAt: true,
+          centres: { select: { centreId: true } },
+        },
       }),
     ]);
     return {
-      announcements: announcements.map((a) => ({ ...a, startsAt: toMs(a.startsAt), endsAt: toMs(a.endsAt) })),
-      popupAds: popupAds.map((p) => ({ ...p, startsAt: toMs(p.startsAt), endsAt: toMs(p.endsAt) })),
+      announcements: announcements.map(({ centres, ...a }) => ({
+        ...a,
+        centreIds: centres.map((c) => c.centreId),
+        startsAt: toMs(a.startsAt),
+        endsAt: toMs(a.endsAt),
+      })),
+      popupAds: popupAds.map(({ centres, ...p }) => ({
+        ...p,
+        centreIds: centres.map((c) => c.centreId),
+        startsAt: toMs(p.startsAt),
+        endsAt: toMs(p.endsAt),
+      })),
     };
   },
   ["switched-on-announcements"],
   { tags: [CACHE_TAGS.announcements], revalidate: 3600 }
 );
 
-/** The pop-up ads running right now, newest first. */
-export async function getLivePopupAds(): Promise<LivePopupAd[]> {
+/** The pop-up ads running right now for `viewer`, newest first. */
+export async function getLivePopupAds(viewer: NoticeViewer): Promise<LivePopupAd[]> {
   const now = Date.now();
   const { popupAds } = await getSwitchedOn();
   return popupAds
-    .filter((p) => isLive(p, now))
+    .filter((p) => isLive(p, now) && shownTo(viewer, p.centreIds))
     .map(({ id, title, imageUrl, linkUrl }) => ({ id, title, imageUrl, linkUrl }));
 }
 
-/** The notices on screen right now, oldest first. */
-export async function getLiveAnnouncements(): Promise<LiveAnnouncement[]> {
+/** The notices on screen right now for `viewer`, oldest first. */
+export async function getLiveAnnouncements(viewer: NoticeViewer): Promise<LiveAnnouncement[]> {
   const now = Date.now();
   const { announcements } = await getSwitchedOn();
-  return announcements.filter((a) => isLive(a, now)).map(({ id, message }) => ({ id, message }));
+  return announcements
+    .filter((a) => isLive(a, now) && shownTo(viewer, a.centreIds))
+    .map(({ id, message }) => ({ id, message }));
 }

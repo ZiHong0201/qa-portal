@@ -20,7 +20,7 @@ export default async function AdminLayout({
   // The ticker shows here too, so an admin can see what students are seeing.
   // Pop-ups deliberately do not - they are aimed at students, and an admin
   // editing them would be interrupted by their own work on every sign-in.
-  const announcements = await getLiveAnnouncements();
+  const announcements = await getLiveAnnouncements("all");
 
   // Staff pages are not translated, so the pieces shared with the student
   // side are pinned to English here rather than following the toggle.

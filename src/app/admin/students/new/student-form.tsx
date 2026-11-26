@@ -3,18 +3,25 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import type { FormState } from "@/lib/actions/auth";
+import type { CentreOption } from "@/lib/centres";
 
 export function StudentForm({
   action,
   initial,
   grades,
   subjects,
+  centres,
+  allowNoCentre,
   submitLabel,
 }: {
   action: (prevState: FormState, formData: FormData) => Promise<FormState>;
-  initial?: { name: string; email: string; grade: string | null; subjects: string[] };
+  initial?: { name: string; email: string; grade: string | null; subjects: string[]; centreId: string | null };
   grades: string[];
   subjects: string[];
+  /** The centres this person may put a student in. */
+  centres: CentreOption[];
+  /** Admins may leave a student without a centre; teachers may not. */
+  allowNoCentre: boolean;
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
@@ -75,6 +82,27 @@ export function StudentForm({
           className="w-full rounded-md border border-gray-300 px-3 py-2"
         />
       </div>
+      {centres.length > 0 && (
+        <div>
+          <label className="mb-1 block text-sm font-medium" htmlFor="centreId">
+            Centre
+          </label>
+          <select
+            id="centreId"
+            name="centreId"
+            required={!allowNoCentre}
+            defaultValue={initial?.centreId ?? (allowNoCentre ? "" : centres[0].id)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2"
+          >
+            {allowNoCentre && <option value="">Unassigned</option>}
+            {centres.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="flex gap-4">
         <div className="flex-1">
           <label className="mb-1 block text-sm font-medium" htmlFor="grade">

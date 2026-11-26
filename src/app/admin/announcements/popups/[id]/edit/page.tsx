@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { PopupForm } from "../../../popup-form";
 import { updatePopupAd } from "@/lib/actions/announcements";
 import { dateToLocalInput } from "@/lib/announcements";
+import { getCentres } from "@/lib/centres";
 
 export default async function EditPopupAdPage({
   params,
@@ -10,7 +11,10 @@ export default async function EditPopupAdPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const ad = await prisma.popupAd.findUnique({ where: { id } });
+  const [ad, centres] = await Promise.all([
+    prisma.popupAd.findUnique({ where: { id }, include: { centres: true } }),
+    getCentres(),
+  ]);
   if (!ad) notFound();
 
   return (
@@ -19,6 +23,7 @@ export default async function EditPopupAdPage({
       <PopupForm
         action={updatePopupAd.bind(null, ad.id)}
         submitLabel="Save changes"
+        centres={centres}
         initial={{
           title: ad.title ?? "",
           linkUrl: ad.linkUrl ?? "",
@@ -26,6 +31,7 @@ export default async function EditPopupAdPage({
           startsAt: dateToLocalInput(ad.startsAt),
           endsAt: dateToLocalInput(ad.endsAt),
           isActive: ad.isActive,
+          centreIds: ad.centres.map((c) => c.centreId),
         }}
       />
     </div>

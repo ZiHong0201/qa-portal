@@ -2,6 +2,8 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import type { FormState } from "@/lib/actions/auth";
+import type { CentreOption } from "@/lib/centres";
+import { CentreCheckboxes } from "../centre-checkboxes";
 
 type InitialItem = {
   name: string;
@@ -10,15 +12,18 @@ type InitialItem = {
   imageUrl: string | null;
   stock: number | null;
   limitPerStudent: number | null;
+  centreIds: string[];
 };
 
 export function CatalogueForm({
   action,
   initial,
+  centres,
   submitLabel,
 }: {
   action: (prevState: FormState, formData: FormData) => Promise<FormState>;
   initial?: InitialItem;
+  centres: CentreOption[];
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
@@ -119,6 +124,14 @@ export function CatalogueForm({
           </p>
         </div>
       </div>
+
+      <CentreCheckboxes centres={centres} selected={initial?.centreIds} what="gift" />
+      {centres.length > 1 && (
+        <p className="-mt-2 text-xs text-gray-500">
+          Stock is one count across the ticked centres. To keep a separate count at each centre,
+          make one gift per centre.
+        </p>
+      )}
 
       <button
         type="submit"

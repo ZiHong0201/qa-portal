@@ -51,6 +51,7 @@ type BalanceRow = {
   suspensionReason?: string | null;
   suspendedAt?: string | null;
   feedbackSetting?: string | null;
+  centreId?: string | null;
 };
 
 const n = (v: number | bigint | null | undefined) => Number(v ?? 0);
@@ -74,6 +75,7 @@ async function balanceRow(
         WHERE studentId = ${studentId} AND rejectedAt IS NULL) AS redeemed,
       (SELECT suspensionReason FROM User WHERE id = ${studentId}) AS suspensionReason,
       (SELECT suspendedAt FROM User WHERE id = ${studentId}) AS suspendedAt,
+      (SELECT centreId FROM User WHERE id = ${studentId}) AS centreId,
       (SELECT value FROM PortalSetting WHERE key = ${FEEDBACK_ENABLED_KEY}) AS feedbackSetting,
       p.element AS petElement,
       p.name AS petName,
@@ -151,10 +153,13 @@ export const getStudentNav = cache(
     pet: PetLook | null;
     feedbackEnabled: boolean;
     suspension: Suspension | null;
+    /** Decides the student's scoreboard, gifts and notices. */
+    centreId: string | null;
   }> => {
     const row = await balanceRow(studentId);
     return {
       balance: toBalance(row),
+      centreId: row.centreId ?? null,
       pet: petLookOf(row),
       // Open unless an admin closed it, as isFeedbackEnabled reads it.
       feedbackEnabled: row.feedbackSetting !== "false",

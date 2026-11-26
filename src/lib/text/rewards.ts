@@ -57,6 +57,11 @@ export const rewardsText = defineText({
       checkIns: "Check-ins",
       longestStreak: "Longest streak",
       form: "Form",
+      centre: "Centre",
+      noCentre: "Your centre hasn't been set yet",
+      noCentreHelp: "Your teacher will add you to your tuition centre, and then its scoreboard shows here.",
+      noCentreStaff: "No centre to show",
+      noCentreStaffHelp: "Ask an admin to give you a centre on the Staff page.",
       nothingYet: "Nothing to show yet",
       emptyAccuracy: (min: number, week: boolean) =>
         `No one here has ${min} marked answers${week ? " this week" : ""} yet.`,
@@ -143,6 +148,11 @@ export const rewardsText = defineText({
       checkIns: "签到",
       longestStreak: "最长连续签到",
       form: "年级",
+      centre: "补习中心",
+      noCentre: "还没有设定你的补习中心",
+      noCentreHelp: "老师把你加入补习中心后，这里就会显示那里的排行榜。",
+      noCentreStaff: "No centre to show",
+      noCentreStaffHelp: "Ask an admin to give you a centre on the Staff page.",
       nothingYet: "暂时还没有排名",
       emptyAccuracy: (min: number, week: boolean) =>
         `${week ? "本周" : ""}还没有同学有 ${min} 题已批改。`,

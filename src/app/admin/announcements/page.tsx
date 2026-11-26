@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { SubmitButton } from "@/components/submit-button";
 import { formatWindow, isLive } from "@/lib/announcements";
+import { centreLabel, getCentres } from "@/lib/centres";
 import {
   deleteAnnouncement,
   toggleAnnouncementActive,
@@ -39,10 +40,13 @@ function StatusBadge({
   );
 }
 
+const forCentres = { centres: { select: { centre: { select: { name: true } } } } };
+
 export default async function AdminAnnouncementsPage() {
-  const [announcements, popups] = await Promise.all([
-    prisma.announcement.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.popupAd.findMany({ orderBy: { createdAt: "desc" } }),
+  const [announcements, popups, centres] = await Promise.all([
+    prisma.announcement.findMany({ orderBy: { createdAt: "desc" }, include: forCentres }),
+    prisma.popupAd.findMany({ orderBy: { createdAt: "desc" }, include: forCentres }),
+    getCentres(),
   ]);
 
   return (
@@ -70,6 +74,7 @@ export default async function AdminAnnouncementsPage() {
                   <p className="font-medium break-words">{item.message}</p>
                   <p className="mt-0.5 text-sm text-gray-500">
                     {formatWindow(item.startsAt, item.endsAt)}
+                    {centres.length > 0 && ` · ${centreLabel(item.centres)}`}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2 text-sm">
@@ -130,6 +135,7 @@ export default async function AdminAnnouncementsPage() {
                     <p className="font-medium break-words">{ad.title || "Untitled pop-up"}</p>
                     <p className="mt-0.5 text-sm text-gray-500">
                       {formatWindow(ad.startsAt, ad.endsAt)}
+                      {centres.length > 0 && ` · ${centreLabel(ad.centres)}`}
                     </p>
                     {ad.linkUrl && (
                       <p className="mt-0.5 truncate text-xs text-gray-400">{ad.linkUrl}</p>

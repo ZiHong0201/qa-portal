@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 
 /**
  * How long integrity signals are kept before being wiped.
@@ -24,7 +25,9 @@ export const INTEGRITY_RETENTION_DAYS = 30;
  * no null state and go to zero.
  */
 export async function clearIntegritySignals(
-  olderThanDays: number | null = INTEGRITY_RETENTION_DAYS
+  olderThanDays: number | null = INTEGRITY_RETENTION_DAYS,
+  /** Narrows it to some students - a teacher's centres. Everyone by default. */
+  scope: Prisma.SubmissionWhereInput = {}
 ): Promise<number> {
   const where =
     olderThanDays === null
@@ -34,6 +37,7 @@ export async function clearIntegritySignals(
   const { count } = await prisma.submission.updateMany({
     where: {
       ...where,
+      ...scope,
       // Only touch rows that still carry something, so the count reported back
       // is the number actually wiped rather than every submission ever made.
       OR: [
@@ -50,11 +54,11 @@ export async function clearIntegritySignals(
 }
 
 /** How many submissions still carry signals, and how old the oldest is. */
-export async function integrityRetentionStatus() {
+export async function integrityRetentionStatus(scope: Prisma.SubmissionWhereInput = {}) {
   const [carrying, oldest] = await Promise.all([
-    prisma.submission.count({ where: { secondsTaken: { not: null } } }),
+    prisma.submission.count({ where: { ...scope, secondsTaken: { not: null } } }),
     prisma.submission.findFirst({
-      where: { secondsTaken: { not: null } },
+      where: { ...scope, secondsTaken: { not: null } },
       orderBy: { createdAt: "asc" },
       select: { createdAt: true },
     }),

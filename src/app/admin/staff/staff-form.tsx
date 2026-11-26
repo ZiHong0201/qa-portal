@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import type { FormState } from "@/lib/actions/auth";
+import type { CentreOption } from "@/lib/centres";
 
 /**
  * The role picker is spelled out rather than being a dropdown, because it is
@@ -28,13 +29,16 @@ export function StaffForm({
   action,
   initial,
   subjects,
+  centres,
   submitLabel,
   roleLocked,
 }: {
   action: (prevState: FormState, formData: FormData) => Promise<FormState>;
-  initial?: { name: string; email: string; role: string; subjects: string[] };
+  initial?: { name: string; email: string; role: string; subjects: string[]; centreIds: string[] };
   /** Every subject in master data, to choose a teacher's from. */
   subjects: string[];
+  /** Every centre in master data, likewise. */
+  centres: CentreOption[];
   submitLabel: string;
   /** Set when the role must not change - the last admin, or yourself. */
   roleLocked?: string;
@@ -152,6 +156,33 @@ export function StaffForm({
           <p className="mt-1 text-xs text-gray-500">
             They can read every question set, but change only the sets in these subjects. With
             none ticked they can change no sets at all.
+          </p>
+        </fieldset>
+      )}
+
+      {role === "TEACHER" && (
+        <fieldset>
+          <legend className="mb-1 block text-sm font-medium">Centres they teach at</legend>
+          {centres.length === 0 ? (
+            <p className="text-sm text-gray-500">No centres in master data yet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {centres.map((c) => (
+                <label key={c.id} className="flex items-center gap-1 text-sm whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    name="centres"
+                    value={c.id}
+                    defaultChecked={initial?.centreIds.includes(c.id)}
+                  />
+                  {c.name}
+                </label>
+              ))}
+            </div>
+          )}
+          <p className="mt-1 text-xs text-gray-500">
+            They see, mark and manage only the students of these centres. With none ticked they see
+            no students at all. Students with no centre yet are seen by admins only.
           </p>
         </fieldset>
       )}

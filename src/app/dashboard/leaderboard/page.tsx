@@ -11,7 +11,8 @@ import {
 } from "@/lib/leaderboard";
 import { weekStartKey } from "@/lib/check-in";
 import { CelebratingPet } from "@/components/pet-decor";
-import { isStaff } from "@/lib/permissions";
+import { isStaff, visibleCentreIds } from "@/lib/permissions";
+import { centresWithin, getCentres } from "@/lib/centres";
 import { getUiLang } from "@/lib/i18n.server";
 import { dateLocale, type UiLang } from "@/lib/i18n";
 import { rewardsText } from "@/lib/text/rewards";
@@ -38,8 +39,16 @@ function accuracyColor(accuracy: number) {
   return "text-rose-500";
 }
 
-function boardHref(form: string | null, metric: LeaderboardMetric, period: LeaderboardPeriod) {
+// `centre` is for staff, who can look at each centre's board; a student only
+// ever sees their own, whatever the address says.
+function boardHref(
+  form: string | null,
+  metric: LeaderboardMetric,
+  period: LeaderboardPeriod,
+  centre: string | null = null
+) {
   const params = new URLSearchParams(form ? { form } : {});
+  if (centre) params.set("centre", centre);
   if (metric !== "points") params.set("by", metric);
   // The weekly board is the default, so only the all-time one needs saying.
   if (period === "all") params.set("period", "all");
@@ -162,11 +171,12 @@ function Score({
 export default async function LeaderboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ form?: string; by?: string; period?: string }>;
+  searchParams: Promise<{ form?: string; by?: string; period?: string; centre?: string }>;
 }) {
-  const { form: formParam, by, period: periodParam } = await searchParams;
+  const { form: formParam, by, period: periodParam, centre: centreParam } = await searchParams;
   const session = await auth();
   const userId = session!.user.id;
+  const staff = isStaff(session);
   // Staff reach this board from their own nav, and staff pages stay English.
   const lang: UiLang = isStaff(session) ? "en" : await getUiLang();
   const t = rewardsText[lang].board;
@@ -178,12 +188,31 @@ export default async function LeaderboardPage({
   const weekStart = weekStartKey();
 
   // The session carries id and role only, so the viewer's own form - which
-  // decides the default board - comes from the user record.
-  const [all, viewer] = await Promise.all([
-    getStudentStats(period),
-    prisma.user.findUnique({ where: { id: userId }, select: { grade: true } }),
+  // decides the default board - and centre come from the user record.
+  const [viewer, allCentres] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { grade: true, centreId: true } }),
+    getCentres(),
   ]);
   const myGrade = viewer?.grade ?? null;
+
+  // Each centre has its own board. A student sees their own centre's only;
+  // staff pick from the centres they may see. Until any centre exists there is
+  // one board for everyone, as there always was.
+  const staffCentres = staff ? centresWithin(allCentres, await visibleCentreIds(session)) : [];
+  const centreId: string | null =
+    allCentres.length === 0
+      ? null
+      : staff
+        ? (staffCentres.find((c) => c.id === centreParam) ?? staffCentres[0])?.id ?? null
+        : (viewer?.centreId ?? null);
+  const centreName = allCentres.find((c) => c.id === centreId)?.name ?? null;
+  // Centres exist but this viewer has none to look at: a student not yet put
+  // in one, or a teacher not yet given one.
+  const noCentre = allCentres.length > 0 && centreId === null;
+  const boardCentre = staff ? centreId : null;
+  const href = (f: string | null, m: LeaderboardMetric, p: LeaderboardPeriod) => boardHref(f, m, p, boardCentre);
+
+  const all = noCentre ? [] : await getStudentStats(period, centreId ?? undefined);
 
   // Only offer forms that actually have someone on the board, so the filter
   // can never lead to an empty page.
@@ -221,9 +250,22 @@ export default async function LeaderboardPage({
   const heading = form ? t.titleForm(form) : t.title;
   const scope = period === "week" ? t.scopeWeek(weekLabel(weekStart, lang)) : t.scopeAll;
 
+  if (noCentre) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <h1 className="mb-4 text-2xl font-bold text-sky-950">{t.title}</h1>
+        <div className="rounded-xl border border-sky-100 bg-white p-8 text-center">
+          <p className="font-medium text-gray-700">{staff ? t.noCentreStaff : t.noCentre}</p>
+          <p className="mt-1 text-sm text-gray-500">{staff ? t.noCentreStaffHelp : t.noCentreHelp}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-1 text-2xl font-bold text-sky-950">{heading}</h1>
+      {centreName && <p className="mb-1 text-sm font-medium text-sky-800">{centreName}</p>}
       <p className="mb-4 text-sm text-gray-500">
         {metric === "points"
           ? t.descPoints(scope)
@@ -234,25 +276,36 @@ export default async function LeaderboardPage({
             : t.descAccuracy(scope, MIN_GRADED_FOR_ACCURACY)}
       </p>
 
+      {staffCentres.length > 1 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">{t.centre}</span>
+          {staffCentres.map((c) => (
+            <Chip key={c.id} href={boardHref(form, metric, period, c.id)} active={centreId === c.id}>
+              {c.name}
+            </Chip>
+          ))}
+        </div>
+      )}
+
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">{t.period}</span>
-        <Chip href={boardHref(form, metric, "week")} active={period === "week"}>
+        <Chip href={href(form, metric, "week")} active={period === "week"}>
           {t.thisWeek}
         </Chip>
-        <Chip href={boardHref(form, metric, "all")} active={period === "all"}>
+        <Chip href={href(form, metric, "all")} active={period === "all"}>
           {t.allTime}
         </Chip>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">{t.rankBy}</span>
-        <Chip href={boardHref(form, "points", period)} active={metric === "points"}>
+        <Chip href={href(form, "points", period)} active={metric === "points"}>
           {t.points}
         </Chip>
-        <Chip href={boardHref(form, "accuracy", period)} active={metric === "accuracy"}>
+        <Chip href={href(form, "accuracy", period)} active={metric === "accuracy"}>
           {t.accuracy}
         </Chip>
-        <Chip href={boardHref(form, "streak", period)} active={metric === "streak"}>
+        <Chip href={href(form, "streak", period)} active={metric === "streak"}>
           {period === "week" ? t.checkIns : t.longestStreak}
         </Chip>
       </div>
@@ -261,7 +314,7 @@ export default async function LeaderboardPage({
         <div className="mb-6 flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">{t.form}</span>
           {forms.map((f) => (
-            <Chip key={f} href={boardHref(f, metric, period)} active={form === f}>
+            <Chip key={f} href={href(f, metric, period)} active={form === f}>
               {f}
             </Chip>
           ))}

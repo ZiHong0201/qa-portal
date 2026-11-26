@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getGradeNames } from "@/lib/grades";
 import { getSubjectNames } from "@/lib/subjects";
 import { RequestRow } from "./request-row";
+import { getCentres, centresWithin } from "@/lib/centres";
+import { currentVisibleCentreIds } from "@/lib/permissions";
 
 const asked = (d: Date) =>
   d.toLocaleString("en-GB", {
@@ -20,11 +22,19 @@ export default async function AccountRequestsPage({
   searchParams: Promise<{ approved?: string }>;
 }) {
   const { approved } = await searchParams;
-  const [requests, grades, subjects] = await Promise.all([
-    prisma.accountRequest.findMany({ orderBy: { createdAt: "asc" } }),
+  // A teacher sees the requests naming one of their centres; everything else
+  // waits for an admin, who sees them all.
+  const visible = await currentVisibleCentreIds();
+  const [requests, grades, subjects, allCentres] = await Promise.all([
+    prisma.accountRequest.findMany({
+      where: visible === null ? {} : { centreId: { in: visible } },
+      orderBy: { createdAt: "asc" },
+    }),
     getGradeNames(),
     getSubjectNames(),
+    getCentres(),
   ]);
+  const centres = centresWithin(allCentres, visible);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -62,9 +72,11 @@ export default async function AccountRequestsPage({
           {requests.map((r) => (
             <RequestRow
               key={r.id}
-              request={{ id: r.id, name: r.name, email: r.email, createdAt: asked(r.createdAt) }}
+              request={{ id: r.id, name: r.name, email: r.email, createdAt: asked(r.createdAt), centreId: r.centreId }}
               grades={grades}
               subjects={subjects}
+              centres={centres}
+              allowNoCentre={visible === null}
             />
           ))}
         </div>

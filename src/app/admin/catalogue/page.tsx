@@ -4,12 +4,14 @@ import { deleteCatalogueItem, toggleCatalogueItemActive } from "@/lib/actions/ca
 import { SubmitButton } from "@/components/submit-button";
 import { AddStockForm } from "./add-stock-form";
 import { PendingGifts } from "./pending-gifts";
+import { centreLabel, getCentres } from "@/lib/centres";
 
 const day = (d: Date) =>
   d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Kuala_Lumpur" });
 
 export default async function AdminGiftExchangePage() {
-  const [items, pending, delivered, rejected] = await Promise.all([
+  const student = { select: { name: true, grade: true, centre: { select: { name: true } } } };
+  const [items, pending, delivered, rejected, centres] = await Promise.all([
     prisma.catalogueItem.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -21,6 +23,7 @@ export default async function AdminGiftExchangePage() {
           },
         },
         redemptions: { where: { rejectedAt: null }, select: { id: true } },
+        centres: { select: { centre: { select: { name: true } } } },
       },
     }),
     prisma.redemption.findMany({
@@ -29,7 +32,7 @@ export default async function AdminGiftExchangePage() {
       select: {
         id: true,
         createdAt: true,
-        student: { select: { name: true, grade: true } },
+        student,
         catalogueItem: { select: { name: true } },
       },
     }),
@@ -41,7 +44,7 @@ export default async function AdminGiftExchangePage() {
         id: true,
         createdAt: true,
         deliveredAt: true,
-        student: { select: { name: true, grade: true } },
+        student,
         catalogueItem: { select: { name: true } },
       },
     }),
@@ -54,22 +57,30 @@ export default async function AdminGiftExchangePage() {
         cost: true,
         rejectedAt: true,
         rejectionReason: true,
-        student: { select: { name: true, grade: true } },
+        student,
         catalogueItem: { select: { name: true } },
       },
     }),
+    getCentres(),
   ]);
 
-  // By grade, then name - the order the gifts are handed out in.
+  // By centre, then grade, then name - the order the gifts are handed out in:
+  // each centre's are taken there.
   const pendingRows = pending
     .map((r) => ({
       id: r.id,
       student: r.student.name,
       grade: r.student.grade,
+      centre: r.student.centre?.name ?? null,
       gift: r.catalogueItem.name,
       exchangedOn: day(r.createdAt),
     }))
-    .sort((a, b) => (a.grade ?? "~").localeCompare(b.grade ?? "~") || a.student.localeCompare(b.student));
+    .sort(
+      (a, b) =>
+        (a.centre ?? "~").localeCompare(b.centre ?? "~") ||
+        (a.grade ?? "~").localeCompare(b.grade ?? "~") ||
+        a.student.localeCompare(b.student)
+    );
 
   return (
     <div>
@@ -85,10 +96,12 @@ export default async function AdminGiftExchangePage() {
 
       <PendingGifts
         pending={pendingRows}
+        showCentre={centres.length > 0}
         recentlyDelivered={delivered.map((r) => ({
           id: r.id,
           student: r.student.name,
           grade: r.student.grade,
+          centre: r.student.centre?.name ?? null,
           gift: r.catalogueItem.name,
           exchangedOn: day(r.createdAt),
           deliveredOn: day(r.deliveredAt!),
@@ -97,6 +110,7 @@ export default async function AdminGiftExchangePage() {
           id: r.id,
           student: r.student.name,
           grade: r.student.grade,
+          centre: r.student.centre?.name ?? null,
           gift: r.catalogueItem.name,
           refunded: r.cost,
           reason: r.rejectionReason ?? "",
@@ -123,6 +137,7 @@ export default async function AdminGiftExchangePage() {
                     {item.cost} points · {item.redemptions.length} exchanged
                     {item.limitPerStudent !== null &&
                       ` · limit ${item.limitPerStudent} per student`}
+                    {centres.length > 0 && ` · ${centreLabel(item.centres)}`}
                   </p>
                   <p className="mt-1 text-sm">
                     {item.stock === null ? (

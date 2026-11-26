@@ -4,10 +4,35 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireStaff } from "@/lib/permissions";
+import type { Session } from "next-auth";
+import {
+  canAssignCentre,
+  requireStaff,
+  requireStudentAccess,
+  visibleCentreIds,
+} from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "./auth";
 
+/**
+ * The centre chosen on a student form: "" for none yet. An admin may leave a
+ * student without one; a teacher must pick one of their own centres, or the
+ * student would vanish from their list the moment it was saved.
+ */
+async function parseStudentCentre(
+  session: Session,
+  value: FormDataEntryValue | null
+): Promise<{ centreId: string | null } | { error: string }> {
+  const centreId = typeof value === "string" && value !== "" ? value : null;
+  const visible = await visibleCentreIds(session);
+  if (!canAssignCentre(visible, centreId)) {
+    return { error: centreId === null ? "Select a centre." : "Select one of your centres." };
+  }
+  if (centreId !== null && !(await prisma.centre.findUnique({ where: { id: centreId } }))) {
+    return { error: "Select a valid centre." };
+  }
+  return { centreId };
+}
 
 const createStudentSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
@@ -21,7 +46,7 @@ export async function createStudent(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireStaff();
+  const session = await requireStaff();
 
   const parsed = createStudentSchema.safeParse({
     name: formData.get("name"),
@@ -34,6 +59,9 @@ export async function createStudent(
     return { error: parsed.error.issues[0].message };
   }
   const { name, email, password, grade, subjects } = parsed.data;
+
+  const centre = await parseStudentCentre(session, formData.get("centreId"));
+  if ("error" in centre) return { error: centre.error };
 
   const [existing, gradeExists, subjectCount] = await Promise.all([
     prisma.user.findUnique({ where: { email } }),
@@ -55,6 +83,7 @@ export async function createStudent(
       passwordHash,
       role: "STUDENT",
       grade,
+      centreId: centre.centreId,
       subjects: { create: subjects.map((subject) => ({ subject })) },
     },
   });
@@ -76,7 +105,8 @@ export async function updateStudent(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireStaff();
+  const { session, student } = await requireStudentAccess(studentId);
+  if (!student) return { error: "Student not found." };
 
   const parsed = updateStudentSchema.safeParse({
     name: formData.get("name"),
@@ -89,6 +119,9 @@ export async function updateStudent(
     return { error: parsed.error.issues[0].message };
   }
   const { name, email, password, grade, subjects } = parsed.data;
+
+  const centre = await parseStudentCentre(session, formData.get("centreId"));
+  if ("error" in centre) return { error: centre.error };
 
   const [existing, gradeExists, subjectCount] = await Promise.all([
     prisma.user.findUnique({ where: { email } }),
@@ -106,7 +139,7 @@ export async function updateStudent(
   await prisma.$transaction([
     prisma.user.updateMany({
       where: { id: studentId, role: "STUDENT" },
-      data: { name, email, grade, ...(passwordHash ? { passwordHash } : {}) },
+      data: { name, email, grade, centreId: centre.centreId, ...(passwordHash ? { passwordHash } : {}) },
     }),
     prisma.studentSubject.deleteMany({ where: { studentId } }),
     prisma.studentSubject.createMany({
@@ -119,9 +152,7 @@ export async function updateStudent(
 }
 
 export async function deleteStudent(studentId: string) {
-  await requireStaff();
-
-  const student = await prisma.user.findFirst({ where: { id: studentId, role: "STUDENT" } });
+  const { student } = await requireStudentAccess(studentId);
   if (!student) return;
 
   await prisma.$transaction([
@@ -140,7 +171,8 @@ export async function deleteStudent(studentId: string) {
 }
 
 export async function updateStudentGrade(studentId: string, formData: FormData) {
-  await requireStaff();
+  const { student } = await requireStudentAccess(studentId);
+  if (!student) return;
 
   const grade = formData.get("grade");
   if (typeof grade !== "string" || !(await prisma.grade.findUnique({ where: { name: grade } }))) {
@@ -156,7 +188,8 @@ export async function updateStudentGrade(studentId: string, formData: FormData) 
 }
 
 export async function updateStudentSubjects(studentId: string, formData: FormData) {
-  await requireStaff();
+  const { student } = await requireStudentAccess(studentId);
+  if (!student) return;
 
   const subjects = [...new Set(formData.getAll("subjects").filter((s): s is string => typeof s === "string"))];
   const validCount = subjects.length
@@ -166,15 +199,25 @@ export async function updateStudentSubjects(studentId: string, formData: FormDat
     throw new Error("Invalid subject.");
   }
 
-  const student = await prisma.user.findFirst({ where: { id: studentId, role: "STUDENT" } });
-  if (!student) return;
-
   await prisma.$transaction([
     prisma.studentSubject.deleteMany({ where: { studentId } }),
     prisma.studentSubject.createMany({
       data: subjects.map((subject) => ({ studentId, subject })),
     }),
   ]);
+
+  revalidatePath("/admin/students");
+}
+
+/** The centre picker on the students list: "" takes the student out of any. */
+export async function updateStudentCentre(studentId: string, formData: FormData) {
+  const { session, student } = await requireStudentAccess(studentId);
+  if (!student) return;
+
+  const centre = await parseStudentCentre(session, formData.get("centreId"));
+  if ("error" in centre) throw new Error(centre.error);
+
+  await prisma.user.update({ where: { id: studentId }, data: { centreId: centre.centreId } });
 
   revalidatePath("/admin/students");
 }

@@ -3,6 +3,11 @@ import Form from "next/form";
 import { prisma } from "@/lib/prisma";
 import { GradeEditor } from "./grade-editor";
 import { SubjectEditor } from "./subject-editor";
+import { CentreEditor } from "./centre-editor";
+import { auth } from "@/auth";
+import { studentsIn, visibleCentreIds } from "@/lib/permissions";
+import { centresWithin, getCentres } from "@/lib/centres";
+import type { Session } from "next-auth";
 import { getGradeNames } from "@/lib/grades";
 import { getSubjectNames } from "@/lib/subjects";
 import type { Prisma } from "@/generated/prisma/client";
@@ -10,11 +15,28 @@ import type { Prisma } from "@/generated/prisma/client";
 export default async function AdminStudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ created?: string; deleted?: string; grade?: string; subject?: string; q?: string }>;
+  searchParams: Promise<{
+    created?: string;
+    deleted?: string;
+    grade?: string;
+    subject?: string;
+    q?: string;
+    centre?: string;
+  }>;
 }) {
-  const { created, deleted, grade, subject, q } = await searchParams;
+  const { created, deleted, grade, subject, q, centre } = await searchParams;
 
-  const where: Prisma.UserWhereInput = { role: "STUDENT" };
+  // The layout lets only staff in. A teacher sees their own centres' students;
+  // an admin sees everyone, and can pick out those with no centre yet.
+  const session = (await auth()) as Session;
+  const visible = await visibleCentreIds(session);
+  const isAdminView = visible === null;
+  const centres = centresWithin(await getCentres(), visible);
+
+  const where: Prisma.UserWhereInput = studentsIn(visible);
+  const filters: Prisma.UserWhereInput[] = [where];
+  if (centre === "none" && isAdminView) filters.push({ centreId: null });
+  else if (centre && centres.some((c) => c.id === centre)) filters.push({ centreId: centre });
   if (grade) where.grade = grade;
   if (subject) where.subjects = { some: { subject } };
   if (q) {
@@ -24,10 +46,19 @@ export default async function AdminStudentsPage({
     ];
   }
 
-  const [students, grades, subjects, earnedRows, checkInRows, adjustmentRows, redeemedRows, requestCount] =
-    await Promise.all([
+  const [
+    students,
+    grades,
+    subjects,
+    earnedRows,
+    checkInRows,
+    adjustmentRows,
+    redeemedRows,
+    requestCount,
+    unassignedCount,
+  ] = await Promise.all([
       prisma.user.findMany({
-        where,
+        where: { AND: filters },
         orderBy: { createdAt: "desc" },
         include: { subjects: true },
       }),
@@ -46,7 +77,11 @@ export default async function AdminStudentsPage({
         where: { rejectedAt: null },
         _sum: { cost: true },
       }),
-      prisma.accountRequest.count(),
+      // A teacher sees the requests naming one of their centres; the rest
+      // wait for an admin.
+      prisma.accountRequest.count({ where: isAdminView ? {} : { centreId: { in: visible } } }),
+      // Only an admin sees these students, so only an admin is told about them.
+      isAdminView && centres.length > 0 ? prisma.user.count({ where: { role: "STUDENT", centreId: null } }) : 0,
     ]);
 
   // Mirrors getStudentBalance(), batched across students instead of per-row.
@@ -88,6 +123,15 @@ export default async function AdminStudentsPage({
           {requestCount === 1 ? "1 account request is" : `${requestCount} account requests are`} waiting.{" "}
           <Link href="/admin/students/requests" className="font-medium underline">
             Review
+          </Link>
+        </p>
+      )}
+      {unassignedCount > 0 && centre !== "none" && (
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {unassignedCount === 1 ? "1 student has" : `${unassignedCount} students have`} no centre yet. They
+          are on no centre&apos;s scoreboard and only admins can see them.{" "}
+          <Link href="/admin/students?centre=none" className="font-medium underline">
+            Show them
           </Link>
         </p>
       )}
@@ -133,6 +177,27 @@ export default async function AdminStudentsPage({
             ))}
           </select>
         </div>
+        {(centres.length > 1 || (isAdminView && centres.length > 0)) && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500" htmlFor="centre">
+              Centre
+            </label>
+            <select
+              id="centre"
+              name="centre"
+              defaultValue={centre ?? ""}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+            >
+              <option value="">All centres</option>
+              {centres.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+              {isAdminView && <option value="none">Unassigned</option>}
+            </select>
+          </div>
+        )}
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-500" htmlFor="subject">
             Subject
@@ -157,7 +222,7 @@ export default async function AdminStudentsPage({
         >
           Filter
         </button>
-        {(grade || subject || q) && (
+        {(grade || subject || q || centre) && (
           <Link href="/admin/students" className="text-sm text-blue-600 hover:underline">
             Clear filters
           </Link>
@@ -170,6 +235,7 @@ export default async function AdminStudentsPage({
             <tr className="border-b border-gray-200 bg-gray-50 text-xs font-medium text-gray-500">
               <th className="px-4 py-2">Name</th>
               <th className="px-4 py-2">Email</th>
+              {centres.length > 0 && <th className="px-4 py-2">Centre</th>}
               <th className="px-4 py-2">Grade</th>
               <th className="px-4 py-2">Subject</th>
               <th className="px-4 py-2">Balance</th>
@@ -193,6 +259,16 @@ export default async function AdminStudentsPage({
                   )}
                 </td>
                 <td className="px-4 py-2 text-gray-500">{s.email}</td>
+                {centres.length > 0 && (
+                  <td className="px-4 py-2">
+                    <CentreEditor
+                      studentId={s.id}
+                      centreId={s.centreId}
+                      centres={centres}
+                      allowNone={isAdminView}
+                    />
+                  </td>
+                )}
                 <td className="px-4 py-2">
                   <GradeEditor studentId={s.id} grade={s.grade} grades={grades} />
                 </td>

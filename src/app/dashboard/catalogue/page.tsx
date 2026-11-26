@@ -1,10 +1,11 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getStudentBalance } from "@/lib/points";
+import { getStudentBalance, getStudentNav } from "@/lib/points";
 import { RedeemButton } from "./redeem-button";
 import { getUiLang } from "@/lib/i18n.server";
 import { dateLocale } from "@/lib/i18n";
 import { rewardsText } from "@/lib/text/rewards";
+import { shownAtCentre } from "@/lib/centres";
 
 export default async function GiftExchangePage() {
   const session = await auth();
@@ -12,10 +13,13 @@ export default async function GiftExchangePage() {
   const lang = await getUiLang();
   const t = rewardsText[lang].gift;
 
+  // The gifts offered at the student's own centre, and those for every centre.
+  // The layout has already read the student's nav, so this costs nothing.
+  const { centreId } = await getStudentNav(userId);
   const [balance, items, redemptions] = await Promise.all([
     getStudentBalance(userId),
     prisma.catalogueItem.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...shownAtCentre(centreId) },
       orderBy: { cost: "asc" },
     }),
     prisma.redemption.findMany({

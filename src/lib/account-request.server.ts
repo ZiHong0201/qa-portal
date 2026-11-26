@@ -28,18 +28,28 @@ const requestSchemas = { en: requestSchemaIn(authText.en), zh: requestSchemaIn(a
  * cannot be used to find out who studies here. Messages are in `lang`,
  * English unless told otherwise.
  */
-export async function requestAccount(nameInput: string, emailInput: string, lang: UiLang = "en"): Promise<Result> {
+export async function requestAccount(
+  nameInput: string,
+  emailInput: string,
+  lang: UiLang = "en",
+  /** The centre they attend. Required once any centre exists. */
+  centreInput = ""
+): Promise<Result> {
   const parsed = requestSchemas[lang].safeParse({ name: nameInput, email: emailInput });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { name, email } = parsed.data;
 
-  const [user, pending] = await Promise.all([
+  const [user, pending, centre, centreCount] = await Promise.all([
     prisma.user.findUnique({ where: { email }, select: { id: true } }),
     prisma.accountRequest.count(),
+    centreInput ? prisma.centre.findUnique({ where: { id: centreInput }, select: { id: true } }) : null,
+    prisma.centre.count(),
   ]);
+  if (centreCount > 0 && !centre) return { error: authText[lang].selectCentre };
+  const centreId = centre?.id ?? null;
   if (!user && pending < MAX_PENDING) {
     // Asking twice keeps the first request rather than failing on the unique email.
-    await prisma.accountRequest.upsert({ where: { email }, create: { name, email }, update: {} });
+    await prisma.accountRequest.upsert({ where: { email }, create: { name, email, centreId }, update: {} });
   }
   return { success: authText[lang].requestSent };
 }
@@ -64,12 +74,14 @@ const approveSchema = z.object({
  */
 export async function approveAccountRequest(
   requestId: string,
-  input: { name: unknown; grade: unknown; subjects: unknown[] },
+  /** centreId is checked against the approver's own centres by the caller. */
+  input: { name: unknown; grade: unknown; subjects: unknown[]; centreId: string | null },
   portalOrigin: string
 ): Promise<Result> {
   const parsed = approveSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { name, grade, subjects } = parsed.data;
+  const { centreId } = input;
 
   if (!mailConfigured()) {
     return { error: "Email is not set up on the server (GMAIL_USER and GMAIL_APP_PASSWORD), so the password cannot be sent." };
@@ -78,12 +90,14 @@ export async function approveAccountRequest(
   const request = await prisma.accountRequest.findUnique({ where: { id: requestId } });
   if (!request) return { error: "This request has already been dealt with." };
 
-  const [existing, gradeExists, subjectCount] = await Promise.all([
+  const [existing, gradeExists, subjectCount, centreExists] = await Promise.all([
     prisma.user.findUnique({ where: { email: request.email }, select: { id: true } }),
     prisma.grade.findUnique({ where: { name: grade } }),
     prisma.subject.count({ where: { name: { in: subjects } } }),
+    centreId ? prisma.centre.findUnique({ where: { id: centreId }, select: { id: true } }) : true,
   ]);
   if (existing) return { error: "An account with this email already exists. Reject the request instead." };
+  if (!centreExists) return { error: "Select a valid centre." };
   if (!gradeExists) return { error: "Select a valid grade." };
   if (subjectCount !== subjects.length) return { error: "Select valid subjects." };
 
@@ -103,6 +117,7 @@ export async function approveAccountRequest(
           passwordHash,
           role: "STUDENT",
           grade,
+          centreId,
           subjects: { create: subjects.map((subject) => ({ subject })) },
         },
         select: { id: true },
@@ -121,7 +136,9 @@ export async function approveAccountRequest(
     await prisma.$transaction([
       prisma.studentSubject.deleteMany({ where: { studentId } }),
       prisma.user.delete({ where: { id: studentId } }),
-      prisma.accountRequest.create({ data: { name: request.name, email: request.email, createdAt: request.createdAt } }),
+      prisma.accountRequest.create({
+        data: { name: request.name, email: request.email, createdAt: request.createdAt, centreId: request.centreId },
+      }),
     ]);
     return { error: `The email could not be sent, so no account was made: ${why}` };
   }

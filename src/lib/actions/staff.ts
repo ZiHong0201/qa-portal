@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "./auth";
+import { parseCentreIds } from "@/lib/centres";
 
 /**
  * Staff accounts - teachers and admins.
@@ -58,6 +59,18 @@ async function parseTeachingSubjects(
   return { subjects };
 }
 
+/**
+ * The centres ticked on the form - whose students a teacher sees. Like the
+ * subjects, only a teacher keeps any: an admin sees every centre.
+ */
+async function parseTeachingCentres(
+  formData: FormData,
+  role: (typeof ROLES)[number]
+): Promise<{ centreIds: string[] } | { error: string }> {
+  if (role !== "TEACHER") return { centreIds: [] };
+  return parseCentreIds(formData);
+}
+
 export async function createStaff(
   _prevState: FormState,
   formData: FormData
@@ -75,6 +88,8 @@ export async function createStaff(
 
   const teaching = await parseTeachingSubjects(formData, role);
   if ("error" in teaching) return { error: teaching.error };
+  const centres = await parseTeachingCentres(formData, role);
+  if ("error" in centres) return { error: centres.error };
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return { error: "An account with that email already exists." };
@@ -86,6 +101,7 @@ export async function createStaff(
       passwordHash: await bcrypt.hash(password, 10),
       role,
       teachingSubjects: { create: teaching.subjects.map((subject) => ({ subject })) },
+      teachingCentres: { create: centres.centreIds.map((centreId) => ({ centreId })) },
     },
   });
 
@@ -118,6 +134,8 @@ export async function updateStaff(
 
   const teaching = await parseTeachingSubjects(formData, role);
   if ("error" in teaching) return { error: teaching.error };
+  const centres = await parseTeachingCentres(formData, role);
+  if ("error" in centres) return { error: centres.error };
 
   const staff = await staffOrNull(staffId);
   // Guarding the role as well as the id: this must not become a way to rename
@@ -143,6 +161,10 @@ export async function updateStaff(
     prisma.teacherSubject.deleteMany({ where: { teacherId: staffId } }),
     prisma.teacherSubject.createMany({
       data: teaching.subjects.map((subject) => ({ teacherId: staffId, subject })),
+    }),
+    prisma.teacherCentre.deleteMany({ where: { teacherId: staffId } }),
+    prisma.teacherCentre.createMany({
+      data: centres.centreIds.map((centreId) => ({ teacherId: staffId, centreId })),
     }),
   ]);
 
@@ -208,11 +230,13 @@ export async function revokeStaff(staffId: string): Promise<{ error?: string }> 
     if (blocked) return { error: blocked };
   }
 
-  // Their subjects go too: restoring access later should be a fresh decision
-  // about what they may edit, not a quiet return of last term's list.
+  // Their subjects and centres go too: restoring access later should be a
+  // fresh decision about what they may edit, not a quiet return of last
+  // term's list.
   await prisma.$transaction([
     prisma.user.update({ where: { id: staffId }, data: { role: "STUDENT" } }),
     prisma.teacherSubject.deleteMany({ where: { teacherId: staffId } }),
+    prisma.teacherCentre.deleteMany({ where: { teacherId: staffId } }),
   ]);
   revalidatePath("/admin/staff");
   return {};

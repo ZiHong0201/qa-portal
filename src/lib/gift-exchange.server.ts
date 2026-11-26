@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getStudentBalance } from "@/lib/points";
 import type { UiLang } from "@/lib/i18n";
+import { shownAtCentre } from "@/lib/centres";
 import { rewardsText } from "@/lib/text/rewards";
 
 /**
@@ -25,7 +26,12 @@ export async function exchangeGift(
   lang: UiLang = "en"
 ): Promise<ExchangeResult> {
   const t = rewardsText[lang].gift;
-  const item = await prisma.catalogueItem.findUnique({ where: { id: itemId } });
+  // Only a gift offered at the student's own centre: one kept to another
+  // centre is, as far as this student goes, not there.
+  const student = await prisma.user.findUnique({ where: { id: studentId }, select: { centreId: true } });
+  const item = await prisma.catalogueItem.findFirst({
+    where: { id: itemId, ...shownAtCentre(student?.centreId ?? null) },
+  });
   if (!item || !item.isActive) {
     return { error: t.itemGone };
   }
