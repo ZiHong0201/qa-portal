@@ -5,6 +5,7 @@ import { updateStaff } from "@/lib/actions/staff";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getSubjectNames } from "@/lib/subjects";
+import { getCentres } from "@/lib/centres";
 
 export default async function EditStaffPage({
   params,
@@ -12,11 +13,12 @@ export default async function EditStaffPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [session, staff, adminCount, subjects] = await Promise.all([
+  const [session, staff, adminCount, subjects, centres] = await Promise.all([
     auth(),
-    prisma.user.findUnique({ where: { id }, include: { teachingSubjects: true } }),
+    prisma.user.findUnique({ where: { id }, include: { teachingSubjects: true, teachingCentres: true } }),
     prisma.user.count({ where: { role: "ADMIN" } }),
     getSubjectNames(),
+    getCentres(),
   ]);
   if (!staff || (staff.role !== "TEACHER" && staff.role !== "ADMIN")) notFound();
 
@@ -40,8 +42,10 @@ export default async function EditStaffPage({
           email: staff.email,
           role: staff.role,
           subjects: staff.teachingSubjects.map((t) => t.subject),
+          centreIds: staff.teachingCentres.map((t) => t.centreId),
         }}
         subjects={subjects}
+        centres={centres}
         submitLabel="Save changes"
         roleLocked={roleLocked}
       />

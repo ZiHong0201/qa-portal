@@ -3,6 +3,8 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import type { FormState } from "@/lib/actions/auth";
 import { WindowFields } from "./window-fields";
+import type { CentreOption } from "@/lib/centres";
+import { CentreCheckboxes } from "../centre-checkboxes";
 
 type Initial = {
   title: string;
@@ -11,15 +13,18 @@ type Initial = {
   startsAt: string;
   endsAt: string;
   isActive: boolean;
+  centreIds: string[];
 };
 
 export function PopupForm({
   action,
   initial,
+  centres,
   submitLabel,
 }: {
   action: (prevState: FormState, formData: FormData) => Promise<FormState>;
   initial?: Initial;
+  centres: CentreOption[];
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
@@ -73,6 +78,8 @@ export function PopupForm({
       </div>
 
       <WindowFields initial={initial} />
+
+      <CentreCheckboxes centres={centres} selected={initial?.centreIds} what="pop-up" />
 
       <button
         type="submit"

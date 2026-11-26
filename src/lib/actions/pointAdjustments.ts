@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { requireStaff } from "@/lib/permissions";
+import { requireStudentAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "./auth";
 
@@ -21,9 +21,7 @@ export async function createPointAdjustment(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const session = await requireStaff();
-
-  const student = await prisma.user.findFirst({ where: { id: studentId, role: "STUDENT" } });
+  const { session, student } = await requireStudentAccess(studentId);
   if (!student) return { error: "Student not found." };
 
   const parsed = adjustmentSchema.safeParse({

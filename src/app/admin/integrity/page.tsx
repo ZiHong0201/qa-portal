@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { currentVisibleStudentsWhere } from "@/lib/permissions";
 import { SubmitButton } from "@/components/submit-button";
 import { clearIntegrityNow } from "@/lib/actions/integrity";
 import { integrityRetentionStatus, INTEGRITY_RETENTION_DAYS } from "@/lib/integrity.server";
@@ -17,9 +18,12 @@ function humanTime(seconds: number | null) {
 }
 
 export default async function IntegrityPage() {
+  // A teacher sees their own centres' students; an admin sees everyone.
+  const mine = { student: await currentVisibleStudentsWhere() };
   const [flagged, stats, retention] = await Promise.all([
     prisma.submission.findMany({
       where: {
+        ...mine,
         OR: [
           { AND: [{ secondsTaken: { not: null } }, { secondsTaken: { lt: FAST_SECONDS } }, { status: { in: ["CORRECT", "APPROVED"] } }] },
           { pasteAttempts: { gt: 0 } },
@@ -34,11 +38,11 @@ export default async function IntegrityPage() {
       },
     }),
     prisma.submission.aggregate({
-      where: { secondsTaken: { not: null } },
+      where: { ...mine, secondsTaken: { not: null } },
       _avg: { secondsTaken: true },
       _count: { _all: true },
     }),
-    integrityRetentionStatus(),
+    integrityRetentionStatus(mine),
   ]);
 
   return (

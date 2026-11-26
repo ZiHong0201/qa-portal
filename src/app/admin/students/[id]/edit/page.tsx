@@ -4,6 +4,8 @@ import { StudentForm } from "../../new/student-form";
 import { updateStudent } from "@/lib/actions/students";
 import { getGradeNames } from "@/lib/grades";
 import { getSubjectNames } from "@/lib/subjects";
+import { getCentres, centresWithin } from "@/lib/centres";
+import { currentVisibleCentreIds, studentsIn } from "@/lib/permissions";
 
 export default async function EditStudentPage({
   params,
@@ -11,13 +13,15 @@ export default async function EditStudentPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [student, grades, subjects] = await Promise.all([
+  const visible = await currentVisibleCentreIds();
+  const [student, grades, subjects, allCentres] = await Promise.all([
     prisma.user.findFirst({
-      where: { id, role: "STUDENT" },
+      where: { AND: [{ id }, studentsIn(visible)] },
       include: { subjects: true },
     }),
     getGradeNames(),
     getSubjectNames(),
+    getCentres(),
   ]);
   if (!student) notFound();
 
@@ -30,12 +34,15 @@ export default async function EditStudentPage({
         action={action}
         grades={grades}
         subjects={subjects}
+        centres={centresWithin(allCentres, visible)}
+        allowNoCentre={visible === null}
         submitLabel="Save changes"
         initial={{
           name: student.name,
           email: student.email,
           grade: student.grade,
           subjects: student.subjects.map((s) => s.subject),
+          centreId: student.centreId,
         }}
       />
     </div>

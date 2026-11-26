@@ -3,15 +3,20 @@
 import { startTransition, useActionState } from "react";
 import { approveRequest, rejectRequest } from "@/lib/actions/account-requests";
 import { SubmitButton } from "@/components/submit-button";
+import type { CentreOption } from "@/lib/centres";
 
 export function RequestRow({
   request,
   grades,
   subjects,
+  centres,
+  allowNoCentre,
 }: {
-  request: { id: string; name: string; email: string; createdAt: string };
+  request: { id: string; name: string; email: string; createdAt: string; centreId: string | null };
   grades: string[];
   subjects: string[];
+  centres: CentreOption[];
+  allowNoCentre: boolean;
 }) {
   const [state, formAction, pending] = useActionState(approveRequest.bind(null, request.id), {});
 
@@ -81,6 +86,35 @@ export function RequestRow({
               ))}
             </select>
           </div>
+          {centres.length > 0 && (
+            <div className="min-w-44">
+              <label className="mb-1 block text-sm font-medium" htmlFor={`centre-${request.id}`}>
+                Centre
+              </label>
+              {/* Starts at the centre the student chose; whoever approves can
+                  correct it. */}
+              <select
+                id={`centre-${request.id}`}
+                name="centreId"
+                required={!allowNoCentre}
+                defaultValue={
+                  request.centreId && centres.some((c) => c.id === request.centreId)
+                    ? request.centreId
+                    : allowNoCentre
+                      ? ""
+                      : centres[0].id
+                }
+                className="w-full rounded-md border border-gray-300 px-3 py-2"
+              >
+                {allowNoCentre && <option value="">Unassigned</option>}
+                {centres.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div>
           <span className="mb-1 block text-sm font-medium">Subjects</span>

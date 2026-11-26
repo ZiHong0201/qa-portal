@@ -5,21 +5,26 @@ import type { FormState } from "@/lib/actions/auth";
 import { ANNOUNCEMENT_MAX_LENGTH } from "@/lib/announcements";
 import { WindowFields } from "./window-fields";
 import { Marquee, Megaphone } from "@/components/marquee";
+import type { CentreOption } from "@/lib/centres";
+import { CentreCheckboxes } from "../centre-checkboxes";
 
 type Initial = {
   message: string;
   startsAt: string;
   endsAt: string;
   isActive: boolean;
+  centreIds: string[];
 };
 
 export function AnnouncementForm({
   action,
   initial,
+  centres,
   submitLabel,
 }: {
   action: (prevState: FormState, formData: FormData) => Promise<FormState>;
   initial?: Initial;
+  centres: CentreOption[];
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
@@ -64,6 +69,8 @@ export function AnnouncementForm({
       )}
 
       <WindowFields initial={initial} />
+
+      <CentreCheckboxes centres={centres} selected={initial?.centreIds} what="notice" />
 
       <button
         type="submit"

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { currentVisibleStudentsWhere } from "@/lib/permissions";
 import { reviewSubmission } from "@/lib/actions/submissions";
 import { SubmitButton } from "@/components/submit-button";
 
@@ -27,7 +28,8 @@ function schemeNote(explanation: string): string {
 
 export default async function ReviewPage() {
   const pending = await prisma.submission.findMany({
-    where: { status: "PENDING" },
+    // A teacher marks their own centres' students; an admin marks everyone's.
+    where: { status: "PENDING", student: await currentVisibleStudentsWhere() },
     include: { question: true, student: true },
     orderBy: { createdAt: "asc" },
   });

@@ -1,12 +1,28 @@
 import { prisma } from "@/lib/prisma";
-import { createGrade, createSubject, deleteGrade, deleteSubject } from "@/lib/actions/masterData";
+import {
+  createCentre,
+  createGrade,
+  createSubject,
+  deleteCentre,
+  deleteGrade,
+  deleteSubject,
+} from "@/lib/actions/masterData";
 import { AddForm } from "./add-form";
+import { CentreName } from "./centre-row";
 import { SubmitButton } from "@/components/submit-button";
 
 export default async function MasterDataPage() {
-  const [grades, subjects] = await Promise.all([
+  const [grades, subjects, centres] = await Promise.all([
     prisma.grade.findMany({ orderBy: [{ order: "asc" }, { name: "asc" }] }),
     prisma.subject.findMany({ orderBy: { name: "asc" } }),
+    prisma.centre.findMany({
+      orderBy: [{ order: "asc" }, { name: "asc" }],
+      include: {
+        _count: {
+          select: { students: true, teachers: true, catalogueItems: true, announcements: true, popupAds: true },
+        },
+      },
+    }),
   ]);
 
   const [setGradeCounts, studentGradeCounts, setSubjectCounts, studentSubjectCounts] =
@@ -32,7 +48,7 @@ export default async function MasterDataPage() {
     <div>
       <h1 className="mb-1 text-2xl font-bold">Master data</h1>
       <p className="mb-6 text-sm text-gray-500">
-        Manage the grades and subjects available when creating question sets and student
+        Manage the grades, subjects and centres available when creating question sets and student
         accounts.
       </p>
 
@@ -91,6 +107,42 @@ export default async function MasterDataPage() {
             {subjects.length === 0 && <p className="text-sm text-gray-500">No subjects yet.</p>}
           </ul>
           <AddForm action={createSubject} placeholder="e.g. Mathematics" buttonLabel="Add subject" />
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <h2 className="mb-1 font-medium">Centres</h2>
+          <p className="mb-3 text-xs text-gray-500">
+            Each student belongs to one centre. Students only see their own centre&apos;s scoreboard,
+            and teachers only the students of the centres given to them on the Staff page.
+          </p>
+          <ul className="mb-4 flex flex-col gap-2">
+            {centres.map((c) => {
+              const k = c._count;
+              const inUse = k.students + k.teachers + k.catalogueItems + k.announcements + k.popupAds;
+              return (
+                <li
+                  key={c.id}
+                  className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 text-sm"
+                >
+                  <CentreName id={c.id} name={c.name} />
+                  {inUse === 0 ? (
+                    <form action={deleteCentre.bind(null, c.id)}>
+                      <SubmitButton pendingText="Deleting…" className="text-red-600 hover:underline">
+                        Delete
+                      </SubmitButton>
+                    </form>
+                  ) : (
+                    <span className="shrink-0 text-xs text-gray-400">
+                      {k.students} student{k.students === 1 ? "" : "s"}
+                      {k.teachers > 0 && `, ${k.teachers} teacher${k.teachers === 1 ? "" : "s"}`}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+            {centres.length === 0 && <p className="text-sm text-gray-500">No centres yet.</p>}
+          </ul>
+          <AddForm action={createCentre} placeholder="e.g. YH Ideal Academy" buttonLabel="Add centre" />
         </div>
       </div>
     </div>

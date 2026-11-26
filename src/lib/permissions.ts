@@ -2,6 +2,7 @@ import type { Session } from "next-auth";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { canEditSubject } from "@/lib/subject-access";
+import type { Prisma } from "@/generated/prisma/client";
 
 export { canEditSubject };
 
@@ -25,6 +26,11 @@ export { canEditSubject };
  * sets. They still read every set, and still grade and manage every student.
  * A teacher with no subjects assigned edits nothing until an admin gives them
  * some - failing closed, rather than handing a new account the whole bank.
+ *
+ * A teacher is tied to centres the same way, but for students rather than
+ * sets: they see, mark and manage only the students of the centres an admin
+ * has given them (see visibleCentreIds below). A student with no centre yet
+ * is seen by admins alone, and a teacher with no centres sees no students.
  */
 
 /**
@@ -157,4 +163,74 @@ export async function requireSimulationAccess(simulationId: string) {
   const simulation = await prisma.simulation.findUnique({ where: { id: simulationId } });
   if (simulation) await assertSubjectAccess(session, [simulation.subject]);
   return { session, simulation };
+}
+
+// ---------------------------------------------------------------------------
+// Centres. Students belong to one (or none yet); a teacher works at some.
+// ---------------------------------------------------------------------------
+
+/**
+ * The centres whose students this person may see, or null for every student,
+ * including those with no centre yet (admins). Anyone else gets an empty list.
+ *
+ * Read from the database on each call, like editableSubjects, so taking a
+ * centre away from a teacher takes effect on their next click.
+ */
+export async function visibleCentreIds(session: Session): Promise<string[] | null> {
+  if (session.user.role === "ADMIN") return null;
+  if (session.user.role !== "TEACHER") return [];
+  const rows = await prisma.teacherCentre.findMany({
+    where: { teacherId: session.user.id },
+    select: { centreId: true },
+  });
+  return rows.map((r) => r.centreId);
+}
+
+/** visibleCentreIds for whoever is viewing the page ([] for non-staff). */
+export async function currentVisibleCentreIds(): Promise<string[] | null> {
+  const session = (await auth()) as Session | null;
+  return isStaff(session) ? visibleCentreIds(session) : [];
+}
+
+/** The students `visible` covers, as a filter on User. */
+export function studentsIn(visible: string[] | null): Prisma.UserWhereInput {
+  return visible === null ? { role: "STUDENT" } : { role: "STUDENT", centreId: { in: visible } };
+}
+
+/**
+ * The students this person may see, as a filter on User - for listing pages,
+ * and nested as `{ student: ... }` for anything that belongs to a student.
+ */
+export async function visibleStudentsWhere(session: Session): Promise<Prisma.UserWhereInput> {
+  return studentsIn(await visibleCentreIds(session));
+}
+
+/** visibleStudentsWhere for whoever is viewing the page. */
+export async function currentVisibleStudentsWhere(): Promise<Prisma.UserWhereInput> {
+  const session = (await auth()) as Session | null;
+  if (!isStaff(session)) return { id: { in: [] } };
+  return visibleStudentsWhere(session);
+}
+
+/**
+ * Whether a student may be put in this centre (null: no centre) by someone who
+ * sees `visible`. An admin may choose any centre or none; a teacher only one
+ * of their own, since anywhere else would take the student out of their sight.
+ */
+export function canAssignCentre(visible: string[] | null, centreId: string | null): boolean {
+  if (visible === null) return true;
+  return centreId !== null && visible.includes(centreId);
+}
+
+/**
+ * Guards a staff action on one student. Returns the student, or null when
+ * there is no such student - or none this person may see, which a teacher
+ * cannot tell apart, so a hidden student is not even confirmed to exist.
+ */
+export async function requireStudentAccess(studentId: string) {
+  const session = await requireStaff();
+  const student = await prisma.user.findFirst({
+    where: { AND: [{ id: studentId }, await visibleStudentsWhere(session)] },
+  });
+  return { session, student };
 }

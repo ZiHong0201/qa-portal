@@ -23,6 +23,7 @@ export default async function AdminStaffPage({
         role: true,
         createdAt: true,
         teachingSubjects: { select: { subject: true }, orderBy: { subject: "asc" } },
+        teachingCentres: { select: { centre: { select: { name: true } } } },
       },
     }),
   ]);
@@ -43,9 +44,10 @@ export default async function AdminStaffPage({
       </div>
       <p className="mb-6 max-w-2xl text-sm text-gray-600">
         Teachers write and mark question sets, manage students and their points, and see
-        integrity signals. Each teacher changes only the sets in the subjects you give them. Admins
-        do all of that in every subject, and also hold the gift exchange, announcements, master
-        data, these staff accounts, and the portal reset.
+        integrity signals. Each teacher changes only the sets in the subjects you give them, and
+        sees only the students of the centres you give them. Admins do all of that in every subject
+        and centre, and also hold the gift exchange, announcements, master data, these staff
+        accounts, and the portal reset.
       </p>
 
       {created && (
@@ -99,6 +101,7 @@ function StaffList({
     email: string;
     createdAt: Date;
     teachingSubjects: { subject: string }[];
+    teachingCentres: { centre: { name: string } }[];
   }[];
   currentUserId?: string;
   empty: string;
@@ -138,6 +141,14 @@ function StaffList({
                     <p className="text-xs text-amber-700">
                       No subjects - cannot change any question set
                     </p>
+                  ))}
+                {showSubjects &&
+                  (p.teachingCentres.length > 0 ? (
+                    <p className="text-xs text-gray-500">
+                      Teaches at {p.teachingCentres.map((t) => t.centre.name).join(", ")}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-700">No centres - sees no students</p>
                   ))}
               </div>
               <span className="text-xs text-gray-400">

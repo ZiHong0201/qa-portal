@@ -48,7 +48,14 @@ export type LeaderboardPeriod = "week" | "all";
 // Every student with something to show for the period, without a ranking -
 // callers narrow by form first and rank what's left, so the ranks always run
 // 1, 2, 3 within whatever board is being shown.
-export async function getStudentStats(period: LeaderboardPeriod = "all"): Promise<StudentStats[]> {
+//
+// `centreId` keeps it to one centre's students - each centre has its own
+// board. Left out, it covers every student, which is how the portal ran before
+// any centre existed.
+export async function getStudentStats(
+  period: LeaderboardPeriod = "all",
+  centreId?: string
+): Promise<StudentStats[]> {
   const today = dayKey();
   const yesterday = previousDayKey(today);
   const weekStart = weekStartKey(today);
@@ -58,34 +65,37 @@ export async function getStudentStats(period: LeaderboardPeriod = "all"): Promis
   // student did the work then, and the teacher's marking timetable should not
   // move it between weeks.
   const submittedSince = period === "week" ? { createdAt: { gte: startOfDay(weekStart) } } : {};
+  // Narrows every query, not just the student list, so another centre's rows
+  // are never read - Turso bills each one.
+  const ofCentre = centreId ? { student: { centreId } } : {};
 
   const [statusRows, students, bestStreaks, recentCheckIns, periodCheckIns] = await Promise.all([
     // One row per student per status, so marks, correct count and graded count
     // all come from a single round trip.
     prisma.submission.groupBy({
       by: ["studentId", "status"],
-      where: submittedSince,
+      where: { ...submittedSince, ...ofCentre },
       _sum: { pointsAwarded: true },
       _count: { _all: true },
     }),
     prisma.user.findMany({
-      where: { role: "STUDENT" },
+      where: { role: "STUDENT", ...(centreId ? { centreId } : {}) },
       select: { id: true, name: true, grade: true },
     }),
     // Each check-in row snapshots the streak it was part of, so the longest run
     // a student ever reached is just the largest of those - no need to walk
     // their history day by day.
-    prisma.checkIn.groupBy({ by: ["studentId"], _max: { streak: true } }),
+    prisma.checkIn.groupBy({ by: ["studentId"], where: ofCentre, _max: { streak: true } }),
     // Today and yesterday are all that's needed to tell whether a run is still
     // alive, mirroring getCheckInState but for every student at once.
     prisma.checkIn.findMany({
-      where: { day: { in: [today, yesterday] } },
+      where: { day: { in: [today, yesterday] }, ...ofCentre },
       select: { studentId: true, day: true, streak: true },
     }),
     // Day keys sort as strings, so "since Monday" is a plain comparison.
     prisma.checkIn.groupBy({
       by: ["studentId"],
-      where: period === "week" ? { day: { gte: weekStart } } : {},
+      where: { ...(period === "week" ? { day: { gte: weekStart } } : {}), ...ofCentre },
       _count: { _all: true },
     }),
   ]);

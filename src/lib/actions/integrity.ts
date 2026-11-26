@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireStaff } from "@/lib/permissions";
+import { requireStaff, visibleStudentsWhere } from "@/lib/permissions";
 import { clearIntegritySignals, INTEGRITY_RETENTION_DAYS } from "@/lib/integrity.server";
 
 
@@ -13,7 +13,10 @@ import { clearIntegritySignals, INTEGRITY_RETENTION_DAYS } from "@/lib/integrity
  * the behavioural columns.
  */
 export async function clearIntegrityNow(scope: "old" | "all") {
-  await requireStaff();
-  await clearIntegritySignals(scope === "all" ? null : INTEGRITY_RETENTION_DAYS);
+  const session = await requireStaff();
+  // A teacher clears the signals of their own centres' students only.
+  await clearIntegritySignals(scope === "all" ? null : INTEGRITY_RETENTION_DAYS, {
+    student: await visibleStudentsWhere(session),
+  });
   revalidatePath("/admin/integrity");
 }

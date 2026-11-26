@@ -133,11 +133,19 @@ export function ForgotPasswordForm({ lang }: { lang: UiLang }) {
   );
 }
 
-export function RequestAccountForm({ lang }: { lang: UiLang }) {
+export function RequestAccountForm({
+  lang,
+  centres,
+}: {
+  lang: UiLang;
+  /** The tuition centres to choose from; none hides the question. */
+  centres: { id: string; name: string }[];
+}) {
   const t = authText[lang];
   const [state, action, pending] = useActionState(requestStudentAccount, {});
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [centreId, setCentreId] = useState("");
   if (state.success) {
     return (
       <div className="flex flex-col gap-4">
@@ -154,6 +162,30 @@ export function RequestAccountForm({ lang }: { lang: UiLang }) {
       <p className="text-sm text-slate-600">{t.requestHelp}</p>
       <Field label={t.yourName} name="name" type="text" value={name} onChange={setName} autoComplete="name" />
       <Field label={t.email} name="email" type="email" value={email} onChange={setEmail} autoComplete="email" />
+      {centres.length > 0 && (
+        <div>
+          <label className="mb-1 block text-sm font-semibold text-slate-700" htmlFor="centreId">
+            {t.yourCentre}
+          </label>
+          <select
+            id="centreId"
+            name="centreId"
+            value={centreId}
+            onChange={(e) => setCentreId(e.target.value)}
+            required
+            className={FIELD}
+          >
+            <option value="" disabled>
+              {t.chooseCentre}
+            </option>
+            {centres.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <button disabled={pending} className={BUTTON}>
         {pending ? t.sending : t.requestAccount}
       </button>

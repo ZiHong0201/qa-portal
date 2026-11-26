@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/auth";
-import { isAdmin } from "@/lib/permissions";
+import { isAdmin, visibleStudentsWhere } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { unreadFeedbackCount } from "@/lib/feedback.server";
 
@@ -8,7 +8,10 @@ export default async function AdminHome() {
   // Teachers share this page. They see the same teaching figures and lose the
   // cards that link into admin-only sections - a card that bounces you
   // back to the page you clicked it from is worse than no card.
-  const admin = isAdmin(await auth());
+  const session = await auth();
+  const admin = isAdmin(session);
+  // A teacher's figures are for their own centres' students.
+  const students = session ? await visibleStudentsWhere(session) : { id: { in: [] } };
 
   const now = new Date();
   // Switched on and inside its window - the same test the ticker and pop-ups
@@ -30,10 +33,10 @@ export default async function AdminHome() {
     liveNoticeCount,
     unreadFeedback,
   ] = await Promise.all([
-    prisma.user.count({ where: { role: "STUDENT" } }),
+    prisma.user.count({ where: students }),
     prisma.questionSet.count(),
     prisma.question.count(),
-    prisma.submission.count({ where: { status: "PENDING" } }),
+    prisma.submission.count({ where: { status: "PENDING", student: students } }),
     prisma.catalogueItem.count(),
     Promise.all([
       prisma.announcement.count({ where: liveWindow }),

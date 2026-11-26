@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireStaff } from "@/lib/permissions";
+import { requireStaff, visibleStudentsWhere } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -37,7 +37,7 @@ export async function clearStudentAnswers(
   const session = await requireStaff();
 
   const student = await prisma.user.findFirst({
-    where: { id: studentId, role: "STUDENT" },
+    where: { AND: [{ id: studentId }, await visibleStudentsWhere(session)] },
     select: { id: true, name: true },
   });
   if (!student) return { error: "Student not found." };

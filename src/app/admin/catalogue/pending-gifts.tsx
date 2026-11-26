@@ -7,6 +7,8 @@ export type PendingGift = {
   id: string;
   student: string;
   grade: string | null;
+  /** The student's centre, where the gift is taken. */
+  centre: string | null;
   gift: string;
   exchangedOn: string;
 };
@@ -33,10 +35,13 @@ const REJECT_PRESETS = [
  */
 export function PendingGifts({
   pending,
+  showCentre,
   recentlyDelivered,
   recentlyRejected,
 }: {
   pending: PendingGift[];
+  /** Once centres exist, each gift is taken to the student's centre. */
+  showCentre: boolean;
   recentlyDelivered: DeliveredGift[];
   recentlyRejected: RejectedGift[];
 }) {
@@ -139,6 +144,7 @@ export function PendingGifts({
                     />
                   </th>
                   <th className="px-3 py-2">Student</th>
+                  {showCentre && <th className="px-3 py-2">Centre</th>}
                   <th className="px-3 py-2">Grade</th>
                   <th className="px-3 py-2">Gift</th>
                   <th className="px-3 py-2">Exchanged</th>
@@ -158,6 +164,7 @@ export function PendingGifts({
                       />
                     </td>
                     <td className="px-3 py-2 font-medium">{p.student}</td>
+                    {showCentre && <td className="px-3 py-2 text-gray-600">{p.centre ?? "No centre"}</td>}
                     <td className="px-3 py-2 text-gray-600">{p.grade ?? "—"}</td>
                     <td className="px-3 py-2">{p.gift}</td>
                     <td className="px-3 py-2 text-gray-500">{p.exchangedOn}</td>
@@ -187,7 +194,7 @@ export function PendingGifts({
                   {rejecting === p.id && (
                     <tr className="bg-rose-50">
                       <td />
-                      <td colSpan={5} className="px-3 py-3">
+                      <td colSpan={showCentre ? 6 : 5} className="px-3 py-3">
                         <p className="mb-2 text-xs text-rose-800">
                           Rejecting refunds the points and returns the gift to stock.{" "}
                           {p.student} will see this reason:
@@ -246,6 +253,7 @@ export function PendingGifts({
             {recentlyDelivered.map((d) => (
               <li key={d.id} className="flex flex-wrap items-center gap-2 rounded-md bg-white px-3 py-1.5">
                 <span className="font-medium">{d.student}</span>
+                {showCentre && <span className="text-gray-500">{d.centre ?? "No centre"}</span>}
                 <span className="text-gray-500">{d.grade ?? "—"}</span>
                 <span>{d.gift}</span>
                 <span className="text-xs text-gray-400">delivered {d.deliveredOn}</span>
@@ -269,6 +277,7 @@ export function PendingGifts({
             {recentlyRejected.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-md bg-white px-3 py-1.5">
                 <span className="font-medium">{r.student}</span>
+                {showCentre && <span className="text-gray-500">{r.centre ?? "No centre"}</span>}
                 <span className="text-gray-500">{r.grade ?? "—"}</span>
                 <span>{r.gift}</span>
                 <span className="text-xs text-emerald-700">+{r.refunded} pts refunded</span>

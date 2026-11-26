@@ -100,3 +100,84 @@ export async function deleteSubject(subjectId: string) {
   updateTag(CACHE_TAGS.masterData);
   revalidatePath("/admin/master-data");
 }
+
+export async function createCentre(_prevState: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+
+  const parsed = nameSchema.safeParse(formData.get("name"));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const existing = await prisma.centre.findUnique({ where: { name: parsed.data } });
+  if (existing) {
+    return { error: "That centre already exists." };
+  }
+
+  const count = await prisma.centre.count();
+  await prisma.centre.create({ data: { name: parsed.data, order: count } });
+
+  updateTag(CACHE_TAGS.masterData);
+  revalidatePath("/admin/master-data");
+  return {};
+}
+
+// Centres are referenced by id, so a rename moves nobody and changes nothing
+// but the name shown everywhere.
+export async function renameCentre(
+  centreId: string,
+  _prevState: FormState,
+  formData: FormData
+): Promise<FormState> {
+  await requireAdmin();
+
+  const parsed = nameSchema.safeParse(formData.get("name"));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const clash = await prisma.centre.findUnique({ where: { name: parsed.data } });
+  if (clash && clash.id !== centreId) {
+    return { error: "That centre already exists." };
+  }
+
+  await prisma.centre.update({ where: { id: centreId }, data: { name: parsed.data } });
+
+  updateTag(CACHE_TAGS.masterData);
+  revalidatePath("/admin", "layout");
+  return {};
+}
+
+/**
+ * Refused while anyone or anything still belongs to the centre. The database
+ * would otherwise take the students out of it and, worse, a gift kept to this
+ * centre alone would lose its only centre row - which means every centre - and
+ * turn up at the other one.
+ */
+export async function deleteCentre(centreId: string) {
+  await requireAdmin();
+
+  const centre = await prisma.centre.findUnique({
+    where: { id: centreId },
+    include: {
+      _count: {
+        select: { students: true, teachers: true, catalogueItems: true, announcements: true, popupAds: true },
+      },
+    },
+  });
+  if (!centre) return;
+
+  const c = centre._count;
+  const uses = c.students + c.teachers + c.catalogueItems + c.announcements + c.popupAds;
+  if (uses > 0) {
+    throw new Error(
+      `"${centre.name}" still has ${c.students} student(s), ${c.teachers} teacher(s), ` +
+        `${c.catalogueItems} gift(s) and ${c.announcements + c.popupAds} notice(s) and can't be deleted.`
+    );
+  }
+
+  // A request naming it simply loses the suggestion; whoever approves it picks.
+  await prisma.centre.delete({ where: { id: centreId } });
+  updateTag(CACHE_TAGS.masterData);
+  revalidatePath("/admin/master-data");
+}

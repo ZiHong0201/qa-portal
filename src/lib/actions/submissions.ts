@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { requireStaff } from "@/lib/permissions";
+import { requireStaff, visibleStudentsWhere } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isSuspended, suspendedError } from "@/lib/suspension";
@@ -173,8 +173,10 @@ export async function reviewSubmission(submissionId: string, formData: FormData)
     throw new Error("Invalid decision");
   }
 
-  const submission = await prisma.submission.findUnique({
-    where: { id: submissionId },
+  // Only the work of students this person may see: a teacher marks their own
+  // centres' answers.
+  const submission = await prisma.submission.findFirst({
+    where: { id: submissionId, student: await visibleStudentsWhere(session) },
     include: { question: true },
   });
   if (!submission) throw new Error("Submission not found");

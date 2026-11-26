@@ -30,14 +30,15 @@ export default async function DashboardLayout({
   // Staff reach the scoreboard through here and read it in English, as they
   // do the rest of their pages.
   const lang = isStudent ? picked : "en";
-  const [announcements, popupAds, nav] = await Promise.all([
-    getLiveAnnouncements(),
-    getLivePopupAds(),
-    // The same cached query the nav makes, so checking for a suspension here
-    // costs nothing extra: the nav below reuses this result. It also carries
-    // the student's pet, which every decorative pet on the page draws.
-    session && isStudent ? getStudentNav(session.user.id) : Promise.resolve(null),
-  ]);
+  // The same cached query the nav makes, so checking for a suspension here
+  // costs nothing extra: the nav below reuses this result. It also carries
+  // the student's pet, which every decorative pet on the page draws, and
+  // their centre, which decides the notices they see.
+  const nav = session && isStudent ? await getStudentNav(session.user.id) : null;
+  // The notices come from the data cache, so waiting for the centre first
+  // costs no round trip.
+  const viewer = nav ? { centreId: nav.centreId } : "all";
+  const [announcements, popupAds] = await Promise.all([getLiveAnnouncements(viewer), getLivePopupAds(viewer)]);
 
   // A suspended student sees only the notice, on every page under /dashboard.
   // Checked here rather than in the middleware because a suspension has to

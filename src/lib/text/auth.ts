@@ -51,6 +51,9 @@ export const authText = defineText({
     requestHelp:
       "Tell us who you are. Once your teacher approves the request, a password is made for you and emailed to this address.",
     yourName: "Your name",
+    yourCentre: "Your tuition centre",
+    chooseCentre: "Choose your centre",
+    selectCentre: "Choose the centre you attend.",
     requestAccount: "Request an account",
 
     // From the actions.
@@ -116,6 +119,9 @@ export const authText = defineText({
     requestTitle: "申请账号",
     requestHelp: "告诉我们你是谁。老师批准申请后，系统会为你设定密码，并寄到这个电邮。",
     yourName: "你的名字",
+    yourCentre: "你的补习中心",
+    chooseCentre: "选择你的补习中心",
+    selectCentre: "请选择你上课的补习中心。",
     requestAccount: "申请账号",
 
     logInAgain: "请重新登录，再修改密码。",
